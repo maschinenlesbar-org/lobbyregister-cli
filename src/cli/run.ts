@@ -7,6 +7,9 @@ import { buildProgram, defaultDeps } from "./program.js";
 import type { CliDeps } from "./io.js";
 import { LobbyApiError, LobbyError } from "../client/errors.js";
 
+/** Conventional CLI exit code for a usage error (bad/unknown option, no command). */
+const USAGE_ERROR_EXIT_CODE = 2;
+
 /**
  * Apply exitOverride + output redirection to every command in the tree.
  * commander does not propagate these to subcommands, so a parse error on a
@@ -30,8 +33,18 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
     return 0;
   } catch (err) {
     if (err instanceof CommanderError) {
-      // Help/version requests exit 0; genuine parse errors carry their own code.
-      return err.exitCode;
+      // An explicitly requested --help / --version is a successful, intentional
+      // output: exit 0.
+      if (err.code === "commander.helpDisplayed" || err.code === "commander.version") {
+        return 0;
+      }
+      // Everything else from commander is a usage error: an unknown option, an
+      // unknown/missing command, a bad argument value, or the auto-help shown
+      // when no command was given (code "commander.help" via help({error:true})).
+      // Map these to a dedicated exit code (2, the conventional CLI usage-error
+      // code) so scripts can tell a usage mistake from a runtime/network error
+      // (1) or a 404 (4), rather than collapsing them all onto 1.
+      return USAGE_ERROR_EXIT_CODE;
     }
     if (err instanceof LobbyApiError) {
       // err.message already includes any human-readable `detail` the API

@@ -49,7 +49,9 @@ conforms to the JSON-Schema named in the response's `$schema` field.
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 | `--compact` | Print JSON on a single line |
 
-Global options go **before** the command, e.g. `lobbyregister --compact count Energie`.
+Global options are recognised both **before** and **after** the command, e.g.
+both `lobbyregister --compact count Energie` and `lobbyregister count Energie --compact`
+work the same way (the program resolves globals via `optsWithGlobals()`).
 
 ### Commands
 
@@ -59,9 +61,12 @@ count  [query]                  number of entries matching a query
 ```
 
 Common `--sort` values: `RELEVANCE_DESC`, `REGISTRATION_DESC`, `REGISTRATION_ASC`.
-`--sort` is passed through verbatim and is not validated client-side. If the API
-rejects a value with an HTTP `400`, the CLI exits `1` and prints the API's error
-detail (plus a hint to check `--sort` when the API gives no detail).
+`--sort` is passed through verbatim and is not validated client-side. Note that
+the live `/sucheJson` endpoint currently does **not** validate `sort` either: an
+unrecognised value is silently ignored (HTTP `200`) rather than rejected, so a
+typo will not raise an error. The CLI only surfaces an error if the API *does*
+return an HTTP `400`: it then exits `1` and prints the API's error detail (plus a
+hint to check `--sort` when the API gives no detail).
 
 ### Examples
 
@@ -74,9 +79,14 @@ lobbyregister search Energie --sort REGISTRATION_DESC --page-size 10
 
 # Just the entries, no envelope
 lobbyregister search Energie --results-only --compact
+
+# Search a term that begins with a dash — end the options with `--`
+lobbyregister search -- -Energie
 ```
 
-Exit codes: `0` success, `4` on a `404` from the API, `1` for any other error, non-zero for usage errors.
+Exit codes: `0` success, `2` for a usage error (unknown/missing command, unknown
+option, invalid option value, or no command given), `4` on a `404` from the API,
+`1` for any other error (network, parse, or other non-404 HTTP status).
 
 ---
 

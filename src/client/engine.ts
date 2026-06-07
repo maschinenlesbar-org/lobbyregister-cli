@@ -161,6 +161,17 @@ export class RequestEngine {
   /** Perform a GET expecting JSON and parse it into `T`. */
   async getJson<T>(path: string, query?: QueryParams): Promise<T> {
     const res = await this.request("GET", path, { query, accept: "application/json" });
+    // Guard against a 2xx response that is not actually JSON (e.g. a captive
+    // portal or a wildcard-DNS host returning an HTML page). Without this check
+    // such a body would surface the misleading "Failed to parse JSON" error.
+    // The header may carry a charset/parameters (e.g. "application/json;
+    // charset=utf-8"), so match the media type prefix only.
+    const mediaType = (res.contentType.split(";", 1)[0] ?? "").trim().toLowerCase();
+    if (mediaType && mediaType !== "application/json" && !mediaType.endsWith("+json")) {
+      throw new LobbyParseError(
+        `Unexpected content type "${res.contentType}" from ${path} (expected JSON).`,
+      );
+    }
     const text = res.data.toString("utf8");
     try {
       return JSON.parse(text) as T;

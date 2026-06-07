@@ -28,13 +28,14 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     )
     .version(VERSION)
     .option("--base-url <url>", "API base URL", "https://www.lobbyregister.bundestag.de")
-    .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg)
+    .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg, 30_000)
     .option("--user-agent <ua>", "User-Agent header value")
-    .option("--max-retries <n>", "retries for transient 429/503 responses", parseIntArg)
+    .option("--max-retries <n>", "retries for transient 429/503 responses", parseIntArg, 2)
     .option(
       "--max-response-bytes <n>",
-      "cap response body size in bytes (0 = unlimited; default 100 MiB)",
+      "cap response body size in bytes (0 = unlimited)",
       parseIntArg,
+      100 * 1024 * 1024,
     )
     .option("--compact", "print JSON on a single line instead of pretty-printed")
     .showHelpAfterError();

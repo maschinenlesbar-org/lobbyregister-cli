@@ -6,11 +6,25 @@ import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { EngineOptions } from "../client/engine.js";
 
-/** commander value-parser: a non-negative integer. */
+/**
+ * commander value-parser: a non-negative decimal integer.
+ *
+ * Strict by design — only a plain run of ASCII digits is accepted. This rejects
+ * the values `Number()` would otherwise silently coerce: hex/binary/octal
+ * literals (`0x10`, `0b10`, `0o17`), scientific notation (`1e3`), a leading `+`,
+ * surrounding whitespace, and the empty string (`Number("")` is `0`). Values
+ * beyond `Number.MAX_SAFE_INTEGER` are rejected too, since they cannot be
+ * represented exactly.
+ */
 export function parseIntArg(value: string): number {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) {
+  if (!/^[0-9]+$/.test(value)) {
     throw new InvalidArgumentError("Expected a non-negative integer.");
+  }
+  const n = Number(value);
+  if (!Number.isSafeInteger(n)) {
+    throw new InvalidArgumentError(
+      `Value out of range; must be between 0 and ${Number.MAX_SAFE_INTEGER}.`,
+    );
   }
   return n;
 }

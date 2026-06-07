@@ -9,6 +9,17 @@ export class LobbyError extends Error {
   }
 }
 
+/** Maximum URL length echoed into a human-readable error message. */
+const MAX_URL_IN_MESSAGE = 200;
+
+/** Shorten an overly long URL for display, keeping head and tail context. */
+function truncateUrl(url: string): string {
+  if (url.length <= MAX_URL_IN_MESSAGE) return url;
+  const head = url.slice(0, MAX_URL_IN_MESSAGE - 40);
+  const tail = url.slice(-20);
+  return `${head}…[${url.length} chars]…${tail}`;
+}
+
 /**
  * The API responded with a non-2xx status code. `detail` holds a human-readable
  * message extracted from the response body when one is present.
@@ -28,7 +39,10 @@ export class LobbyApiError extends LobbyError {
     detail?: string;
   }) {
     const detailPart = args.detail ? `: ${args.detail}` : "";
-    super(`HTTP ${args.status} for ${args.method} ${args.url}${detailPart}`);
+    // Cap the URL in the human-readable message so a pathologically long URL
+    // (e.g. a huge query that triggers an HTTP 414) doesn't dump multiple KB to
+    // stderr. The full URL remains available on `this.url` for programmatic use.
+    super(`HTTP ${args.status} for ${args.method} ${truncateUrl(args.url)}${detailPart}`);
     this.status = args.status;
     this.url = args.url;
     this.method = args.method;

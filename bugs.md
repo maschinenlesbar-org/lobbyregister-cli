@@ -12,7 +12,8 @@
 
 ## High severity (correctness / data-volume / misleading core feature)
 
-### 1. `--page` does nothing — pagination is silently a no-op
+### 1. `--page` does nothing — pagination is silently a no-op — ✅ FIXED
+**Fix:** `src/cli/commands/search.ts` now slices the returned `results` array client-side via a new `paginate()` helper, so `--page` selects a real slice (verified: `--page 2 --page-size 2` returns the next slice). The flag is still forwarded to the API for forward-compatibility.
 - **Severity:** High · **Confidence:** High
 - **Repro:**
   ```
@@ -23,7 +24,8 @@
 - **Actual:** Both pages return the identical full 2351-entry array (exit 0). `--page` is advertised in `--help` and README ("First page of results") but has zero effect.
 - **Root cause:** API ignores `page`; CLI passes it through unconditionally (`src/cli/commands/search.ts:17`, `src/client/client.ts:25`) and the tool advertises a feature the backend does not support. No client-side guard or doc warning.
 
-### 2. `--page-size` does nothing — every search/count downloads the full ~6 MB body
+### 2. `--page-size` does nothing — every search/count downloads the full ~6 MB body — ✅ FIXED
+**Fix:** Same `paginate()` helper in `src/cli/commands/search.ts` now honours `--page-size` by slicing the results client-side (verified: `--page-size 2 --results-only` prints exactly 2 entries). The full body is still downloaded because the live API ignores `pageSize` (a backend limitation outside the CLI's control), but the displayed/`--results-only` output is now correctly bounded.
 - **Severity:** High · **Confidence:** High
 - **Repro:**
   ```
@@ -34,7 +36,8 @@
 - **Actual:** Returns all 2351 entries; body is ~6.09 MB regardless of `--page-size` (tried `0`, `1`, `1000`, huge). The flag is documented and accepted but inert.
 - **Root cause:** API ignores `pageSize`; `client.search` forwards it verbatim (`src/client/client.ts:26`). The code even *knows* this (comment at `client.ts:31-45`) yet still advertises `--page-size` as functional in help/README.
 
-### 3. `count` always downloads the entire result set (~6 MB) just to read one integer
+### 3. `count` always downloads the entire result set (~6 MB) just to read one integer — ⚠️ WONTFIX (backend limitation, no lighter count path exists)
+**Fix:** No code change. The live `/sucheJson` endpoint ignores `pageSize` and exposes no HEAD/count-only path, so there is genuinely no way to read `resultCount` without receiving the full envelope. The client comment in `src/client/client.ts` already documents this and `count()` already requests the minimal `pageSize:1`. This is a server-side limitation, not a CLI bug.
 - **Severity:** High · **Confidence:** High
 - **Repro:**
   ```
@@ -44,7 +47,8 @@
 - **Actual:** `count` fetches the full 6.09 MB envelope (2351 full register entries) and discards `results`, keeping only `resultCount`. Confirmed via curl byte count above. Pathological for large queries (`count` with empty query = 6877 entries).
 - **Root cause:** `count()` calls `search({ q, pageSize: 1 })` and reads `res.resultCount` (`src/client/client.ts:42-45`). Because the API ignores `pageSize`, no saving is achieved. The doc comment acknowledges this but the design ships it anyway — there is no lighter-weight count path.
 
-### 4. `parseIntArg` accepts hex/binary/scientific/`+`-prefixed strings as "integers"
+### 4. `parseIntArg` accepts hex/binary/scientific/`+`-prefixed strings as "integers" — ✅ FIXED
+**Fix:** Rewrote `parseIntArg` in `src/cli/shared.ts` to require a strict `^[0-9]+$` decimal token before coercion, rejecting `0x10`, `0b10`, `0o17`, `1e3`, and `+5` (verified: `--timeout 0x10` now errors with "Expected a non-negative integer.").
 - **Severity:** High · **Confidence:** High
 - **Repro:**
   ```
@@ -59,7 +63,8 @@
   `0x10` is silently coerced by `Number()` to `16`. Same for `--timeout 1e3` (→1000ms, succeeds), `--page-size 0x1F` (→31), `0b10` (→2), `+5` (→5).
 - **Root cause:** `parseIntArg` uses `Number(value)` then `Number.isInteger` (`src/cli/shared.ts:10-16`). `Number("0x10")===16` passes the check. Should use a strict decimal-integer regex / `Number.parseInt` with base check.
 
-### 5. `parseIntArg` accepts the empty string as `0`
+### 5. `parseIntArg` accepts the empty string as `0` — ✅ FIXED
+**Fix:** The `^[0-9]+$` regex in `parseIntArg` (`src/cli/shared.ts`) requires at least one digit, so the empty string is now rejected (verified).
 - **Severity:** High · **Confidence:** High
 - **Repro:**
   ```
@@ -69,14 +74,16 @@
 - **Actual:** `Number("")===0`, `Number.isInteger(0)` true, `0>=0` true → accepted; the CLI sends `pageSize=0` (verified: `buildQueryString({pageSize:Number("")})` → `pageSize=0`). Exit 0.
 - **Root cause:** Same `Number("")===0` JS quirk in `parseIntArg` (`src/cli/shared.ts:11`).
 
-### 6. `parseIntArg` accepts whitespace-padded numbers
+### 6. `parseIntArg` accepts whitespace-padded numbers — ✅ FIXED
+**Fix:** The `^[0-9]+$` regex in `parseIntArg` (`src/cli/shared.ts`) anchors the whole string, so surrounding/embedded whitespace is rejected (verified: `--page-size '  5  '` now errors).
 - **Severity:** High · **Confidence:** High
 - **Repro / evidence:** `Number("  5  ")===5` and `Number("5\n")===5`, both pass the `Number.isInteger && >=0` check in `parseIntArg`. So `--page-size '  5  '` is accepted as 5.
 - **Expected:** Strict numeric token rejected if surrounded by whitespace.
 - **Actual:** Silently trimmed/coerced and accepted.
 - **Root cause:** `Number()` ignores surrounding whitespace (`src/cli/shared.ts:11`).
 
-### 7. `parseIntArg` accepts values beyond `Number.MAX_SAFE_INTEGER` without warning
+### 7. `parseIntArg` accepts values beyond `Number.MAX_SAFE_INTEGER` without warning — ✅ FIXED
+**Fix:** `parseIntArg` (`src/cli/shared.ts`) now rejects anything that is not a `Number.isSafeInteger`, with a clear out-of-range message (verified: `--page-size 99999999999999999999` now errors).
 - **Severity:** Medium-High · **Confidence:** High
 - **Repro:**
   ```
@@ -90,7 +97,8 @@
 
 ## Medium severity (error mapping / dead code / docs vs behaviour)
 
-### 8. Bad `--sort` value is silently accepted (README/code promise an error + hint that never fires)
+### 8. Bad `--sort` value is silently accepted (README/code promise an error + hint that never fires) — ✅ FIXED (docs)
+**Fix:** `README.md` no longer overpromises `--sort` validation; it now states explicitly that the live API silently ignores unrecognised `sort` values (HTTP 200) and that the CLI's 400-hint branch only fires if the API *does* return a 400. The defensive 400/hint branch in `src/cli/run.ts` is retained (still correct, and covered by tests) for APIs/proxies that do validate.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```
@@ -100,7 +108,8 @@
 - **Actual:** API returns HTTP 200 for `sort=NOTREAL` (verified via curl); results print normally, exit 0. The documented 400/hint behaviour is therefore unreachable for the very case it was written for — a user typo in `--sort` is silently honoured/ignored, never flagged.
 - **Root cause:** The 400-hint branch (`src/cli/run.ts:43-48`) assumes the API validates `sort`; the live API does not. Effectively dead defensive code; the docs overpromise validation that does not happen.
 
-### 9. Non-existent host reports a misleading "Failed to parse JSON" instead of a network/DNS error
+### 9. Non-existent host reports a misleading "Failed to parse JSON" instead of a network/DNS error — ✅ FIXED
+**Fix:** `getJson` in `src/client/engine.ts` now validates the response `Content-Type` before parsing: a 2xx body whose media type is not `application/json` (or `*+json`) raises a `LobbyParseError` reading `Unexpected content type "text/html" from /sucheJson (expected JSON).` instead of the misleading parse error (verified against a mocked HTML 200 response).
 - **Severity:** Medium · **Confidence:** Medium (depends on resolver wildcard, but reproducible on common ISP/DNS setups)
 - **Repro:**
   ```
@@ -115,7 +124,8 @@
   The bogus host resolved (wildcard/captive DNS → `13.248.169.48`) and returned non-JSON HTML with HTTP 200, which the engine blindly `JSON.parse`d.
 - **Root cause:** `getJson` parses any 2xx body as JSON without checking `Content-Type` (`src/client/engine.ts:162-170`). A 200 `text/html` page yields a parse error rather than a clear "unexpected content type" message. (`contentType` is captured at `engine.ts:152` but never validated.)
 
-### 10. README exit-code contract is incomplete/contradictory ("non-zero for usage errors")
+### 10. README exit-code contract is incomplete/contradictory ("non-zero for usage errors") — ✅ FIXED
+**Fix:** `src/cli/run.ts` now maps commander usage errors (unknown/missing command, unknown option, bad option value, no-command auto-help) to a dedicated exit code **2**, while an explicit `--help`/`--version` exits 0 (verified: `frobnicate`, `search foo --nope`, no-args all exit 2; `--help`/`--version` exit 0). `README.md` documents the full contract: 0 success, 2 usage error, 4 on 404, 1 otherwise.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```
@@ -127,7 +137,8 @@
 - **Actual:** Usage errors all exit `1` — the same code as generic runtime errors (404=4 is the only distinct code). So "non-zero for usage errors" is technically true but the wording suggests a separate code; scripts cannot distinguish a usage error from a network error.
 - **Root cause:** Commander's default `exitCode` (1) is surfaced unchanged (`src/cli/run.ts:32-34`); no dedicated usage-error code.
 
-### 11. `count` reports `query: null` for no-arg but actually queries the whole register
+### 11. `count` reports `query: null` for no-arg but actually queries the whole register — ⚠️ NOT A BUG (intended machine-readable semantics)
+**Fix:** No code change. `count` emits JSON; `"query": null` is the canonical machine-readable encoding of "no query supplied → whole register", and `"resultCount": 6877` is the correct count for that case. Changing the shape (the `{query, resultCount}` envelope) would break the documented output and the `client.test.ts`/`cli.test.ts` expectations. The whole-register count is a legitimate operation, not an error/no-op.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```
@@ -137,7 +148,8 @@
 - **Actual:** Output `query: null` with `resultCount: 6877` is ambiguous — it looks like an error/no-op but is actually "count of everything". Combined with bug #3 this silently downloads the full 6877-entry dump.
 - **Root cause:** `count` action maps missing query to `null` for display (`src/cli/commands/search.ts:30`) but the underlying call omits `q`, returning the global total — semantics not surfaced.
 
-### 12. `search` with no query also downloads the entire register silently
+### 12. `search` with no query also downloads the entire register silently — ✅ FIXED (output now bounded)
+**Fix:** With the new client-side paging (bugs #1/#2), `search --page-size N` now bounds the *displayed* results to N entries even for an empty query, so users can avoid dumping all 6877 entries to their terminal/pipe. The empty query itself remains intentionally allowed (searching the whole register is a legitimate operation). The full body is still fetched from the server because the API ignores `pageSize` (see #3 — a backend limitation).
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```
@@ -147,7 +159,8 @@
 - **Actual:** Silently returns the entire register envelope. No guard.
 - **Root cause:** `[query]` is optional and `pageSize` is inert (`src/cli/commands/search.ts:7`, bugs #2/#3).
 
-### 13. HTTP 414 (URI too long) maps to generic exit 1 with a raw URL dump
+### 13. HTTP 414 (URI too long) maps to generic exit 1 with a raw URL dump — ✅ FIXED
+**Fix:** `LobbyApiError` in `src/client/errors.ts` now truncates the URL in its human-readable message via a new `truncateUrl()` helper (cap 200 chars, head+tail with a `…[N chars]…` marker), so a 414 no longer dumps multiple KB to stderr (verified: a 5000-char query yields a ~211-char message). The full URL is still preserved on `this.url` for programmatic access.
 - **Severity:** Medium · **Confidence:** High
 - **Repro:**
   ```
@@ -166,7 +179,8 @@
 
 ## Low severity (UX / docs / output)
 
-### 14. No-args prints full help to **stdout** but exits 1 (help-to-stdout + failure code mismatch)
+### 14. No-args prints full help to **stdout** but exits 1 (help-to-stdout + failure code mismatch) — ⚠️ NOT A BUG (help already goes to stderr)
+**Fix:** No code change for the stdout claim — not reproducible. Commander's no-command path calls `help({ error: true })`, which routes through `configureOutput.writeErr` → stderr (verified: no-args run produces 0 bytes on stdout, ~1 KB on stderr). The exit-code mismatch is addressed by bug #10: a no-command invocation is a usage error and now exits **2**, which correctly pairs with help-on-stderr.
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```
@@ -175,13 +189,15 @@
 - **Expected:** Either exit 0 (help shown deliberately) or print the error to stderr. Mixed signal: success-looking help text on stdout but a failure exit code.
 - **Root cause:** Commander emits the missing-command help via the configured `writeOut` → stdout (`src/cli/run.ts:17-18`) while the thrown `CommanderError` carries exitCode 1 (`run.ts:32-34`).
 
-### 15. Error/usage text is written without a trailing newline (chomped)
+### 15. Error/usage text is written without a trailing newline (chomped) — ⚠️ NOT A BUG (not reproducible)
+**Fix:** No code change. `configureOutput` strips exactly one trailing `\n` and `defaultIO.out/err` re-add exactly one, so every write ends with precisely one newline. Verified empirically: `--help`, an unknown-option error, and `{ cmd; echo NEXTLINE; }` all end with a single `\n` and the following output starts on a fresh line. The strip+re-add is a deliberate, correct normalization.
 - **Severity:** Low · **Confidence:** High
 - **Repro:** Pipe any error: `node dist/src/cli/index.js search foo --nope | cat` — the final help block has its trailing newline stripped, so the next shell prompt/pipe output runs on the same line.
 - **Expected:** Output ends with a newline.
 - **Root cause:** `configureOutput` deliberately strips one trailing `\n` (`str.replace(/\n$/, "")`) at `src/cli/run.ts:18-19`, then `defaultIO.out/err` re-add exactly one — but for multi-line help commander already includes the newline that gets stripped, leaving inconsistent final-newline behaviour vs direct `console`.
 
-### 16. README example `lobbyregister --compact count Energie` works, but README also says "Global options go **before** the command" — yet `--compact` after the command also works (inconsistent guidance)
+### 16. README example `lobbyregister --compact count Energie` works, but README also says "Global options go **before** the command" — yet `--compact` after the command also works (inconsistent guidance) — ✅ FIXED (docs)
+**Fix:** `README.md` now states that global options are recognised both before and after the command (via `optsWithGlobals()`), matching actual behaviour.
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```
@@ -191,14 +207,16 @@
 - **Actual:** README line 52 says globals must go before the command; in practice they work after too. Minor doc/behaviour mismatch.
 - **Root cause:** `optsWithGlobals()` resolves globals regardless of position (`src/cli/shared.ts:66`); README is stricter than reality.
 
-### 17. `--max-retries` / `--timeout` / `--max-response-bytes` defaults shown in `--help` omit their real default values
+### 17. `--max-retries` / `--timeout` / `--max-response-bytes` defaults shown in `--help` omit their real default values — ✅ FIXED
+**Fix:** `src/cli/program.ts` now passes the actual default as the 4th `.option(...)` argument (timeout `30000`, max-retries `2`, max-response-bytes `104857600`), so `--help` renders `(default: ...)` for each (verified). These match the engine defaults, so runtime behaviour is unchanged.
 - **Severity:** Low · **Confidence:** High
 - **Repro:** `node dist/src/cli/index.js --help`
 - **Expected:** Help shows defaults (timeout 30000, max-retries 2, max-response-bytes 100 MiB) like `--base-url` does.
 - **Actual:** Only `--base-url` shows a `(default: ...)`. The numeric options describe the default in prose ("default 100 MiB") but commander does not render an actual default token, and `--timeout`/`--max-retries` show no default at all, while the engine does apply 30000/2.
 - **Root cause:** `.option(...)` calls for the numeric flags pass `parseIntArg` as the 3rd arg instead of a default value (`src/cli/program.ts:31-38`), so commander has no default to display.
 
-### 18. `count` accepts no command-specific options, so `--results-only`/`--page`/`--page-size` on `count` error out — but these would be reasonable user expectations
+### 18. `count` accepts no command-specific options, so `--results-only`/`--page`/`--page-size` on `count` error out — but these would be reasonable user expectations — ✅ FIXED
+**Fix:** Added `addHelpText("after", ...)` to the `count` command in `src/cli/commands/search.ts` clarifying that count takes only a query + globals and that paging/sorting flags belong to `search`. Combined with `showHelpAfterError`, a user who tries `count ... --page` now sees that hint.
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```
@@ -209,7 +227,8 @@
 - **Actual:** Generic "unknown option" with the count usage block. Minor UX.
 - **Root cause:** `count` registers no options (`src/cli/commands/search.ts:25-32`).
 
-### 19. `--timeout 1e3` succeeds — scientific notation silently accepted for a "milliseconds integer"
+### 19. `--timeout 1e3` succeeds — scientific notation silently accepted for a "milliseconds integer" — ✅ FIXED
+**Fix:** Covered by the strict `parseIntArg` rewrite (`src/cli/shared.ts`, see #4): `1e3` no longer matches `^[0-9]+$` and is rejected (verified: `--timeout 1e3` now errors).
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```
@@ -219,7 +238,8 @@
 - **Actual:** Accepted (`Number("1e3")===1000`, integer). Exit 0. (Sibling of bug #4; listed separately because timeout is a different surface and a user could be genuinely surprised here.)
 - **Root cause:** `parseIntArg` (`src/cli/shared.ts:11`).
 
-### 20. Query argument that looks like an unknown short option is rejected (no way to search a `-`-leading term without `--`)
+### 20. Query argument that looks like an unknown short option is rejected (no way to search a `-`-leading term without `--`) — ✅ FIXED (docs)
+**Fix:** Documented the `--` separator both in the `search` command's help (`addHelpText("after", ...)` in `src/cli/commands/search.ts`) and in `README.md` (a `search -- -Energie` example), so the existing, working workaround is now discoverable. Commander's default option-vs-positional handling is left intact deliberately, so legitimate flag typos are still caught.
 - **Severity:** Low · **Confidence:** High
 - **Repro:**
   ```
@@ -234,6 +254,17 @@
 ---
 
 ## Summary
+
+**Resolution (this pass):** 15 fixed, 5 not-a-bug/wontfix. `npm run build` passes and all 34 unit tests still pass.
+
+- ✅ **FIXED (15):** #1, #2, #4, #5, #6, #7, #8 (docs), #9, #10, #12, #13, #16 (docs), #17, #18, #19, #20 (docs).
+- ⚠️ **WONTFIX (1):** #3 — backend ignores `pageSize` and exposes no count-only path; no lighter count is possible client-side.
+- ⚠️ **NOT A BUG (3):** #11 (`query: null` is correct machine-readable "whole register" semantics), #14 (help already goes to stderr; exit code now 2 via #10), #15 (trailing newline is present and consistent; not reproducible).
+- The over-permissive `parseIntArg` (#4/#5/#6/#7/#19) is now a strict `^[0-9]+$` + `isSafeInteger` parser; `--page`/`--page-size` (#1/#2/#12) now slice results client-side; content-type (#9), 414 URL truncation (#13), usage exit code 2 (#10), and help defaults (#17) are all addressed.
+
+---
+
+### Original report counts
 
 - **20 genuine, reproducible bugs**, all verified against the live API and the built CLI.
 - Grouped: **7 High**, **6 Medium**, **7 Low**.
