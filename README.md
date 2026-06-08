@@ -11,6 +11,10 @@ representatives** (lobbyists) before the Bundestag and the federal government.
 - **Well tested** — unit tests on Node's built-in test runner (`node --test`), every HTTP response mocked.
 - **Read-only, no auth** — the `/sucheJson` open-data endpoint needs no key; this client only reads.
 
+New to the Lobbyregister, or terms like *RegisterEntry*, *resultCount* or the
+`/sucheJson` envelope? See **[GLOSSARY.md](GLOSSARY.md)** for the domain concepts
+and the project's own vocabulary.
+
 ## Requirements
 
 - Node.js **>= 20** (uses the stable built-in test runner, ESM and top-level `await`).
@@ -93,7 +97,7 @@ option, invalid option value, or no command given), `4` on a `404` from the API,
 ## Library usage
 
 ```ts
-import { LobbyregisterClient, LobbyApiError } from "lobbyregister-cli";
+import { LobbyregisterClient, LobbyApiError } from "@maschinenlesbar.org/lobbyregister-cli";
 
 const client = new LobbyregisterClient(); // defaults to https://www.lobbyregister.bundestag.de
 
@@ -182,7 +186,7 @@ npm test          # builds, then runs `node --test` over dist/test
 GitHub Actions workflows under `.github/workflows/`:
 
 - **ci.yml** — type-check, build and test on Node 20/22/24 for every push and PR.
-- **release.yml** — on a `v*` tag: verify the tag matches `package.json`, test, `npm pack`, and create a GitHub Release with the tarball.
+- **release.yml** — on a `v*` tag: verify the tag matches `package.json`, test, `npm pack`, generate CycloneDX SBOMs (production and full graph), and create a GitHub Release with the tarball and SBOMs.
 - **publish.yml** — manual dispatch: publish to npm via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
 - **docs.yml** — build TypeDoc API docs and deploy to GitHub Pages on each `v*` tag.
 
