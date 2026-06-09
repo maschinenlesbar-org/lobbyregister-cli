@@ -1,194 +1,182 @@
 # lobbyregister-cli
 
-A TypeScript **API client** and **command-line interface** for the open
-[Lobbyregister](https://www.lobbyregister.bundestag.de/) search API
-(`lobbyregister.bundestag.de`) — the German federal **register of interest
-representatives** (lobbyists) before the Bundestag and the federal government.
+Search Germany's federal **register of interest representatives** (lobbyists)
+from your terminal. `lobbyregister` is a command-line tool for the open
+[Lobbyregister](https://www.lobbyregister.bundestag.de/) search API — find
+registered lobbyists and organisations by keyword, count their presence, and
+pipe the results straight into [`jq`](https://jqlang.github.io/jq/).
 
-- **Zero runtime HTTP dependencies** — built on Node's built-in `http`/`https` (no axios, no fetch polyfill).
-- **One small dependency** for the CLI: [`commander`](https://github.com/tj/commander.js).
-- **Strongly typed** — typed search envelope and parameters (register entries kept as raw `JsonObject`).
-- **Well tested** — unit tests on Node's built-in test runner (`node --test`), every HTTP response mocked.
-- **Read-only, no auth** — the `/sucheJson` open-data endpoint needs no key; this client only reads.
+- **Works out of the box** — no account, no API key, no configuration. Install and search.
+- **Clean JSON output** — pretty-printed by default, `--compact` for one-line/scripting.
+- **Just two commands** — `search` and `count`.
+- **Read-only, open data** — the public `/sucheJson` endpoint needs no credentials; nothing to configure or leak.
 
-New to the Lobbyregister, or terms like *RegisterEntry*, *resultCount* or the
-`/sucheJson` envelope? See **[GLOSSARY.md](GLOSSARY.md)** for the domain concepts
-and the project's own vocabulary.
-
-## Requirements
-
-- Node.js **>= 20** (uses the stable built-in test runner, ESM and top-level `await`).
+> Want to use this as a TypeScript library or understand how it's built?
+> See **[DEVELOPING.md](DEVELOPING.md)**.
 
 ## Install
 
 ```bash
-npm install
-npm run build        # compiles TypeScript to dist/
+npm i -g @maschinenlesbar.org/lobbyregister-cli
 ```
 
-Run the CLI without a global install:
+This installs the **`lobbyregister`** command. Requires **Node.js 20+**.
+
+Check it works:
 
 ```bash
-node dist/src/cli/index.js --help
-# or, after `npm link` / global install:
 lobbyregister --help
 ```
 
----
+## Quickstart
 
-## CLI usage
+No setup needed — the endpoint is fully open. Your first search:
 
-`search` prints the full envelope (`resultCount` + `results`); `--results-only`
-prints just the array. `--compact` for a single line. Each `results` entry
-conforms to the JSON-Schema named in the response's `$schema` field.
+```bash
+lobbyregister search Energie
+```
 
-### Global options
+The result is a JSON envelope: the matching entries live under `results`, the
+total count under `resultCount`. Pull out just the entries with `jq`:
+
+```bash
+lobbyregister search Energie | jq '.results'
+```
+
+Count how many entries mention a topic without fetching the full records:
+
+```bash
+lobbyregister count Energie
+```
+
+## Commands
+
+```text
+search  [query]   search the register — prints the full envelope
+count   [query]   count entries matching a query
+```
+
+### `search` options
+
+| Flag | Meaning |
+| --- | --- |
+| `[query]` | free-text search term (optional — omit to match everything) |
+| `--sort <order>` | sort order: `RELEVANCE_DESC`, `REGISTRATION_DESC`, `REGISTRATION_ASC` |
+| `--page <n>` | 1-based page number (client-side paging) |
+| `--page-size <n>` | results per page (client-side paging) |
+| `--results-only` | print just the `results` array, not the envelope |
+
+`count` takes only the optional query and the global options — no `--page`,
+`--sort`, or `--results-only`.
+
+The **[Glossary](GLOSSARY.md)** explains every field and term in the response.
+
+## Common tasks
+
+A few recipes to get going — see **[Usage.md](Usage.md)** for the full,
+use-case-driven set.
+
+```bash
+# How many lobbyists are active in the energy sector?
+lobbyregister count Energie
+
+# Full results for a topic, newest registrations first
+lobbyregister search Pharma --sort REGISTRATION_DESC
+
+# Just the entries — no envelope — for piping into jq
+lobbyregister search Wasserstoff --results-only
+
+# Page through a large result set (1-based pages, client-side slicing)
+lobbyregister search Digitalisierung --page-size 10 --page 1
+lobbyregister search Digitalisierung --page-size 10 --page 2
+
+# Compare topic coverage across several terms
+for topic in Energie Verkehr Gesundheit; do
+  printf '%s\t' "$topic"
+  lobbyregister count "$topic" | jq '.resultCount'
+done
+```
+
+## Output & scripting
+
+Every command prints **pretty JSON to stdout**. Errors and diagnostics go to
+stderr, so piping stdout into `jq` stays clean.
+
+```bash
+# Extract organisation names from a result set
+lobbyregister search Klimaschutz --results-only \
+  | jq -r '.[].lobbyistIdentity.name // empty'
+
+# Skim the newest registrations as a TSV table
+lobbyregister search Rüstung --sort REGISTRATION_DESC --page-size 5 --results-only \
+  | jq -r '.[] | [.registerNumber, .lobbyistIdentity.name] | @tsv'
+```
+
+Use `--compact` for single-line JSON in pipelines and logs:
+
+```bash
+lobbyregister search Chemie --results-only --compact \
+  | jq -c '.[] | {nr: .registerNumber}'
+```
+
+`--compact` (and every global option) works **before or after** the command —
+both `lobbyregister --compact search Energie` and `lobbyregister search Energie --compact`
+do the same thing.
+
+> **Note on `--sort`** — the value is passed through verbatim and not validated
+> client-side. An unrecognised value is silently ignored by the live API (HTTP
+> `200`), so a typo won't raise an error.
+
+> **Note on `--page` / `--page-size`** — the live endpoint returns all matches
+> regardless of these parameters; the CLI slices the `results` array client-side.
+> `resultCount` always reflects the true total.
+
+**Exit codes** make the CLI easy to use in scripts:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | success (also `--help` / `--version`) |
+| `2` | bad usage / invalid argument (nothing was sent) |
+| `4` | entry not found (`404`) |
+| `1` | any other error (network, parse, or non-404 HTTP status) |
+
+## Troubleshooting
+
+- **`command not found: lobbyregister`** — the global npm bin directory isn't on
+  your `PATH`. Run `npm bin -g` to find it and add it, or run via
+  `npx @maschinenlesbar.org/lobbyregister-cli …`.
+- **Exit `4` / "not found"** — a `404` from the API; this is uncommon on the
+  search endpoint. Check that `--base-url` points at the right host.
+- **Exit `1` / network error** — connectivity, DNS, or a timeout. Try again, or
+  raise the limit with `--timeout 60000`.
+- **Exit `1` with a `400`** — the API rejected the request. The CLI prints the
+  API's error detail and a hint to check `--sort`; verify the sort value is a
+  recognised string.
+- **Empty `results`** — the search matched nothing; broaden the keyword or drop
+  filters.
+- **Search a term starting with a dash** — end the options with `--`, e.g.
+  `lobbyregister search -- -Energie`.
+
+## Global options
+
+These apply to every command and may be given before *or* after it:
 
 | Option | Description |
 | --- | --- |
+| `-V, --version` | Print the version number |
+| `-h, --help` | Show help for the program or a command |
+| `--compact` | Print JSON on a single line instead of pretty-printed |
 | `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`) |
 | `--timeout <ms>` | Per-request timeout (default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses (default `2`) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
-| `--compact` | Print JSON on a single line |
 
-Global options are recognised both **before** and **after** the command, e.g.
-both `lobbyregister --compact count Energie` and `lobbyregister count Energie --compact`
-work the same way (the program resolves globals via `optsWithGlobals()`).
+## Learn more
 
-### Commands
-
-```text
-search [query] [--page <n>] [--page-size <n>] [--sort <order>] [--results-only]
-count  [query]                  number of entries matching a query
-```
-
-Common `--sort` values: `RELEVANCE_DESC`, `REGISTRATION_DESC`, `REGISTRATION_ASC`.
-`--sort` is passed through verbatim and is not validated client-side. Note that
-the live `/sucheJson` endpoint currently does **not** validate `sort` either: an
-unrecognised value is silently ignored (HTTP `200`) rather than rejected, so a
-typo will not raise an error. The CLI only surfaces an error if the API *does*
-return an HTTP `400`: it then exits `1` and prints the API's error detail (plus a
-hint to check `--sort` when the API gives no detail).
-
-### Examples
-
-```bash
-# How many entries mention "Energie"?
-lobbyregister count Energie
-
-# First page of results, newest registrations first
-lobbyregister search Energie --sort REGISTRATION_DESC --page-size 10
-
-# Just the entries, no envelope
-lobbyregister search Energie --results-only --compact
-
-# Search a term that begins with a dash — end the options with `--`
-lobbyregister search -- -Energie
-```
-
-Exit codes: `0` success, `2` for a usage error (unknown/missing command, unknown
-option, invalid option value, or no command given), `4` on a `404` from the API,
-`1` for any other error (network, parse, or other non-404 HTTP status).
-
----
-
-## Library usage
-
-```ts
-import { LobbyregisterClient, LobbyApiError } from "@maschinenlesbar.org/lobbyregister-cli";
-
-const client = new LobbyregisterClient(); // defaults to https://www.lobbyregister.bundestag.de
-
-const page = await client.search({ q: "Energie", pageSize: 10 });
-console.log(page.resultCount, page.results.length);
-
-const total = await client.count("Energie");
-
-try {
-  await client.search({ q: "x" });
-} catch (err) {
-  if (err instanceof LobbyApiError) console.error(err.status, err.detail);
-}
-```
-
-### Client options
-
-```ts
-new LobbyregisterClient({
-  baseUrl: "https://www.lobbyregister.bundestag.de",
-  timeoutMs: 15_000,
-  maxRetries: 3,              // 429 / 503 are retried with linear backoff
-  maxResponseBytes: 50 << 20, // abort responses larger than 50 MiB (0 = unlimited)
-  userAgent: "my-app/1.0",
-  headers: { Authorization: "Bearer …" }, // extra headers on every request
-  transport: customTransport, // inject your own HTTP transport
-});
-```
-
-Credential-bearing headers (`Authorization`, `Cookie`, `X-API-Key`) are
-automatically stripped when a redirect crosses to a different origin, so they are
-never sent to an arbitrary host named in a `Location` header.
-
-### Methods
-
-`client.search({ q?, page?, pageSize?, sort? })` (full envelope) and
-`client.count(q?)` (just the match count).
-
----
-
-## Architecture
-
-```
-src/
-  client/
-    types.ts     # SearchResult envelope + SearchParams (entries kept as JsonObject)
-    query.ts     # dependency-free query-string builder
-    http.ts      # the Transport interface + default node:http/https transport
-    engine.ts    # URL building, retry/backoff, redirects (with cross-origin credential stripping), JSON decoding, error mapping
-    errors.ts    # LobbyError / LobbyApiError / LobbyNetworkError / LobbyParseError
-    client.ts    # LobbyregisterClient — search + count over the engine
-  cli/
-    io.ts        # injectable I/O seam (stdout/stderr)
-    shared.ts    # option parsers, global-option resolver, JSON renderer
-    commands/    # search / count
-    program.ts   # assembles the commander program from injectable deps
-    run.ts       # parses argv -> exit code (no process.exit; testable)
-    index.ts     # #! bin shim
-```
-
-**Design notes**
-
-- The HTTP layer is a single `Transport` function (`(req) => Promise<HttpResponse>`). The default
-  uses `node:http`/`node:https`; tests inject a mock. This keeps the client free of any HTTP framework.
-- The CLI is built around injectable `CliDeps` (client factory + I/O), so the whole program can be
-  driven in-process by tests with a mocked client and captured output — no subprocesses.
-- Register entries are large, schema-versioned documents, so `results` are returned as faithful
-  raw `JsonObject`s rather than partially-guessed types.
-
----
-
-## Testing
-
-```bash
-npm test          # builds, then runs `node --test` over dist/test
-```
-
-- **`query.test.ts`** — query-string serialisation.
-- **`http.test.ts`** — the default transport against a real loopback `http.createServer`.
-- **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry (incl. `maxRetries: 0`), same-/cross-origin redirects (cross-origin credential stripping), missing-`Location` handling — mocked transport.
-- **`client.test.ts`** — the search URL/param mapping, empty-query semantics and the `count` helper — mocked transport.
-- **`cli.test.ts`** — command parsing, `--page`/`--sort`/`--results-only` passthrough, `count`, and exit codes (404, 400-with-hint, network and parse errors) — mocked client.
-
-## Continuous integration
-
-GitHub Actions workflows under `.github/workflows/`:
-
-- **ci.yml** — type-check, build and test on Node 20/22/24 for every push and PR.
-- **release.yml** — on a `v*` tag: verify the tag matches `package.json`, test, `npm pack`, generate CycloneDX SBOMs (production and full graph), and create a GitHub Release with the tarball and SBOMs.
-- **publish.yml** — manual dispatch: publish to npm via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
-- **docs.yml** — build TypeDoc API docs and deploy to GitHub Pages on each `v*` tag.
+- **[Usage.md](Usage.md)** — full use-case-driven cookbook.
+- **[GLOSSARY.md](GLOSSARY.md)** — every field, command and domain term explained.
+- **[DEVELOPING.md](DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
 
 ## License
 
