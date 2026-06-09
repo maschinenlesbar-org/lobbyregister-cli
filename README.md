@@ -2,7 +2,6 @@
 
 [![CI](https://github.com/maschinenlesbar-org/lobbyregister-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/maschinenlesbar-org/lobbyregister-cli/actions/workflows/ci.yml)
 [![Release](https://github.com/maschinenlesbar-org/lobbyregister-cli/actions/workflows/release.yml/badge.svg)](https://github.com/maschinenlesbar-org/lobbyregister-cli/actions/workflows/release.yml)
-[![GitHub release](https://img.shields.io/github/v/release/maschinenlesbar-org/lobbyregister-cli)](https://github.com/maschinenlesbar-org/lobbyregister-cli/releases/latest)
 [![npm](https://img.shields.io/npm/v/@maschinenlesbar.org/lobbyregister-cli)](https://www.npmjs.com/package/@maschinenlesbar.org/lobbyregister-cli)
 
 Search Germany's federal **register of interest representatives** (lobbyists)
