@@ -1,0 +1,37 @@
+{
+  "name": "lobbyregister-skills",
+  "owner": {
+    "name": "Sebastian Schürmann",
+    "email": "sebs@2xs.org"
+  },
+  "metadata": {
+    "description": "German lobby-register intelligence skills powered by the lobbyregister-cli (Bundestag Lobbyregister search API)"
+  },
+  "plugins": [
+    {
+      "name": "lobbyregister",
+      "source": "./",
+      "description": "Profile who lobbies the Bundestag on a topic, rank registered lobbyists by declared spend, and surface the revolving door of former MdBs and government officials — all over the open, key-free Lobbyregister search API via the lobbyregister-cli.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Sebastian Schürmann",
+        "email": "sebs@2xs.org"
+      },
+      "license": "AGPL-3.0-or-later",
+      "repository": "https://github.com/maschinenlesbar-org/lobbyregister-cli",
+      "homepage": "https://github.com/maschinenlesbar-org/lobbyregister-cli#readme",
+      "category": "transparency",
+      "keywords": [
+        "lobbyregister",
+        "bundestag",
+        "lobbying",
+        "transparency",
+        "revolving-door",
+        "interessenvertretung",
+        "open-data",
+        "germany",
+        "bund.dev"
+      ]
+    }
+  ]
+}

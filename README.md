@@ -178,6 +178,7 @@ These apply to every command and may be given before *or* after it:
 
 ## Learn more
 
+- **[SKILLS.md](SKILLS.md)** — Claude Code Agent Skills that drive this CLI for sector briefings, spend rankings and revolving-door checks.
 - **[Usage.md](Usage.md)** — full use-case-driven cookbook.
 - **[GLOSSARY.md](GLOSSARY.md)** — every field, command and domain term explained.
 - **[DEVELOPING.md](DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
