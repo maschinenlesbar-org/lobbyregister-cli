@@ -67,8 +67,11 @@ The detail is under `lobbyistIdentity.recentGovernmentFunction`:
 > Read `type.code`, then pull the role from the matching sub-object. The three observed
 > live (most are `Bundestag`):
 >
-> - `BUNDESTAG` / `Bundestag` → `houseOfRepresentatives.function.de`
->   (e.g. `Mitglied des Deutschen Bundestages`).
+> - `HOUSE_OF_REPRESENTATIVES` / `Bundestag` → `houseOfRepresentatives.function.de`
+>   (e.g. `Mitglied des Deutschen Bundestages`, or `Funktion für eine Fraktion/Gruppe im
+>   Deutschen Bundestag`). **This is the common case** (~25 of 36 entries register-wide).
+>   Note the `.code` is `HOUSE_OF_REPRESENTATIVES`, *not* `BUNDESTAG` — only the `.de`
+>   label reads "Bundestag".
 > - `FEDERAL_GOVERNMENT` / `Bundesregierung` → `federalGovernment.function.de` (an
 >   **object** with `de`/`en`, e.g. `Parlamentarische/-r Staatssekretär/-in`), plus
 >   `federalGovernment.department.title` (the ministry, e.g. BMI).

@@ -22,6 +22,8 @@ nesting of the revolving-door field).
 | **lobbyregister-sector-brief** | Turns one topic search into a ranked briefing: actor mix (company/association/NGO/consultancy), top declared spenders, common interest tags, and transparency flags. | "who lobbies on Wasserstoff?", "which groups are registered for pharma?", "lobbying briefing on Klimaschutz" |
 | **lobbyregister-money-ranking** | "Follow the money" — ranks registered lobbyists by the declared lobbying-spend *range*, for a topic or the whole register. | "who spends the most on lobbying?", "biggest lobbying budgets in energy", "rank lobbyists by expenses" |
 | **lobbyregister-revolving-door** | Surfaces registered lobbyists who recently held a Bundestag seat or government office, with role, ministry and end date. | "which former MdBs are now lobbyists?", "revolving door in the register", "ex-officials lobbying on energy?" |
+| **lobbyregister-legislative-engagement** | Activity-led (not money-led) league table — ranks entries by formal statements filed, regulatory projects engaged, and lobbying contracts held. | "who files the most statements on legislation?", "most active lobbyists on energy", "which agencies hold the most contracts?" |
+| **lobbyregister-new-entrants** | Time view of register churn — who newly registered and who recently went inactive, keyed on the registration date (not the last-edited date). | "who newly registered on hydrogen this year?", "new lobbyists since the election", "who deregistered on pharma?" |
 
 ## Requirements
 
@@ -46,7 +48,7 @@ Claude Code:
 ```
 
 The first command registers the marketplace; the second installs the `lobbyregister`
-plugin, which bundles all three skills. Update later with `/plugin marketplace update`.
+plugin, which bundles all five skills. Update later with `/plugin marketplace update`.
 
 ### Manual (copy the skill folders)
 

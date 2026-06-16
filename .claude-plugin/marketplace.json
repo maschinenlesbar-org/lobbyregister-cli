@@ -11,7 +11,7 @@
     {
       "name": "lobbyregister",
       "source": "./",
-      "description": "Profile who lobbies the Bundestag on a topic, rank registered lobbyists by declared spend, and surface the revolving door of former MdBs and government officials — all over the open, key-free Lobbyregister search API via the lobbyregister-cli.",
+      "description": "Profile who lobbies the Bundestag on a topic, rank registered lobbyists by declared spend or by legislative-engagement volume, track new registrations and deregistrations over time, and surface the revolving door of former MdBs and government officials — all over the open, key-free Lobbyregister search API via the lobbyregister-cli.",
       "version": "0.1.0",
       "author": {
         "name": "Sebastian Schürmann",
