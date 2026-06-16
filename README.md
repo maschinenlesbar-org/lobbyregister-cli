@@ -183,6 +183,16 @@ These apply to every command and may be given before *or* after it:
 - **[GLOSSARY.md](GLOSSARY.md)** — every field, command and domain term explained.
 - **[DEVELOPING.md](DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
 
+## Data license
+
+This CLI is a **client** — it accesses data it does not own or redistribute. The
+upstream data is © its provider and licensed **separately from this tool's code**.
+See **[DATA_LICENSE.md](DATA_LICENSE.md)**.
+
+> **Deutscher Bundestag** — statutory machine-readable open data (§ 4 LobbyRG) but
+> **no standard open-data license**; the Bundestag's general terms are restrictive
+> on commercial reuse. Entries contain personal data (GDPR applies).
+
 ## License
 
 **Dual-licensed** — use it under **either**:
