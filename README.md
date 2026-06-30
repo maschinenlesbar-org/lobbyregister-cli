@@ -132,9 +132,9 @@ do the same thing.
 > `200`) and the results fall back to the default ordering — so a typo won't
 > raise an error or an exit-`1` `400`; it just won't sort the way you asked.
 
-> **Note on `--page` / `--page-size`** — the live endpoint returns all matches
-> regardless of these parameters; the CLI slices the `results` array client-side.
-> `resultCount` always reflects the true total.
+> **Note on `--page` / `--page-size`** — these are still sent to the API, but the
+> live endpoint ignores them and returns all matches, so the CLI slices the
+> `results` array client-side. `resultCount` always reflects the true total.
 
 **Exit codes** make the CLI easy to use in scripts:
 

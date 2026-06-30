@@ -80,9 +80,10 @@ default ordering), so a bad sort never raises a `400` — it just won't reorder.
 
 ### 5. Page through a large result set
 
-Browse results in fixed-size chunks instead of dumping everything at once. Paging
-is applied client-side (the live endpoint returns all matches; the CLI slices the
-`results` array). `--page` is 1-based.
+Browse results in fixed-size chunks instead of dumping everything at once. The
+parameters are sent to the API, but the live endpoint ignores them and returns
+all matches, so paging is applied client-side (the CLI slices the `results`
+array). `--page` is 1-based and requires `--page-size`.
 
 ```bash
 # First 10 entries
