@@ -31,6 +31,9 @@ export interface HttpResponse {
 
 export type Transport = (request: HttpRequest) => Promise<HttpResponse>;
 
+/** Largest delay Node's setTimeout accepts without truncating (2^31 - 1 ms). */
+const MAX_TIMER_MS = 2_147_483_647;
+
 /**
  * Default transport. Resolves with the raw response (including non-2xx) — status
  * interpretation is the client's job. Rejects only on transport-level failures
@@ -96,8 +99,14 @@ export const nodeHttpTransport: Transport = (request) =>
     );
 
     if (request.timeoutMs && request.timeoutMs > 0) {
-      req.setTimeout(request.timeoutMs, () => {
-        req.destroy(new LobbyNetworkError(`Request timed out after ${request.timeoutMs}ms`));
+      // Node's timers are backed by a 32-bit signed integer; a larger delay emits
+      // a TimeoutOverflowWarning on stderr and is silently truncated. The option
+      // parser accepts values up to Number.MAX_SAFE_INTEGER, so clamp here to keep
+      // that internal warning out of the user's terminal. (~24.8 days is already
+      // an effectively-unbounded request timeout.)
+      const timeoutMs = Math.min(request.timeoutMs, MAX_TIMER_MS);
+      req.setTimeout(timeoutMs, () => {
+        req.destroy(new LobbyNetworkError(`Request timed out after ${timeoutMs}ms`));
       });
     }
 

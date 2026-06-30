@@ -35,6 +35,25 @@ test("performs a real GET and returns status, headers and body", async () => {
   );
 });
 
+test("a timeout beyond the 32-bit timer limit is clamped, not rejected", async () => {
+  await withServer(
+    (_req, res) => {
+      res.setHeader("content-type", "application/json");
+      res.end("{}");
+    },
+    async (baseUrl) => {
+      // Number.MAX_SAFE_INTEGER would emit a TimeoutOverflowWarning and truncate
+      // without the clamp; the request must still complete cleanly.
+      const resp = await nodeHttpTransport({
+        method: "GET",
+        url: `${baseUrl}/x`,
+        timeoutMs: Number.MAX_SAFE_INTEGER,
+      });
+      assert.equal(resp.status, 200);
+    },
+  );
+});
+
 test("rejects an unsupported protocol with LobbyNetworkError", async () => {
   await assert.rejects(
     () => nodeHttpTransport({ method: "GET", url: "ftp://example.test/x" }),
