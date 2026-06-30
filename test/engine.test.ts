@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RequestEngine } from "../src/client/engine.js";
+import { RequestEngine, parseRetryAfter } from "../src/client/engine.js";
 import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "../src/client/errors.js";
 import {
   makeMockTransport,
@@ -68,6 +68,54 @@ test("a 503 is retried up to maxRetries then surfaces as LobbyApiError", async (
     (err) => err instanceof LobbyApiError && err.status === 503,
   );
   assert.equal(calls, 3); // initial + 2 retries
+});
+
+test("parseRetryAfter understands delta-seconds, HTTP-date and junk", () => {
+  assert.equal(parseRetryAfter("5"), 5000);
+  assert.equal(parseRetryAfter("0"), 0);
+  assert.equal(parseRetryAfter(undefined), undefined);
+  assert.equal(parseRetryAfter("   "), undefined);
+  assert.equal(parseRetryAfter("soon"), undefined);
+  // clamps to the 60s ceiling
+  assert.equal(parseRetryAfter("100000"), 60_000);
+  // HTTP-date relative to an injected "now"
+  const now = Date.parse("2026-01-01T00:00:00Z");
+  assert.equal(parseRetryAfter("Thu, 01 Jan 2026 00:00:03 GMT", now), 3000);
+  // a past date floors at 0
+  assert.equal(parseRetryAfter("Thu, 01 Jan 2026 00:00:00 GMT", now + 10_000), 0);
+});
+
+test("a 503 with Retry-After honours it over linear backoff", async () => {
+  const delays: number[] = [];
+  const mt = makeMockTransport(() => ({
+    status: 503,
+    headers: { "retry-after": "2" },
+    body: Buffer.from("{}"),
+  }));
+  const e = new RequestEngine({
+    transport: mt.transport,
+    maxRetries: 1,
+    sleep: async (ms) => {
+      delays.push(ms);
+    },
+  });
+  await assert.rejects(() => e.getJson("/x"), LobbyApiError);
+  assert.deepEqual(delays, [2000]); // honoured Retry-After (2s), not linear 200ms
+});
+
+test("without Retry-After, retries use linear backoff", async () => {
+  const delays: number[] = [];
+  const mt = makeMockTransport(() => jsonResponse({ detail: "busy" }, 503));
+  const e = new RequestEngine({
+    transport: mt.transport,
+    maxRetries: 3,
+    retryDelayMs: 100,
+    sleep: async (ms) => {
+      delays.push(ms);
+    },
+  });
+  await assert.rejects(() => e.getJson("/x"), LobbyApiError);
+  assert.deepEqual(delays, [100, 200, 300]); // linear: retryDelayMs * attempt
 });
 
 test("a retried request that then succeeds resolves", async () => {

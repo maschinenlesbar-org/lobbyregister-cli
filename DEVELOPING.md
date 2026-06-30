@@ -141,8 +141,11 @@ subprocess.
   had an unexpected content type.
 
 **Retry / backoff.** Transient `429` (rate-limited) and `503` responses are
-retried automatically with linear backoff. Count via `--max-retries` /
-`maxRetries` (default `2`). `LobbyApiError` exposes `isRetryable`.
+retried automatically. A server-provided `Retry-After` header is honoured (both
+the delta-seconds and HTTP-date forms, clamped to a 60 s ceiling); without one,
+the client falls back to linear backoff (`retryDelayMs * attempt`). Count via
+`--max-retries` / `maxRetries` (default `2`). `LobbyApiError` exposes
+`isRetryable`.
 
 **maxResponseBytes.** A hard cap on response body size (default 100 MiB; `0` =
 unlimited) guarding against memory exhaustion from a hostile or buggy endpoint.

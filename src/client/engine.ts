@@ -62,6 +62,31 @@ function stripSensitiveHeaders(headers: Record<string, string>): void {
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
+// Upper bound on a server-dictated Retry-After delay, so a hostile or misbehaving
+// endpoint cannot park the client for an arbitrarily long time.
+const MAX_RETRY_AFTER_MS = 60_000;
+
+/**
+ * Parse an HTTP `Retry-After` header into a delay in milliseconds. Supports both
+ * forms from RFC 9110: a delta in seconds (`Retry-After: 5`) and an HTTP-date
+ * (`Retry-After: Wed, 21 Oct 2026 07:28:00 GMT`). Returns `undefined` when the
+ * header is absent or unparseable (so the caller falls back to linear backoff),
+ * and clamps to `[0, MAX_RETRY_AFTER_MS]`.
+ */
+export function parseRetryAfter(value: string | undefined, now: number = Date.now()): number | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  if (trimmed === "") return undefined;
+  if (/^\d+$/.test(trimmed)) {
+    return Math.min(Number(trimmed) * 1000, MAX_RETRY_AFTER_MS);
+  }
+  const dateMs = Date.parse(trimmed);
+  if (!Number.isNaN(dateMs)) {
+    return Math.min(Math.max(dateMs - now, 0), MAX_RETRY_AFTER_MS);
+  }
+  return undefined;
+}
+
 export class RequestEngine {
   private readonly baseUrl: string;
   private readonly transport: Transport;
@@ -136,7 +161,14 @@ export class RequestEngine {
       const retryable = status === 429 || status === 503;
       if (retryable && attempt < this.maxRetries) {
         attempt += 1;
-        await this.sleep(this.retryDelayMs * attempt);
+        // Honour a server-provided Retry-After if present (delta-seconds or an
+        // HTTP-date), otherwise fall back to linear backoff. A `Retry-After: 0`
+        // is respected as an immediate retry (?? only falls through on absent).
+        const retryAfterHeader = response.headers["retry-after"];
+        const retryAfterMs = parseRetryAfter(
+          typeof retryAfterHeader === "string" ? retryAfterHeader : undefined,
+        );
+        await this.sleep(retryAfterMs ?? this.retryDelayMs * attempt);
         continue;
       }
 
