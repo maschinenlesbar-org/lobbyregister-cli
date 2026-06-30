@@ -215,3 +215,23 @@ test("a 3xx with no Location header surfaces as a LobbyApiError", async () => {
     (err) => err instanceof LobbyApiError && err.status === 302,
   );
 });
+
+test("exceeding maxRedirects raises a clear LobbyNetworkError, not a bare 3xx", async () => {
+  let calls = 0;
+  const mt = makeMockTransport(() => {
+    calls += 1;
+    return redirectResponse("/loop");
+  });
+  const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport, maxRedirects: 2 });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err) => err instanceof LobbyNetworkError && /maximum of 2 redirects/.test((err as Error).message),
+  );
+  assert.equal(calls, 3); // initial + 2 follows, then the limit is hit
+});
+
+test("maxRedirects: 0 refuses to follow even the first redirect", async () => {
+  const mt = makeMockTransport(() => redirectResponse("/moved"));
+  const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport, maxRedirects: 0 });
+  await assert.rejects(() => e.getJson("/x"), LobbyNetworkError);
+});

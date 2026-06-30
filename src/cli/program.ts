@@ -49,6 +49,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
     .option("--timeout <ms>", "per-request timeout in milliseconds", parseIntArg, 30_000)
     .option("--user-agent <ua>", "User-Agent header value")
     .option("--max-retries <n>", "retries for transient 429/503 responses", parseIntArg, 2)
+    .option("--max-redirects <n>", "HTTP redirects to follow (0 = none)", parseIntArg, 5)
     .option(
       "--max-response-bytes <n>",
       "cap response body size in bytes (0 = unlimited)",

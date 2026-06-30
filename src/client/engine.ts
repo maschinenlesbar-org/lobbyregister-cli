@@ -173,9 +173,17 @@ export class RequestEngine {
       }
 
       // Follow redirects, resolving the Location relative to the current URL.
-      if (status >= 300 && status < 400 && redirects < this.maxRedirects) {
+      if (status >= 300 && status < 400) {
         const location = response.headers["location"];
         if (typeof location === "string" && location.length > 0) {
+          // A redirect we cannot follow because the budget is spent: surface a
+          // clear "too many redirects" error rather than a bare 3xx status (which
+          // normally implies an *unfollowed* redirect and is confusing here).
+          if (redirects >= this.maxRedirects) {
+            throw new LobbyNetworkError(
+              `Exceeded the maximum of ${this.maxRedirects} redirects (last from ${url}).`,
+            );
+          }
           const nextUrl = new URL(location, url);
           // Credential-strip guard: if the redirect target is a different origin,
           // drop any sensitive headers so Authorization/cookie-style credentials
