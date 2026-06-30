@@ -12,12 +12,13 @@ import { action, parseIntArg, renderJson } from "../shared.js";
  * trimmed. With neither flag set the envelope is returned unchanged.
  */
 function paginate(result: SearchResult, page?: number, pageSize?: number): SearchResult {
-  if (pageSize === undefined && page === undefined) return result;
+  // `--page` without `--page-size` is rejected up front (see the action), so by
+  // here either both are set or only `--page-size` is.
+  if (pageSize === undefined) return result;
   // A 1-based page number; default to the first page when only --page-size is set.
   const effectivePage = page !== undefined ? Math.max(page, 1) : 1;
-  // Without an explicit size, --page alone slices from that page to the end.
-  const start = pageSize !== undefined ? (effectivePage - 1) * pageSize : 0;
-  const end = pageSize !== undefined ? start + pageSize : undefined;
+  const start = (effectivePage - 1) * pageSize;
+  const end = start + pageSize;
   return { ...result, results: result.results.slice(start, end) };
 }
 
@@ -35,9 +36,18 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         'e.g. `search -- -foo` searches for "-foo".',
     )
     .action(
-      action(deps, async ({ client, global, opts }, [query]) => {
+      action(deps, async ({ client, global, opts, command }, [query]) => {
         const page = opts["page"] as number | undefined;
         const pageSize = opts["pageSize"] as number | undefined;
+        // `--page` alone has no meaning: paging is a client-side slice, and an
+        // offset cannot be computed without a page size. Reject it as a usage
+        // error instead of silently returning the whole result set.
+        if (page !== undefined && pageSize === undefined) {
+          command.error("--page requires --page-size.", {
+            exitCode: 2,
+            code: "lobbyregister.pageWithoutPageSize",
+          });
+        }
         const result = await client.search({
           q: query,
           page,

@@ -60,6 +60,8 @@ export interface ActionContext {
   global: GlobalOptions;
   /** This command's own parsed options. */
   opts: Record<string, unknown>;
+  /** The commander command, e.g. for `command.error()` usage errors. */
+  command: Command;
 }
 
 /**
@@ -79,6 +81,6 @@ export function action(
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
     const client = deps.createClient(toEngineOptions(global));
-    await fn({ client, global, opts: command.opts() }, positionals);
+    await fn({ client, global, opts: command.opts(), command }, positionals);
   };
 }

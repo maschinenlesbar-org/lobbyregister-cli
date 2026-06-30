@@ -44,16 +44,42 @@ test("count prints the resultCount", async () => {
   assert.deepEqual(JSON.parse(cli.out.join("\n")), { query: "Energie", resultCount: 99 });
 });
 
-test("search forwards --page and --sort to the API", async () => {
+test("search forwards --page, --page-size and --sort to the API", async () => {
   const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
   const code = await run(
-    ["search", "Energie", "--page", "3", "--sort", "REGISTRATION_DESC"],
+    ["search", "Energie", "--page", "3", "--page-size", "5", "--sort", "REGISTRATION_DESC"],
     cli.deps,
   );
   assert.equal(code, 0);
   const url = new URL(cli.mt.last().url);
   assert.equal(url.searchParams.get("page"), "3");
+  assert.equal(url.searchParams.get("pageSize"), "5");
   assert.equal(url.searchParams.get("sort"), "REGISTRATION_DESC");
+});
+
+test("--page without --page-size is a usage error (exit 2)", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 20, results: [] }));
+  const code = await run(["search", "x", "--page", "2"], cli.deps);
+  assert.equal(code, 2);
+  assert.match(cli.err.join("\n"), /--page requires --page-size/);
+});
+
+test("--page-size alone slices the first page client-side", async () => {
+  const results = Array.from({ length: 20 }, (_, i) => ({ n: i }));
+  const cli = makeCli(() => jsonResponse({ resultCount: 20, results }));
+  await run(["--compact", "search", "x", "--page-size", "5", "--results-only"], cli.deps);
+  const printed = JSON.parse(cli.out.join("\n"));
+  assert.equal(printed.length, 5);
+  assert.deepEqual(printed[0], { n: 0 });
+});
+
+test("--page with --page-size slices the requested page client-side", async () => {
+  const results = Array.from({ length: 20 }, (_, i) => ({ n: i }));
+  const cli = makeCli(() => jsonResponse({ resultCount: 20, results }));
+  await run(["--compact", "search", "x", "--page", "3", "--page-size", "5", "--results-only"], cli.deps);
+  const printed = JSON.parse(cli.out.join("\n"));
+  assert.equal(printed.length, 5);
+  assert.deepEqual(printed[0], { n: 10 });
 });
 
 test("the `help` command and `help <subcommand>` exit 0", async () => {
