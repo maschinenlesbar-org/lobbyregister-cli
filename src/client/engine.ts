@@ -4,7 +4,7 @@
 
 import { nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { LobbyApiError, LobbyParseError } from "./errors.js";
+import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "./errors.js";
 
 export const DEFAULT_BASE_URL = "https://www.lobbyregister.bundestag.de";
 const DEFAULT_USER_AGENT = "lobbyregister-cli";
@@ -89,9 +89,22 @@ export class RequestEngine {
 
   /** Build a fully-qualified URL from a path and optional query parameters. */
   buildUrl(path: string, query?: QueryParams): string {
+    // Parse the base URL so a query string or fragment carried in it cannot
+    // corrupt the request: naive string concatenation would otherwise append
+    // `/sucheJson?…` *inside* an existing `?query` value, or — worse — have the
+    // whole endpoint path swallowed by a `#fragment` (silently dropping the
+    // query). We take only the base's scheme/host/path and attach our own path
+    // and query, discarding any stray query/fragment on the base URL.
+    let base: URL;
+    try {
+      base = new URL(this.baseUrl);
+    } catch {
+      throw new LobbyNetworkError(`Invalid base URL: ${this.baseUrl}`);
+    }
+    const basePath = base.pathname.replace(/\/+$/, "");
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const qs = query ? buildQueryString(query) : "";
-    return `${this.baseUrl}${normalizedPath}${qs ? `?${qs}` : ""}`;
+    return `${base.protocol}//${base.host}${basePath}${normalizedPath}${qs ? `?${qs}` : ""}`;
   }
 
   /** Perform a request with Accept negotiation and transient-error retries. */

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine } from "../src/client/engine.js";
-import { LobbyApiError, LobbyParseError } from "../src/client/errors.js";
+import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "../src/client/errors.js";
 import {
   makeMockTransport,
   jsonResponse,
@@ -17,6 +17,27 @@ test("buildUrl normalises the path and appends the query", () => {
     e.buildUrl("/x", { a: "1", b: ["2", "3"] }),
     "https://example.test/x?a=1&b=2&b=3",
   );
+});
+
+test("buildUrl keeps a path component in the base URL", () => {
+  const e = new RequestEngine({ baseUrl: "https://example.test/api" });
+  assert.equal(e.buildUrl("/sucheJson", { q: "x" }), "https://example.test/api/sucheJson?q=x");
+});
+
+test("buildUrl ignores a fragment in the base URL (no path/query loss)", () => {
+  const e = new RequestEngine({ baseUrl: "https://example.test/api#frag" });
+  // Without the fix, the #frag would swallow /sucheJson?q=x entirely.
+  assert.equal(e.buildUrl("/sucheJson", { q: "x" }), "https://example.test/api/sucheJson?q=x");
+});
+
+test("buildUrl ignores a query string in the base URL (no malformed URL)", () => {
+  const e = new RequestEngine({ baseUrl: "https://example.test/api?foo=bar" });
+  assert.equal(e.buildUrl("/sucheJson", { q: "x" }), "https://example.test/api/sucheJson?q=x");
+});
+
+test("buildUrl rejects a syntactically invalid base URL", () => {
+  const e = new RequestEngine({ baseUrl: "not-a-url" });
+  assert.throws(() => e.buildUrl("/sucheJson"), LobbyNetworkError);
 });
 
 test("getJson parses a JSON body", async () => {
