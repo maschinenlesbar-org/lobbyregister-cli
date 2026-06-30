@@ -61,42 +61,59 @@ export const nodeHttpTransport: Transport = (request) =>
     const driver = isHttps ? https : http;
     const maxBytes = request.maxResponseBytes;
 
-    const req = driver.request(
-      url,
-      {
-        method: request.method,
-        headers: request.headers,
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        let received = 0;
-        let aborted = false;
+    // Building the request can throw synchronously when a header value is invalid
+    // (e.g. a User-Agent with a newline or a non-ASCII character — Node guards
+    // against header injection). Wrap it so that surfaces as a typed
+    // LobbyNetworkError instead of an opaque "Unexpected error".
+    let req: http.ClientRequest;
+    try {
+      req = driver.request(
+        url,
+        {
+          method: request.method,
+          headers: request.headers,
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          let received = 0;
+          let aborted = false;
 
-        res.on("data", (chunk: Buffer) => {
-          if (aborted) return;
-          received += chunk.length;
-          if (maxBytes !== undefined && received > maxBytes) {
-            aborted = true;
-            res.destroy();
-            reject(new LobbyNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
-            return;
-          }
-          chunks.push(chunk);
-        });
-        res.on("end", () => {
-          if (aborted) return;
-          resolve({
-            status: res.statusCode ?? 0,
-            headers: res.headers,
-            body: Buffer.concat(chunks),
+          res.on("data", (chunk: Buffer) => {
+            if (aborted) return;
+            received += chunk.length;
+            if (maxBytes !== undefined && received > maxBytes) {
+              aborted = true;
+              res.destroy();
+              reject(new LobbyNetworkError(`Response exceeded maxResponseBytes (${maxBytes})`));
+              return;
+            }
+            chunks.push(chunk);
           });
-        });
-        res.on("error", (err) => {
-          if (aborted) return; // we already rejected with the size-cap error
-          reject(new LobbyNetworkError(`Response stream error: ${err.message}`, { cause: err }));
-        });
-      },
-    );
+          res.on("end", () => {
+            if (aborted) return;
+            resolve({
+              status: res.statusCode ?? 0,
+              headers: res.headers,
+              body: Buffer.concat(chunks),
+            });
+          });
+          res.on("error", (err) => {
+            if (aborted) return; // we already rejected with the size-cap error
+            reject(new LobbyNetworkError(`Response stream error: ${err.message}`, { cause: err }));
+          });
+        },
+      );
+    } catch (err) {
+      reject(
+        err instanceof LobbyNetworkError
+          ? err
+          : new LobbyNetworkError(
+              `Invalid request: ${err instanceof Error ? err.message : String(err)}`,
+              { cause: err },
+            ),
+      );
+      return;
+    }
 
     if (request.timeoutMs && request.timeoutMs > 0) {
       // Node's timers are backed by a 32-bit signed integer; a larger delay emits

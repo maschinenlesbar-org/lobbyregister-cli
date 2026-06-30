@@ -61,6 +61,18 @@ test("rejects an unsupported protocol with LobbyNetworkError", async () => {
   );
 });
 
+test("an invalid header value rejects with LobbyNetworkError, not a raw throw", async () => {
+  await assert.rejects(
+    () =>
+      nodeHttpTransport({
+        method: "GET",
+        url: "http://127.0.0.1:1/x",
+        headers: { "User-Agent": "bad\nvalue" },
+      }),
+    (err) => err instanceof LobbyNetworkError && /Invalid request/.test((err as Error).message),
+  );
+});
+
 test("enforces maxResponseBytes", async () => {
   await withServer(
     (_req, res) => res.end("x".repeat(1000)),
