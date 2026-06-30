@@ -155,7 +155,7 @@ name (e.g. both `lobbyregister --compact count Energie` and
 | `-V, --version` | Print the version and exit |
 | `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`) |
 | `--timeout <ms>` | Per-request timeout in milliseconds (default `30000`) |
-| `--user-agent <ua>` | `User-Agent` header value |
+| `--user-agent <ua>` | `User-Agent` header value (default `lobbyregister-cli`) |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses (default `2`) |
 | `--max-redirects <n>` | HTTP redirects to follow (`0` = none; default `5`) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default ~100 MiB) |
