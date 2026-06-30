@@ -75,7 +75,8 @@ lobbyregister search Pharma --sort REGISTRATION_DESC
 
 Common `--sort` values: `RELEVANCE_DESC`, `REGISTRATION_DESC`,
 `REGISTRATION_ASC`. The value is passed through verbatim and is not validated
-client-side; an unrecognised value is silently ignored by the API.
+client-side; an unrecognised value is silently ignored by the API (HTTP `200`,
+default ordering), so a bad sort never raises a `400` — it just won't reorder.
 
 ### 5. Page through a large result set
 

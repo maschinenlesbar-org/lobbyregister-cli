@@ -129,7 +129,8 @@ do the same thing.
 
 > **Note on `--sort`** — the value is passed through verbatim and not validated
 > client-side. An unrecognised value is silently ignored by the live API (HTTP
-> `200`), so a typo won't raise an error.
+> `200`) and the results fall back to the default ordering — so a typo won't
+> raise an error or an exit-`1` `400`; it just won't sort the way you asked.
 
 > **Note on `--page` / `--page-size`** — the live endpoint returns all matches
 > regardless of these parameters; the CLI slices the `results` array client-side.
