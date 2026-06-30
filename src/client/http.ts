@@ -129,7 +129,19 @@ export const nodeHttpTransport: Transport = (request) =>
 
     req.on("error", (err) => {
       // A timeout destroy already passes an LobbyNetworkError; don't double-wrap.
-      reject(err instanceof LobbyNetworkError ? err : new LobbyNetworkError(err.message, { cause: err }));
+      if (err instanceof LobbyNetworkError) {
+        reject(err);
+        return;
+      }
+      // A TLS handshake against a plaintext server fails with EPROTO ("wrong
+      // version number"). The raw OpenSSL message is inscrutable, so add a hint
+      // pointing at the most likely cause: an https:// base URL for an http host.
+      const code = (err as NodeJS.ErrnoException).code;
+      const hint =
+        code === "EPROTO"
+          ? " (the server may not speak TLS — try an http:// base URL)"
+          : "";
+      reject(new LobbyNetworkError(`${err.message}${hint}`, { cause: err }));
     });
 
     if (request.body !== undefined) req.write(request.body);

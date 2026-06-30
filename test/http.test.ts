@@ -54,6 +54,20 @@ test("a timeout beyond the 32-bit timer limit is clamped, not rejected", async (
   );
 });
 
+test("an https request to a plaintext server hints at the protocol mismatch", async () => {
+  await withServer(
+    (_req, res) => res.end("ok"),
+    async (baseUrl) => {
+      const httpsUrl = baseUrl.replace(/^http:/, "https:");
+      await assert.rejects(
+        () => nodeHttpTransport({ method: "GET", url: `${httpsUrl}/x` }),
+        (err) =>
+          err instanceof LobbyNetworkError && /try an http:\/\/ base URL/.test((err as Error).message),
+      );
+    },
+  );
+});
+
 test("rejects an unsupported protocol with LobbyNetworkError", async () => {
   await assert.rejects(
     () => nodeHttpTransport({ method: "GET", url: "ftp://example.test/x" }),
