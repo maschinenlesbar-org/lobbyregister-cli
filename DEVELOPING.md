@@ -57,8 +57,8 @@ try {
 new LobbyregisterClient({
   baseUrl: "https://www.lobbyregister.bundestag.de",
   timeoutMs: 15_000,
-  maxRetries: 3,              // 429 / 503 are retried with linear backoff
-  maxResponseBytes: 50 << 20, // abort responses larger than 50 MiB (0 = unlimited)
+  maxRetries: 3,              // 429 / 503 retried (Retry-After honoured, else linear backoff)
+  maxResponseBytes: 50 << 20, // cap at 50 MiB — overrides the 100 MiB default (0 = unlimited)
   userAgent: "my-app/1.0",
   headers: { Authorization: "Bearer …" }, // extra headers on every request
   transport: customTransport, // inject your own HTTP transport
