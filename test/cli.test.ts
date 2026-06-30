@@ -106,6 +106,16 @@ test("no command (auto-help) and unknown command/option exit 2", async () => {
   }
 });
 
+test("a near-miss command or option suggests the closest match", async () => {
+  const cmd = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["serch", "x"], cmd.deps), 2);
+  assert.match(cmd.err.join("\n"), /Did you mean search\?/);
+
+  const opt = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["search", "x", "--sory", "X"], opt.deps), 2);
+  assert.match(opt.err.join("\n"), /Did you mean --sort\?/);
+});
+
 test("a 404 from the API maps to exit code 4", async () => {
   const cli = makeCli(() => jsonResponse({}, 404));
   const code = await run(["search", "x"], cli.deps);

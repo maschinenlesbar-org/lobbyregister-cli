@@ -56,9 +56,17 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
       100 * 1024 * 1024,
     )
     .option("--compact", "print JSON on a single line instead of pretty-printed")
-    .showHelpAfterError();
+    .showHelpAfterError()
+    // On an unknown option or command, point at the closest known one
+    // ("(Did you mean --results-only?)") instead of a bare "unknown option".
+    .showSuggestionAfterError();
 
   registerSearchCommands(program, deps);
+
+  // commander resolves "did you mean" against the command that owns the option,
+  // so the program-level setting does not reach a subcommand's own options
+  // (e.g. `search --results` -> `--results-only`). Propagate it to each child.
+  for (const child of program.commands) child.showSuggestionAfterError();
 
   return program;
 }
