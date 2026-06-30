@@ -33,17 +33,25 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
     return 0;
   } catch (err) {
     if (err instanceof CommanderError) {
-      // An explicitly requested --help / --version is a successful, intentional
-      // output: exit 0.
-      if (err.code === "commander.helpDisplayed" || err.code === "commander.version") {
+      // An explicitly requested help/version is a successful, intentional output:
+      // exit 0. This covers `--help`/`-h` (commander.helpDisplayed), `--version`
+      // (commander.version), and the `help` / `help <subcommand>` command — the
+      // last raises commander.help but with exitCode 0 (commander's own verdict
+      // that it succeeded). The no-command auto-help raised by help({error:true})
+      // also uses commander.help but with exitCode 1, so it is NOT caught here.
+      if (
+        err.code === "commander.helpDisplayed" ||
+        err.code === "commander.version" ||
+        (err.code === "commander.help" && err.exitCode === 0)
+      ) {
         return 0;
       }
       // Everything else from commander is a usage error: an unknown option, an
       // unknown/missing command, a bad argument value, or the auto-help shown
-      // when no command was given (code "commander.help" via help({error:true})).
-      // Map these to a dedicated exit code (2, the conventional CLI usage-error
-      // code) so scripts can tell a usage mistake from a runtime/network error
-      // (1) or a 404 (4), rather than collapsing them all onto 1.
+      // when no command was given. Map these to a dedicated exit code (2, the
+      // conventional CLI usage-error code) so scripts can tell a usage mistake
+      // from a runtime/network error (1) or a 404 (4), rather than collapsing
+      // them all onto 1.
       return USAGE_ERROR_EXIT_CODE;
     }
     if (err instanceof LobbyApiError) {

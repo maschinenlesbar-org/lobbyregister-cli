@@ -56,6 +56,30 @@ test("search forwards --page and --sort to the API", async () => {
   assert.equal(url.searchParams.get("sort"), "REGISTRATION_DESC");
 });
 
+test("the `help` command and `help <subcommand>` exit 0", async () => {
+  for (const argv of [["help"], ["help", "search"], ["help", "count"]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(argv, cli.deps);
+    assert.equal(code, 0, `expected exit 0 for ${JSON.stringify(argv)}`);
+  }
+});
+
+test("--help / -h / --version / -V exit 0", async () => {
+  for (const argv of [["--help"], ["-h"], ["--version"], ["-V"], ["search", "--help"]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(argv, cli.deps);
+    assert.equal(code, 0, `expected exit 0 for ${JSON.stringify(argv)}`);
+  }
+});
+
+test("no command (auto-help) and unknown command/option exit 2", async () => {
+  for (const argv of [[], ["frobnicate"], ["search", "x", "--nope"]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(argv, cli.deps);
+    assert.equal(code, 2, `expected exit 2 for ${JSON.stringify(argv)}`);
+  }
+});
+
 test("a 404 from the API maps to exit code 4", async () => {
   const cli = makeCli(() => jsonResponse({}, 404));
   const code = await run(["search", "x"], cli.deps);
