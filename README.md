@@ -159,6 +159,10 @@ do the same thing.
   strings.
 - **Empty `results`** — the search matched nothing; broaden the keyword or drop
   filters.
+- **`Exceeded the maximum of N redirects`** — the host returned a redirect chain
+  longer than `--max-redirects` (default `5`). The client follows redirects,
+  including across hosts (credential headers are stripped on a cross-origin hop);
+  raise the limit or stop following with `--max-redirects 0`.
 - **Search a term starting with a dash** — end the options with `--`, e.g.
   `lobbyregister search -- -Energie`.
 
