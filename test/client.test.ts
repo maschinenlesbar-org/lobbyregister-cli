@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LobbyregisterClient } from "../src/client/client.js";
-import { LobbyApiError } from "../src/client/errors.js";
+import { LobbyApiError, LobbyParseError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>): LobbyregisterClient {
@@ -44,6 +44,16 @@ test("search with an empty-string query sends q= (distinct from omitting q)", as
   const url = new URL(mt.last().url);
   assert.equal(url.searchParams.get("q"), "");
   assert.ok(url.search.includes("q="));
+});
+
+test("search rejects a valid-JSON body of the wrong shape", async () => {
+  const mt = constantJson({ foo: "bar" }); // 200, but not a SearchResult envelope
+  await assert.rejects(() => clientWith(mt).search({ q: "x" }), LobbyParseError);
+});
+
+test("count rejects a body whose resultCount is not a number", async () => {
+  const mt = constantJson({ resultCount: "lots", results: [] });
+  await assert.rejects(() => clientWith(mt).count("x"), LobbyParseError);
 });
 
 test("a 404 raises LobbyApiError with status 404", async () => {
