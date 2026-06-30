@@ -154,8 +154,9 @@ do the same thing.
 - **Exit `1` / network error** — connectivity, DNS, or a timeout. Try again, or
   raise the limit with `--timeout 60000`.
 - **Exit `1` with a `400`** — the API rejected the request. The CLI prints the
-  API's error detail and a hint to check `--sort`; verify the sort value is a
-  recognised string.
+  API's error detail when it returns one; otherwise it prints a hint to check
+  `--sort` and other option values. Verify the parameter values are recognised
+  strings.
 - **Empty `results`** — the search matched nothing; broaden the keyword or drop
   filters.
 - **Search a term starting with a dash** — end the options with `--`, e.g.
