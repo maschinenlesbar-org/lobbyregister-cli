@@ -235,3 +235,53 @@ test("maxRedirects: 0 refuses to follow even the first redirect", async () => {
   const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport, maxRedirects: 0 });
   await assert.rejects(() => e.getJson("/x"), LobbyNetworkError);
 });
+
+// Control chars built via char codes so no raw control byte ever appears here.
+const ESC = String.fromCharCode(0x1b);
+const BEL = String.fromCharCode(0x07);
+const C1 = String.fromCharCode(0x9b); // a C1 control (CSI)
+
+/** True if the string contains any C0/C1 control char except tab/newline. */
+function hasControlChars(s: string): boolean {
+  return [...s].some((c) => {
+    const n = c.charCodeAt(0);
+    return n <= 8 || (n >= 0x0b && n <= 0x1f) || (n >= 0x7f && n <= 0x9f);
+  });
+}
+
+test("error detail is stripped of terminal control characters", async () => {
+  // ESC + CSI + BEL interleaved with printable text in a JSON error body. The
+  // escaped ESC decodes into a real ESC byte, which must not reach the terminal.
+  const evil = `boom${ESC}[31mred${BEL}${C1}2J`;
+  const mt = makeMockTransport(() =>
+    jsonResponse({ detail: evil }, 500),
+  );
+  const e = new RequestEngine({ transport: mt.transport, maxRetries: 0 });
+
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err: unknown) => {
+      assert.ok(err instanceof LobbyApiError);
+      // Control bytes are gone from the structured detail and the printed message.
+      assert.ok(!hasControlChars(err.detail ?? ""));
+      assert.ok(!hasControlChars(err.message));
+      // Printable characters are preserved.
+      assert.equal(err.detail, "boom[31mred2J");
+      return true;
+    },
+  );
+});
+
+test("an unexpected content type is echoed with control characters stripped", async () => {
+  const evilType = `text/html${ESC}[2J`;
+  const mt = makeMockTransport(() => rawResponse("<html>", evilType));
+  const e = new RequestEngine({ transport: mt.transport });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err: unknown) => {
+      assert.ok(err instanceof LobbyParseError);
+      assert.ok(!hasControlChars((err as Error).message));
+      return true;
+    },
+  );
+});
