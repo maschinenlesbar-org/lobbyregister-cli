@@ -207,6 +207,29 @@ test("a cross-origin redirect strips credential headers", async () => {
   assert.equal(second["Accept"], "application/json");
 });
 
+test("a same-host https->http downgrade strips credential headers (LR-01)", async () => {
+  let calls = 0;
+  const mt = makeMockTransport(() => {
+    calls += 1;
+    // Same host and path, but downgraded to cleartext http:.
+    return calls === 1
+      ? redirectResponse("http://example.test/moved")
+      : jsonResponse({ ok: true });
+  });
+  const e = new RequestEngine({
+    baseUrl: "https://example.test",
+    transport: mt.transport,
+    headers: { Authorization: "Bearer secret", "X-API-Key": "k", Cookie: "s=1" },
+  });
+  await e.getJson("/x");
+  const second = mt.calls[1]?.headers ?? {};
+  // The origin differs only by scheme, but credentials must not ride cleartext.
+  assert.equal(new URL(mt.last().url).protocol, "http:");
+  assert.equal(second["Authorization"], undefined);
+  assert.equal(second["X-API-Key"], undefined);
+  assert.equal(second["Cookie"], undefined);
+});
+
 test("a 3xx with no Location header surfaces as a LobbyApiError", async () => {
   const mt = makeMockTransport(() => redirectWithoutLocation(302));
   const e = new RequestEngine({ transport: mt.transport });

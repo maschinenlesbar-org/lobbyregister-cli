@@ -154,9 +154,10 @@ CLI: `--max-response-bytes`.
 **Redirects & cross-origin credential stripping.** The engine follows up to
 `maxRedirects` (default `5`) HTTP redirects (`301/302/303/307/308`).
 Credential-bearing headers (`Authorization`, `Cookie`, `X-API-Key`) are stripped
-before following a redirect to a **different origin**, so they never leak to an
-arbitrary host named in a `Location` header. Same-origin redirects keep the
-headers.
+before following a redirect to a **different origin** (scheme + host + port) —
+including a same-host `https:` -> `http:` downgrade — so they never leak to an
+arbitrary host named in a `Location` header, nor cross the wire in cleartext.
+Same-origin redirects keep the headers.
 
 **Content-type guard.** A `2xx` response whose media type is not
 `application/json` (or `*+json`) is rejected as a `LobbyParseError` rather than

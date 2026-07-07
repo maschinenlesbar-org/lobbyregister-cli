@@ -210,8 +210,10 @@ export class RequestEngine {
           // are never sent to an arbitrary host named in Location. (This is what
           // fetch/curl do on cross-origin redirects.) The default transport sends
           // none of these today, but EngineOptions is a public extension surface
-          // and a future consumer could add them.
-          if (nextUrl.host !== new URL(url).host) {
+          // and a future consumer could add them. Compare full origin (scheme +
+          // host + port), not just host, so a same-host https->http *downgrade*
+          // also strips — otherwise credentials would cross the wire in cleartext.
+          if (nextUrl.origin !== new URL(url).origin) {
             stripSensitiveHeaders(headers);
           }
           url = nextUrl.toString();
