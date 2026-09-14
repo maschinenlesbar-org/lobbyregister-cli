@@ -39,16 +39,19 @@ nesting of the revolving-door field).
 
 ### Plugin marketplace (recommended)
 
-This repo is a Claude Code **plugin marketplace**, so installation is two commands inside
-Claude Code:
+The skills are published as the `lobbyregister` plugin in the
+[maschinenlesbar.org plugin marketplace](https://github.com/maschinenlesbar-org/plugins),
+which lists the plugins for all maschinenlesbar.org CLIs. Installation is two commands
+inside Claude Code:
 
 ```
-/plugin marketplace add maschinenlesbar-org/lobbyregister-cli
-/plugin install lobbyregister@lobbyregister-skills
+/plugin marketplace add maschinenlesbar-org/plugins
+/plugin install lobbyregister@maschinenlesbar
 ```
 
-The first command registers the marketplace; the second installs the `lobbyregister`
-plugin, which bundles all five skills. Update later with `/plugin marketplace update`.
+The first command registers the marketplace (once, for all maschinenlesbar.org
+plugins); the second installs the `lobbyregister` plugin, which bundles all five
+skills. Update later with `/plugin marketplace update maschinenlesbar`.
 
 ### Manual (copy the skill folders)
 
