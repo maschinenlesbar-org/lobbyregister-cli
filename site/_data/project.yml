@@ -1,0 +1,15 @@
+# The only repo-specific texts of the website. Everything else comes from the
+# repository: the English intro from README.md, the commands from the built CLI.
+
+# How the API is accessed: open | key (env: VAR) | account (token, user, password: VARs)
+access:
+  type: open
+
+de:
+  # German version of the README's intro paragraph. Keep it in step with README.md.
+  intro: >-
+    Das **Lobbyregister** des Bundestages direkt im Terminal durchsuchen. `lobbyregister` ist
+    ein Kommandozeilen-Tool für die offene Such-API des
+    [Lobbyregisters](https://www.lobbyregister.bundestag.de/): registrierte
+    Interessenvertretungen und Organisationen nach Stichwort finden, ihre Anzahl ermitteln und
+    die Ergebnisse direkt an [`jq`](https://jqlang.github.io/jq/) weitergeben.

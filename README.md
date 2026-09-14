@@ -4,6 +4,8 @@
 [![Release](https://github.com/maschinenlesbar-org/lobbyregister-cli/actions/workflows/release.yml/badge.svg)](https://github.com/maschinenlesbar-org/lobbyregister-cli/actions/workflows/release.yml)
 [![npm](https://img.shields.io/npm/v/@maschinenlesbar.org/lobbyregister-cli)](https://www.npmjs.com/package/@maschinenlesbar.org/lobbyregister-cli)
 
+**Website:** [English](https://maschinenlesbar-org.github.io/lobbyregister-cli/) · [Deutsch](https://maschinenlesbar-org.github.io/lobbyregister-cli/de/) — command reference, guides and API docs
+
 Search Germany's federal **register of interest representatives** (lobbyists)
 from your terminal. `lobbyregister` is a command-line tool for the open
 [Lobbyregister](https://www.lobbyregister.bundestag.de/) search API — find
