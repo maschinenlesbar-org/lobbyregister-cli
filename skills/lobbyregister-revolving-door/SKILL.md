@@ -45,12 +45,19 @@ Then keep only entries flagged as former office-holders:
 jq -c '[ .[] | select(.lobbyistIdentity.recentGovernmentFunctionPresent == true) ]' /tmp/rd.json
 ```
 
-> **The flag lives on `lobbyistIdentity`, and is usually on `NATURAL` (individual)
-> entries.** `recentGovernmentFunctionPresent === true` is the gate. Most matches have
-> `lobbyistIdentity.identity === "NATURAL"`, but an organisation can carry it too — don't
-> pre-filter on identity, filter on the flag. The flag is **sparse**: a topic search may
-> return only a handful (e.g. 2 of 402 for Wasserstoff), and that small count is itself the
-> finding.
+> **The flag lives on `lobbyistIdentity`, and is set on `NATURAL` (individual) entries.**
+> `recentGovernmentFunctionPresent === true` is the gate. Every flagged entry was
+> `lobbyistIdentity.identity === "NATURAL"` on 2026-09-15; organisations carry `null`, and
+> non-flagged individuals `false`. Filter on `== true` (which handles both), not on
+> identity. The flag is **sparse**: a topic search may return only a handful (e.g. 2 of 402
+> for Wasserstoff), and that small count is itself the finding.
+
+> **A keyword hit isn't always visible in the returned data.** The search also matches text
+> that `/sucheJson` doesn't return, such as the activity description on the entry's register
+> page: of 216 results for `künstliche Intelligenz` on 2026-09-15, 200 contained none of
+> "Intelligenz", "künstlich", "KI" or "AI" anywhere in their JSON. Read a topic set as
+> "entries whose register text mentions the term", not "organisations that mainly lobby on
+> it"; open `detailsPageUrl` to see why an entry matched.
 
 ## Step 2 — Read the office detail
 
@@ -69,7 +76,8 @@ The detail is under `lobbyistIdentity.recentGovernmentFunction`:
 >
 > - `HOUSE_OF_REPRESENTATIVES` / `Bundestag` → `houseOfRepresentatives.function.de`
 >   (e.g. `Mitglied des Deutschen Bundestages`, or `Funktion für eine Fraktion/Gruppe im
->   Deutschen Bundestag`). **This is the common case** (~25 of 36 entries register-wide).
+>   Deutschen Bundestag`). **This is the common case** (25 of the 38 flagged entries
+>   register-wide on 2026-09-15; the rest were 11 Bundesverwaltung and 2 Bundesregierung).
 >   Note the `.code` is `HOUSE_OF_REPRESENTATIVES`, *not* `BUNDESTAG` — only the `.de`
 >   label reads "Bundestag".
 > - `FEDERAL_GOVERNMENT` / `Bundesregierung` → `federalGovernment.function.de` (an
