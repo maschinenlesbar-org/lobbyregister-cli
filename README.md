@@ -179,7 +179,7 @@ These apply to every command and may be given before *or* after it:
 | `-h, --help` | Show help for the program or a command |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
 | `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`) |
-| `--timeout <ms>` | Per-request timeout (default `30000`) |
+| `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value (default `lobbyregister-cli`) |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses (default `2`) |
 | `--max-redirects <n>` | HTTP redirects to follow (`0` = none; default `5`) |
