@@ -49,7 +49,10 @@ schreibt nie.
 **`q` (Suchanfrage).** Der Freitext-Suchbegriff. Optional – ein fehlendes oder leeres `q`
 liefert das gesamte Register. In der CLI ist es das Positionsargument `[query]` von
 `search` und `count`. Ein Suchbegriff, der mit einem Bindestrich beginnt, muss nach einem
-Trenner `--` übergeben werden (z. B. `search -- -Energie`).
+Trenner `--` übergeben werden (z. B. `search -- -Energie`). Der Server durchsucht auch
+Text, den die Antwort nicht enthält (etwa die Tätigkeitsbeschreibung auf der Registerseite
+eines Eintrags); ein Eintrag kann also passen, ohne dass der Begriff irgendwo in seinem JSON
+vorkommt.
 
 **`sort`.** Die Sortierreihenfolge der Ergebnisse; wird unverändert weitergegeben und
 clientseitig **nicht** geprüft. Beobachtete Werte: `RELEVANCE_DESC` (Standard, nach
@@ -118,8 +121,9 @@ optionalen Suchbegriff und die globalen Optionen entgegen.
 Erfolg; `2` bei Aufruf- bzw. Argumentfehlern (unbekannter oder fehlender Befehl,
 unbekannte Option, ungültiger Optionswert oder gar kein Befehl angegeben); `4` bei einem
 `404` der API; `1` bei jedem anderen Fehler (Netzwerk, Parsen oder ein anderer
-HTTP-Status als 404). Ein `400` endet mit `1` und gibt die Fehlerdetails der API sowie
-einen Hinweis aus, `--sort` zu prüfen. `--help` / `--version` liefern `0`.
+HTTP-Status als 404). Ein `400` endet mit `1` und gibt die Fehlerdetails der API aus;
+nur wenn die API keine Details sendet, ergänzt die CLI einen Hinweis, `--sort` zu prüfen.
+`--help` / `--version` liefern `0`.
 
 ---
 

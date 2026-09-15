@@ -48,7 +48,9 @@ never writes.
 **`q` (query).** The free-text query string. Optional — an absent or empty `q`
 returns the whole register. On the CLI it is the positional `[query]` argument to
 `search` and `count`. A query beginning with a dash must be passed after a `--`
-separator (e.g. `search -- -Energie`).
+separator (e.g. `search -- -Energie`). The server also matches text that the response
+doesn't contain (such as the activity description on an entry's register page), so an
+entry can match without the term appearing anywhere in its JSON.
 
 **`sort`.** The result sort order, passed through verbatim and **not** validated
 client-side. Observed values: `RELEVANCE_DESC` (default relevance ranking),
@@ -117,8 +119,8 @@ the optional query plus the global options.
 `2` usage / argument-validation errors (unknown/missing command, unknown option,
 invalid option value, or no command given); `4` on `404` from the API; `1` for
 any other error (network, parse, or other non-404 HTTP status). A `400` exits `1`
-and prints the API's error detail plus a hint to check `--sort`. `--help` /
-`--version` return `0`.
+and prints the API's error detail; only when the API sends no detail does the CLI add
+a hint to check `--sort`. `--help` / `--version` return `0`.
 
 ---
 
