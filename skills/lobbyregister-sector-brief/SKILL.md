@@ -54,6 +54,16 @@ lobbyregister search Wasserstoff --results-only --compact > /tmp/sector.json
 > say which term you used. A bare `search` with no query returns the **entire** register
 > (~6 900 entries) — only do that when the user truly wants "all lobbyists".
 
+> **A keyword hit isn't always visible in the returned data.** The search also matches text
+> that `/sucheJson` doesn't return, such as the activity description on the entry's register
+> page: of 216 results for `künstliche Intelligenz` on 2026-09-15, 200 contained none of
+> "Intelligenz", "künstlich", "KI" or "AI" anywhere in their JSON. Read a topic set as
+> "entries whose register text mentions the term", not "organisations that mainly lobby on
+> it"; open `detailsPageUrl` to see why an entry matched.
+>
+> To tighten a set, keep entries that also declare a matching `fieldsOfInterest[].de` tag
+> (e.g. `Krankenversicherung`) and say that you filtered.
+
 ## Step 2 — The fields that matter
 
 Each entry is a large, schema-versioned object. The keys you actually brief on:
@@ -81,8 +91,9 @@ Build the briefing numbers from the array — don't enumerate all 400 entries:
   (e.g. "233 companies, 49 industry associations, 34 NGOs…"). This is the single most
   informative summary of who lobbies a sector.
 - **Top spenders.** Sort by `financialExpenses.financialExpensesEuro.to` (descending),
-  treating `null` as 0, and list the top ~10. **The value is a range** like
-  `{from: 12730001, to: 12740000}` — present it as a band ("€12.73M–€12.74M"), never a
+  treating `null` as 0, and list the top ~10. The spend is the entry's **total** declared
+  lobbying spend across all its topics, not spend on this topic — say so. **The value is a
+  range** like `{from: 12730001, to: 12740000}` — present it as a band ("€12.73M–€12.74M"), never a
   point figure. Many entries are `{from: 0, to: 0}` (declared zero or below threshold).
 - **Field-of-interest tags.** Tally `fieldsOfInterest[].de` across the set to show the
   sub-themes within the topic (e.g. within Wasserstoff: Energienetze, Erneuerbare

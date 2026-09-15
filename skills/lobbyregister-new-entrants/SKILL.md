@@ -45,6 +45,13 @@ lobbyregister search             --sort REGISTRATION_DESC --results-only --compa
 > you filter the window yourself in Step 3. Use the German term (hydrogen → `Wasserstoff`,
 > climate → `Klimaschutz`); an English query finds little.
 
+> **A keyword hit isn't always visible in the returned data.** The search also matches text
+> that `/sucheJson` doesn't return, such as the activity description on the entry's register
+> page: of 216 results for `künstliche Intelligenz` on 2026-09-15, 200 contained none of
+> "Intelligenz", "künstlich", "KI" or "AI" anywhere in their JSON. Read a topic set as
+> "entries whose register text mentions the term", not "organisations that mainly lobby on
+> it"; open `detailsPageUrl` to see why an entry matched.
+
 ## Step 2 — The date fields (read this — they are easy to confuse)
 
 | Path | Meaning |
