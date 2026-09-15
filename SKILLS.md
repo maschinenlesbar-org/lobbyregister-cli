@@ -97,6 +97,10 @@ how to interpret it. The skills encode the non-obvious parts of this API, for ex
 - **search is German-only** — querying English words finds little; map the topic to its
   German keyword (hydrogen → `Wasserstoff`, climate → `Klimaschutz`) and a bare `search`
   with no query returns the *entire* register (~6,900 entries);
+- **a keyword selects entries, it doesn't scope their numbers** — the search also matches
+  register text the JSON doesn't carry (most results for `künstliche Intelligenz` never
+  mention the term in their data), and spend and the statement / project / contract counts
+  are totals for the whole entry, so broad associations top almost every topic table;
 - **paging is client-side** — `/sucheJson` ignores `--page`/`--page-size` and returns every
   match in one response; `resultCount` (and the `count` command) is always the true total,
   so one `search` call gives you the whole set to aggregate;
