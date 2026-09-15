@@ -40,6 +40,18 @@ lobbyregister search Energie --results-only --compact > /tmp/money.json    # top
 lobbyregister search          --results-only --compact > /tmp/money.json    # whole register
 ```
 
+> **A topic only selects the entries; the spend is not per topic.** `financialExpenses` is
+> an entry's total declared lobbying spend across everything it lobbies on, so a broad
+> association tops many topic tables. Head the table "entries matching <term>, by total
+> declared spend", never "spend on <term>".
+
+> **A keyword hit isn't always visible in the returned data.** The search also matches text
+> that `/sucheJson` doesn't return, such as the activity description on the entry's register
+> page: of 216 results for `künstliche Intelligenz` on 2026-09-15, 200 contained none of
+> "Intelligenz", "künstlich", "KI" or "AI" anywhere in their JSON. Read a topic set as
+> "entries whose register text mentions the term", not "organisations that mainly lobby on
+> it"; open `detailsPageUrl` to see why an entry matched.
+
 ## Step 2 — Extract the declared spend — it's a RANGE
 
 The number to rank on lives at:
@@ -60,15 +72,19 @@ financialExpenses.financialExpensesEuro = { "from": <int>, "to": <int> }   // or
 > - `financialExpenses.relatedFiscalYearStart` / `…End` give the **period** the figure
 >   covers — surface it so two entries' bands are comparable (most are a calendar year).
 
-A ready `jq` for the table:
+A ready `jq` for the table (active entries only; see the rules):
 
 ```bash
-jq -r 'sort_by(.financialExpenses.financialExpensesEuro.to // 0) | reverse
+jq -r 'map(select(.accountDetails.activeLobbyist != false))
+  | sort_by(.financialExpenses.financialExpensesEuro.to // 0) | reverse
   | .[0:15][]
   | [ .registerNumber,
       (.financialExpenses.financialExpensesEuro.from // "n/a"),
       (.financialExpenses.financialExpensesEuro.to   // "n/a"),
       .lobbyistIdentity.name ] | @tsv' /tmp/money.json
+
+# how many inactive entries the table left out
+jq '[.[] | select(.accountDetails.activeLobbyist == false)] | length' /tmp/money.json
 ```
 
 ## Step 3 — Context fields worth pulling per row
@@ -86,15 +102,16 @@ jq -r 'sort_by(.financialExpenses.financialExpensesEuro.to // 0) | reverse
 ## Step 4 — Present the league table
 
 ```
-Top declared lobbying spend — topic "Energie" (1,234 registered, 1,180 active)
-Figures are self-declared annual ranges (FY2025); €0–0 = below threshold / none.
+Top total declared lobbying spend — entries matching "Energie" (2,401 registered, 2,185 active; 2026-09-15)
+Figures are self-declared annual ranges (FY2025) for each entry's lobbying as a whole, not
+for "Energie"; €0–0 = below threshold / none.
 
- #  Declared spend (range)     Lobbyist                                   Type            FTE
- 1  €12.73M – €12.74M          Verbraucherzentrale Bundesverband e.V.     NGO             —
- 2  €10.27M – €10.28M          Verband der Automobilindustrie e.V.        industry assoc. 12
- 3  €9.27M – €9.28M            BDEW Bundesverband Energie/Wasser          industry assoc. …
+ #  Declared spend (range)     Lobbyist                                                  Type             FTE
+ 1  €15.83M – €15.84M          Gesamtverband der Deutschen Versicherungswirtschaft e.V.  industry assoc.  31.2
+ 2  €12.43M – €12.44M          Verbraucherzentrale Bundesverband e.V.                    NGO              75.5
+ 3  €10.27M – €10.28M          Verband der Automobilindustrie e.V.                       industry assoc.  27.3
  …
-(54 entries declared no/zero spend and are excluded from the top of this table.)
+(262 active entries declared no or zero spend; 216 inactive entries left out.)
 ```
 
 Rules:
