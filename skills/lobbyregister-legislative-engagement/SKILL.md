@@ -44,6 +44,13 @@ lobbyregister search         --results-only --compact > /tmp/le.json
 > REGISTRATION orderings), so you rank with `jq` in Step 3. Use the German term (energy →
 > `Energie`, hydrogen → `Wasserstoff`); an English query finds little.
 
+> **A keyword hit isn't always visible in the returned data.** The search also matches text
+> that `/sucheJson` doesn't return, such as the activity description on the entry's register
+> page: of 216 results for `künstliche Intelligenz` on 2026-09-15, 200 contained none of
+> "Intelligenz", "künstlich", "KI" or "AI" anywhere in their JSON. Read a topic set as
+> "entries whose register text mentions the term", not "organisations that mainly lobby on
+> it"; open `detailsPageUrl` to see why an entry matched.
+
 ## Step 2 — The three engagement metrics
 
 | Path | Meaning |
@@ -61,6 +68,15 @@ lobbyregister search         --results-only --compact > /tmp/le.json
 > So this skill ranks *how much* an entry engages, never *what it said* or *which law* —
 > be explicit about that when briefing, and don't imply you can see the substance. All
 > three can be `0`; treat missing as `0` (`// 0`) before sorting.
+>
+> **The counts are totals for the whole entry, not for the topic you searched.** A keyword
+> only selects which entries are ranked. On 2026-09-15 `lobbyregister search
+> Krankenversicherung` put Bitkom e.V. (R000672) first with 200 statements / 222 projects —
+> the same totals it shows under `search Bitkom`, spread over 90 declared fields of
+> interest — while the health insurers' own associations ranked far lower. Broad
+> cross-sector associations therefore top almost any topic. Show the number of declared fields of interest next to the counts so
+> the reader can tell a specialist from a generalist, and never call the ranking "activity
+> on the topic".
 
 ## Step 3 — Rank
 
@@ -75,11 +91,12 @@ jq -r '
         stmts: (.statements.statementsCount // 0),
         proj:  (.regulatoryProjects.regulatoryProjectsCount // 0),
         contr: (.contracts.contractsCount // 0),
+        areas: (.activitiesAndInterests.fieldsOfInterest // [] | length),
         actor: (.activitiesAndInterests.activity.de // "?"),
         reg:   .registerNumber } ]
   | sort_by(-.stmts)            # swap to -.proj or -.contr per the user ask
   | .[:15][]
-  | "\(.stmts | tostring | (" "*(4-length)) + .)  proj=\(.proj)  contr=\(.contr)  \(.name)  [\(.reg)]"
+  | "\(.stmts | tostring | (" "*(4-length)) + .)  proj=\(.proj)  contr=\(.contr)  areas=\(.areas)  \(.name)  [\(.reg)]"
 ' /tmp/le.json
 ```
 
@@ -95,16 +112,17 @@ Lead with the metric and scope, then the ranked table, then a note on what the c
 don't mean.
 
 ```
-Most legislatively active on "Energie" — ranked by statements filed (active entries)
+Entries matching "Energie", ranked by statements filed on all topics (active entries, 2026-09-15)
 
-  #  stmts  projects  contracts  who
-  1   175     230        0       BDEW Bundesverband Energie/Wasser   (industry assoc.) R0…
-  2   142     188        0       Verband der Chemischen Industrie    (industry assoc.) R0…
+  #  stmts  projects  contracts  areas  who
+  1   200     222        0        90    Bitkom e.V.                                           R000672
+  2   198     103        0        30    Bundesverband Öffentlicher Banken Deutschlands e.V.   R001169
   …
-Top by contracts (agencies lobbying for clients): Agentur X (23), …
+Top by contracts (agencies lobbying for clients): von Beust & Coll. Beratungsgesellschaft (46), …
 
-Counts = volume of engagement, not its content: the register reports how many statements /
-projects / contracts, not their text or which laws.
+Counts = each entry's total engagement across all its topics, not activity on "Energie",
+and not its content: the register reports how many statements / projects / contracts, not
+their text or which laws. areas = declared fields of interest.
 ```
 
 Rules:
@@ -114,6 +132,8 @@ Rules:
 - **Counts measure footprint, not influence or content.** Say so. Never describe *what* an
   entry argued or *which* bill — the API doesn't carry it. Offer the `detailsPageUrl` for
   anyone who wants the actual statements on the register website.
+- **Counts are entry-wide, not per topic.** In a keyword-scoped table, say the counts cover
+  all of an entry's topics and show `areas` so broad associations are recognisable.
 - Exclude `activeLobbyist === false` from the ranking by default; report how many you dropped.
 - Trim stray spaces in names; cite `registerNumber`.
 - Many entries score `0` on all three (registered but not yet recorded as engaging) — that's
