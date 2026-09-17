@@ -1,6 +1,6 @@
 {
   "name": "lobbyregister",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "German lobby-register intelligence skills powered by the lobbyregister-cli (Bundestag Lobbyregister search API).",
   "author": {
     "name": "Sebastian Schürmann",
