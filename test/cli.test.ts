@@ -168,3 +168,20 @@ test("an unparseable JSON body maps to exit code 1", async () => {
   assert.equal(code, 1);
   assert.match(cli.err.join("\n"), /parse/i);
 });
+
+test("a blank query or --sort is a usage error, before any request", async () => {
+  const cases: [string, string[]][] = [
+    ["search query", ["search", ""]],
+    ["search query (whitespace)", ["search", "   "]],
+    ["search --sort", ["search", "Energie", "--sort", ""]],
+    ["search --sort (whitespace)", ["search", "Energie", "--sort", " \t"]],
+    ["count query", ["count", ""]],
+    ["count query (whitespace)", ["count", "  "]],
+  ];
+  for (const [label, argv] of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(argv, cli.deps);
+    assert.notEqual(code, 0, label);
+    assert.equal(cli.mt.calls.length, 0, `${label}: no request`);
+  }
+});

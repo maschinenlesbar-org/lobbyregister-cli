@@ -29,6 +29,17 @@ export function parseIntArg(value: string): number {
   return n;
 }
 
+/**
+ * commander value-parser: a value that is not blank. A blank filter would
+ * otherwise be dropped and the command would silently run unfiltered.
+ */
+export function parseNonEmpty(value: string): string {
+  if (value.trim() === "") {
+    throw new InvalidArgumentError("Expected a non-empty value.");
+  }
+  return value;
+}
+
 export interface GlobalOptions {
   baseUrl?: string;
   timeout?: number;

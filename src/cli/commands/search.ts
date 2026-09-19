@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import type { CliDeps } from "../io.js";
 import type { SearchResult } from "../../client/types.js";
-import { action, parseIntArg, renderJson } from "../shared.js";
+import { action, parseIntArg, parseNonEmpty, renderJson } from "../shared.js";
 
 /**
  * Apply client-side pagination to a search envelope.
@@ -24,11 +24,12 @@ function paginate(result: SearchResult, page?: number, pageSize?: number): Searc
 
 export function registerSearchCommands(program: Command, deps: CliDeps): void {
   program
-    .command("search [query]")
+    .command("search")
     .description("Search the lobby register")
+    .argument("[query]", "free-text search term (omit to match everything)", parseNonEmpty)
     .option("--page <n>", "1-based page number (client-side paging)", parseIntArg)
     .option("--page-size <n>", "results per page (client-side paging)", parseIntArg)
-    .option("--sort <order>", 'e.g. RELEVANCE_DESC, REGISTRATION_DESC')
+    .option("--sort <order>", 'e.g. RELEVANCE_DESC, REGISTRATION_DESC', parseNonEmpty)
     .option("--results-only", "print just the results array (not the envelope)")
     .addHelpText(
       "after",
@@ -64,8 +65,9 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
     );
 
   program
-    .command("count [query]")
+    .command("count")
     .description("Count entries matching a query")
+    .argument("[query]", "free-text search term (omit to match everything)", parseNonEmpty)
     .addHelpText(
       "after",
       "\ncount takes only an optional query and the global options. Paging/sorting " +
