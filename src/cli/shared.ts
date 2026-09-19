@@ -40,6 +40,16 @@ export function parseNonEmpty(value: string): string {
   return value;
 }
 
+/** Build a commander value-parser for a non-negative integer within [min, max]. */
+export function parseBoundedInt(min: number, max: number): (value: string) => number {
+  return (value: string) => {
+    const n = parseIntArg(value);
+    if (n < min) throw new InvalidArgumentError(`Must be >= ${min}.`);
+    if (n > max) throw new InvalidArgumentError(`Must be <= ${max}.`);
+    return n;
+  };
+}
+
 export interface GlobalOptions {
   baseUrl?: string;
   timeout?: number;

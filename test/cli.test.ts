@@ -185,3 +185,15 @@ test("a blank query or --sort is a usage error, before any request", async () =>
     assert.equal(cli.mt.calls.length, 0, `${label}: no request`);
   }
 });
+
+test("--timeout accepts the largest timer Node supports and rejects one above it", async () => {
+  const ok = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["--timeout", "2147483647", "count"], ok.deps), 0);
+  assert.equal(ok.mt.last().timeoutMs, 2147483647);
+
+  const tooBig = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  const code = await run(["--timeout", "2147483648", "count"], tooBig.deps);
+  assert.notEqual(code, 0);
+  assert.equal(tooBig.mt.calls.length, 0);
+  assert.match(tooBig.err.join("\n"), /Must be <= 2147483647\./);
+});

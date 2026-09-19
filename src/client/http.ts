@@ -31,8 +31,11 @@ export interface HttpResponse {
 
 export type Transport = (request: HttpRequest) => Promise<HttpResponse>;
 
-/** Largest delay Node's setTimeout accepts without truncating (2^31 - 1 ms). */
-const MAX_TIMER_MS = 2_147_483_647;
+/**
+ * The longest delay Node's timers support (2^31 - 1 ms, about 24.8 days). A longer one
+ * prints a TimeoutOverflowWarning and fires after 1 ms, so timeouts are capped here.
+ */
+export const MAX_TIMEOUT_MS = 2_147_483_647;
 
 /**
  * Default transport. Resolves with the raw response (including non-2xx) — status
@@ -128,11 +131,11 @@ export const nodeHttpTransport: Transport = (request) =>
 
     if (request.timeoutMs && request.timeoutMs > 0) {
       // Node's timers are backed by a 32-bit signed integer; a larger delay emits
-      // a TimeoutOverflowWarning on stderr and is silently truncated. The option
-      // parser accepts values up to Number.MAX_SAFE_INTEGER, so clamp here to keep
-      // that internal warning out of the user's terminal. (~24.8 days is already
-      // an effectively-unbounded request timeout.)
-      const timeoutMs = Math.min(request.timeoutMs, MAX_TIMER_MS);
+      // a TimeoutOverflowWarning on stderr and is silently truncated. The CLI rejects
+      // a --timeout above MAX_TIMEOUT_MS; library callers can still pass one, so clamp
+      // here as defence in depth to keep that internal warning out of the user's
+      // terminal. (~24.8 days is already an effectively-unbounded request timeout.)
+      const timeoutMs = Math.min(request.timeoutMs, MAX_TIMEOUT_MS);
       timer = setTimeout(() => {
         const err = new LobbyNetworkError(`Request timed out after ${timeoutMs}ms`);
         fail(err);
