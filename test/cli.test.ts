@@ -197,3 +197,13 @@ test("--timeout accepts the largest timer Node supports and rejects one above it
   assert.equal(tooBig.mt.calls.length, 0);
   assert.match(tooBig.err.join("\n"), /Must be <= 2147483647\./);
 });
+
+test("a non-http(s) or malformed --base-url is a usage error before any request", async () => {
+  for (const bad of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(["--base-url", bad, "search", "Energie"], cli.deps);
+    assert.equal(code, 2, bad);
+    assert.equal(cli.mt.calls.length, 0, `${bad}: no request may reach the transport`);
+    assert.match(cli.err.join("\n"), /--base-url/, bad);
+  }
+});

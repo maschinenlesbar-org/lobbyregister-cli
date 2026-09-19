@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LobbyregisterClient } from "../src/client/client.js";
-import { LobbyApiError, LobbyParseError } from "../src/client/errors.js";
+import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>): LobbyregisterClient {
@@ -62,4 +62,13 @@ test("a 404 raises LobbyApiError with status 404", async () => {
     () => clientWith(mt).search({ q: "x" }),
     (err) => err instanceof LobbyApiError && err.status === 404,
   );
+});
+
+test("the client rejects a file: base URL before any request reaches a custom transport", () => {
+  const mt = makeMockTransport(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.throws(
+    () => new LobbyregisterClient({ baseUrl: "file:///etc/passwd", transport: mt.transport }),
+    LobbyNetworkError,
+  );
+  assert.equal(mt.calls.length, 0);
 });

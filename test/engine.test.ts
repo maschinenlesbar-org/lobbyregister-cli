@@ -35,9 +35,8 @@ test("buildUrl ignores a query string in the base URL (no malformed URL)", () =>
   assert.equal(e.buildUrl("/sucheJson", { q: "x" }), "https://example.test/api/sucheJson?q=x");
 });
 
-test("buildUrl rejects a syntactically invalid base URL", () => {
-  const e = new RequestEngine({ baseUrl: "not-a-url" });
-  assert.throws(() => e.buildUrl("/sucheJson"), LobbyNetworkError);
+test("a syntactically invalid base URL is rejected at construction", () => {
+  assert.throws(() => new RequestEngine({ baseUrl: "not-a-url" }), LobbyNetworkError);
 });
 
 test("getJson parses a JSON body", async () => {
@@ -307,4 +306,16 @@ test("an unexpected content type is echoed with control characters stripped", as
       return true;
     },
   );
+});
+
+test("a non-http(s) base URL is rejected at construction, before any request", () => {
+  const mt = makeMockTransport(() => jsonResponse({ ok: true }));
+  for (const baseUrl of ["file:///etc/passwd", "ftp://example.org"]) {
+    assert.throws(
+      () => new RequestEngine({ baseUrl, transport: mt.transport }),
+      (err: unknown) => err instanceof LobbyNetworkError && /Unsupported protocol/.test((err as Error).message),
+      baseUrl,
+    );
+  }
+  assert.equal(mt.calls.length, 0);
 });

@@ -9,7 +9,7 @@ import type { CliDeps } from "./io.js";
 import { defaultIO } from "./io.js";
 import { LobbyregisterClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
-import { parseBoundedInt, parseIntArg } from "./shared.js";
+import { parseBaseUrl, parseBoundedInt, parseIntArg } from "./shared.js";
 import { registerSearchCommands } from "./commands/search.js";
 
 /**
@@ -46,7 +46,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
         "(https://www.lobbyregister.bundestag.de/sucheJson)",
     )
     .version(VERSION)
-    .option("--base-url <url>", "API base URL", "https://www.lobbyregister.bundestag.de")
+    .option("--base-url <url>", "API base URL", parseBaseUrl, "https://www.lobbyregister.bundestag.de")
     .option(
       "--timeout <ms>",
       "time limit per request in milliseconds, whole response included",
