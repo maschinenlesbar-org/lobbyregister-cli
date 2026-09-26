@@ -68,12 +68,23 @@ count   [query]   count entries matching a query
 | --- | --- |
 | `[query]` | free-text search term (optional — omit to match everything) |
 | `--sort <order>` | sort order: `RELEVANCE_DESC`, `REGISTRATION_DESC`, `REGISTRATION_ASC` |
+| `--filter <attribute=value>` | register facet filter, repeatable (see below) |
 | `--page <n>` | 1-based page number (client-side paging) |
 | `--page-size <n>` | results per page (client-side paging) |
 | `--results-only` | print just the `results` array, not the envelope |
 
-`count` takes only the optional query and the global options — no `--page`,
+`count` takes the optional query, `--filter` and the global options — no `--page`,
 `--sort`, or `--results-only`.
+
+`--filter` passes the facet filters of the register's
+[website search](https://www.lobbyregister.bundestag.de/suche) to the API, e.g.
+`revolvingdoordata=true` (entries with revolving-door data for any of their people),
+`activelobbyist=false`, `fieldsofinterest=FOI_ENERGY` or
+`revolvingdoorpersontypes=ENTRUSTED_PERSON`. Values of one attribute are alternatives;
+different attributes must all match. `lobbyregister search --help` lists the attributes;
+an unknown attribute is a usage error (the API would ignore it and return everything),
+an unknown value matches nothing. The value codes are the ones in the website's search
+URL after you tick a box there.
 
 The **[Glossary](GLOSSARY.md)** explains every field and term in the response.
 
@@ -88,6 +99,10 @@ lobbyregister count Energie
 
 # Full results for a topic, newest registrations first
 lobbyregister search Pharma --sort REGISTRATION_DESC
+
+# Entries with revolving-door data (former office-holders among their people)
+lobbyregister count --filter revolvingdoordata=true
+lobbyregister search Energie --filter revolvingdoordata=true --results-only
 
 # Just the entries — no envelope — for piping into jq
 lobbyregister search Wasserstoff --results-only

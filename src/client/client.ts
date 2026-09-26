@@ -6,7 +6,8 @@
 //   client.count("Energie")
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { LobbyParseError } from "./errors.js";
+import { LobbyError, LobbyParseError } from "./errors.js";
+import { describeFilter, filterQuery, ignoredFilters, type SearchFilter } from "./filters.js";
 import type { QueryParams } from "./query.js";
 import type { SearchResult, SearchParams } from "./types.js";
 
@@ -39,15 +40,30 @@ export class LobbyregisterClient {
     this.engine = new RequestEngine(options);
   }
 
-  /** Search the register; returns the full envelope (resultCount + results). */
+  /**
+   * Search the register; returns the full envelope (resultCount + results).
+   *
+   * With `filters`, the reply must echo every filter in
+   * `searchParameters.facets`; one the register ignored (it would return the
+   * unfiltered set) throws `LobbyError`. A reply without a `facets` array cannot
+   * be checked and is passed through.
+   */
   async search(params: SearchParams = {}): Promise<SearchResult> {
-    const query: QueryParams = {};
+    const filters = params.filters ?? [];
+    const query: QueryParams = filterQuery(filters);
     if (params.q !== undefined) query["q"] = params.q;
     if (params.page !== undefined) query["page"] = params.page;
     if (params.pageSize !== undefined) query["pageSize"] = params.pageSize;
     if (params.sort !== undefined) query["sort"] = params.sort;
     const result = await this.engine.getJson<unknown>(PATH, query);
     assertSearchResult(result);
+    const ignored = ignoredFilters(filters, result.searchParameters);
+    if (ignored !== undefined && ignored.length > 0) {
+      throw new LobbyError(
+        `The register ignored the filter ${ignored.map((f) => `"${describeFilter(f)}"`).join(", ")} ` +
+          "(missing from searchParameters.facets in the reply), so the result would not be filtered.",
+      );
+    }
     return result;
   }
 
@@ -62,8 +78,8 @@ export class LobbyregisterClient {
    * envelope and offers no download saving, so switching to it would not help.
    * `resultCount` is read from whatever envelope comes back.
    */
-  async count(q?: string): Promise<number> {
-    const res = await this.search({ q, pageSize: 1 });
+  async count(q?: string, filters?: readonly SearchFilter[]): Promise<number> {
+    const res = await this.search({ q, pageSize: 1, ...(filters !== undefined ? { filters } : {}) });
     return res.resultCount;
   }
 }

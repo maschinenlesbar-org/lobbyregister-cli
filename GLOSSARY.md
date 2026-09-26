@@ -58,6 +58,20 @@ client-side. Observed values: `RELEVANCE_DESC` (default relevance ranking),
 first). The live endpoint silently ignores an unrecognised value (HTTP `200`)
 rather than rejecting it. CLI: `search --sort <order>`.
 
+**Filters (`filter[<attribute>][<value>]`).** The facet filters of the register's
+website search, which `/sucheJson` accepts as `filter[<attribute>][<value>]=true`
+and echoes back in `searchParameters.facets`. Examples: `revolvingdoordata=true`
+(an entry records a recent public office for its lobbyist, a legal representative,
+an entrusted person or a contractor — far more entries than carry the
+`recentGovernmentFunctionPresent` flag, which covers only the lobbyist),
+`revolvingdoorpersontypes`, `revolvingdoorareas`, `activelobbyist`,
+`fieldsofinterest` (`FOI_ENERGY`, sub-fields as `FOI_WORK|FOI_WORK_POLICY`),
+`activity`, `legalform`, `donationsreceived`. Values of one attribute are
+alternatives, different attributes must all match. The API ignores an unknown
+attribute (and would return everything), so the CLI accepts only the known ones;
+an unknown value matches nothing. CLI: `search`/`count --filter <attribute=value>`
+(repeatable); library: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
+
 **`page` / `pageSize`.** A 1-based page number and a page size. These exist in
 `SearchParams`, but a live probe (2026-06) showed `/sucheJson` **ignores** them:
 it always returns the full `results` array regardless. The CLI therefore applies
@@ -94,7 +108,8 @@ its name, a canonical URL, and the date it was produced.
 query, suitable for opening in a browser.
 
 **`searchParameters`.** The parameters the server interpreted for this search,
-echoed back as a JSON object.
+echoed back as a JSON object: `queryString`, `sortOrder`, `facets` (the filters it
+applied, as `{attribute, value}`) and `numberRanges`.
 
 **`jsonDocumentationUrl`.** A URL to the documentation of the JSON response
 format.
@@ -105,11 +120,12 @@ format.
 
 **`search [query]`.** Run a search and print the full **SearchResult** envelope.
 `--results-only` prints just the `results` array; `--compact` prints single-line
-JSON. Supports `--page`, `--page-size`, `--sort` (see above).
+JSON. Supports `--page`, `--page-size`, `--sort` and `--filter` (see above).
 
-**`count [query]`.** Print only the match count: `{ query, resultCount }`. A thin
-wrapper over `search` with `pageSize: 1` that reads back `resultCount`. Takes only
-the optional query plus the global options.
+**`count [query]`.** Print only the match count: `{ query, resultCount }` (with
+`filters` listed when `--filter` was given). A thin wrapper over `search` with
+`pageSize: 1` that reads back `resultCount`. Takes the optional query, `--filter` and
+the global options.
 
 ---
 

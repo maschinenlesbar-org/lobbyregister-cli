@@ -21,7 +21,7 @@ nesting of the revolving-door field).
 |---|---|---|
 | **lobbyregister-sector-brief** | Turns one topic search into a ranked briefing: actor mix (company/association/NGO/consultancy), top declared spenders, common interest tags, and transparency flags. | "who lobbies on Wasserstoff?", "which groups are registered for pharma?", "lobbying briefing on Klimaschutz" |
 | **lobbyregister-money-ranking** | "Follow the money" — ranks registered lobbyists by the declared lobbying-spend *range*, for a topic or the whole register. | "who spends the most on lobbying?", "biggest lobbying budgets in energy", "rank lobbyists by expenses" |
-| **lobbyregister-revolving-door** | Surfaces registered lobbyists who recently held a Bundestag seat or government office, with role, ministry and end date. | "which former MdBs are now lobbyists?", "revolving door in the register", "ex-officials lobbying on energy?" |
+| **lobbyregister-revolving-door** | Surfaces register entries where the lobbyist or someone working for them recently held a Bundestag seat or government office (the register's own `revolvingdoordata` filter), with role, ministry and end date where the data carries them. | "which former MdBs are now lobbyists?", "revolving door in the register", "ex-officials lobbying on energy?" |
 | **lobbyregister-legislative-engagement** | Activity-led (not money-led) league table — ranks entries by formal statements filed, regulatory projects engaged, and lobbying contracts held. | "who files the most statements on legislation?", "most active lobbyists on energy", "which agencies hold the most contracts?" |
 | **lobbyregister-new-entrants** | Time view of register churn — who newly registered and who recently went inactive, keyed on the registration date (not the last-edited date). | "who newly registered on hydrogen this year?", "new lobbyists since the election", "who deregistered on pharma?" |
 
@@ -104,6 +104,10 @@ how to interpret it. The skills encode the non-obvious parts of this API, for ex
 - **paging is client-side** — `/sucheJson` ignores `--page`/`--page-size` and returns every
   match in one response; `resultCount` (and the `count` command) is always the true total,
   so one `search` call gives you the whole set to aggregate;
+- **the revolving door is a server-side filter** — `--filter revolvingdoordata=true` finds
+  every entry with revolving-door data (680 on 2026-09-26), while the JSON flag
+  `recentGovernmentFunctionPresent` covers only a lobbyist's own office (39); the other
+  office-holders are named only on the register page;
 - **the revolving-door role nests by institution** — read `recentGovernmentFunction.type.code`
   first, then pull the role from the matching sub-object: `houseOfRepresentatives.function.de`
   for the Bundestag, `federalGovernment.function.de` (an object, with a `department`) for

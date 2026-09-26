@@ -1,7 +1,16 @@
 import type { Command } from "commander";
 import type { CliDeps } from "../io.js";
 import type { SearchResult } from "../../client/types.js";
-import { action, parseIntArg, parseNonEmpty, renderJson } from "../shared.js";
+import type { SearchFilter } from "../../client/filters.js";
+import { describeFilter } from "../../client/filters.js";
+import {
+  FILTER_HELP,
+  action,
+  collectFilter,
+  parseIntArg,
+  parseNonEmpty,
+  renderJson,
+} from "../shared.js";
 
 /**
  * Apply client-side pagination to a search envelope.
@@ -30,11 +39,17 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
     .option("--page <n>", "1-based page number (client-side paging)", parseIntArg)
     .option("--page-size <n>", "results per page (client-side paging)", parseIntArg)
     .option("--sort <order>", 'e.g. RELEVANCE_DESC, REGISTRATION_DESC', parseNonEmpty)
+    .option(
+      "--filter <attribute=value>",
+      "register facet filter, e.g. revolvingdoordata=true (repeatable)",
+      collectFilter,
+    )
     .option("--results-only", "print just the results array (not the envelope)")
     .addHelpText(
       "after",
       "\nTo search a term that starts with a dash, end the options with `--`, " +
-        'e.g. `search -- -foo` searches for "-foo".',
+        'e.g. `search -- -foo` searches for "-foo".\n' +
+        FILTER_HELP,
     )
     .action(
       action(deps, async ({ client, global, opts, command }, [query]) => {
@@ -54,6 +69,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
           page,
           pageSize,
           sort: opts["sort"] as string | undefined,
+          filters: opts["filter"] as SearchFilter[] | undefined,
         });
         // The live `/sucheJson` endpoint ignores `page`/`pageSize` and always
         // returns the full result set, so honour these flags client-side by
@@ -68,14 +84,26 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
     .command("count")
     .description("Count entries matching a query")
     .argument("[query]", "free-text search term (omit to match everything)", parseNonEmpty)
+    .option(
+      "--filter <attribute=value>",
+      "register facet filter, e.g. revolvingdoordata=true (repeatable)",
+      collectFilter,
+    )
     .addHelpText(
       "after",
-      "\ncount takes only an optional query and the global options. Paging/sorting " +
-        "flags (--page, --page-size, --sort, --results-only) belong to `search`.",
+      "\ncount takes an optional query, --filter and the global options. Paging/sorting " +
+        "flags (--page, --page-size, --sort, --results-only) belong to `search`.\n" +
+        FILTER_HELP,
     )
     .action(
-      action(deps, async ({ client, global }, [query]) => {
-        renderJson(deps, global, { query: query ?? null, resultCount: await client.count(query) });
+      action(deps, async ({ client, global, opts }, [query]) => {
+        const filters = opts["filter"] as SearchFilter[] | undefined;
+        const resultCount = await client.count(query, filters);
+        renderJson(deps, global, {
+          query: query ?? null,
+          ...(filters !== undefined ? { filters: filters.map(describeFilter) } : {}),
+          resultCount,
+        });
       }),
     );
 }

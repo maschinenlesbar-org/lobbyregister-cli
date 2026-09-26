@@ -44,6 +44,9 @@ console.log(page.resultCount, page.results.length);
 
 const total = await client.count("Energie");
 
+// Facet filters of the register's website search (values of one attribute: OR; attributes: AND)
+const revolvingDoor = await client.count(undefined, [{ attribute: "revolvingdoordata", value: "true" }]);
+
 try {
   await client.search({ q: "x" });
 } catch (err) {
@@ -67,8 +70,17 @@ new LobbyregisterClient({
 
 ### Methods
 
-`client.search({ q?, page?, pageSize?, sort? })` returns the full `SearchResult`
-envelope. `client.count(q?)` returns just the integer match count.
+`client.search({ q?, page?, pageSize?, sort?, filters? })` returns the full `SearchResult`
+envelope. `client.count(q?, filters?)` returns just the integer match count.
+
+`filters` are the facet filters of the register's website search, sent as
+`filter[<attribute>][<value>]=true` (`src/client/filters.ts`). The client checks their
+shape and, on the reply, that `searchParameters.facets` echoes each one: the API
+ignores an unknown attribute and would return the whole unfiltered set, so a filter it
+did not echo throws `LobbyError` (a reply without a `facets` array is not checked).
+The CLI additionally accepts only the attributes in `SEARCH_FILTER_ATTRIBUTES`, taken
+from the website's search form (2026-09-26) — when the register adds a filter, add it
+there.
 
 ## Architecture
 
@@ -76,6 +88,7 @@ envelope. `client.count(q?)` returns just the integer match count.
 src/
   client/
     types.ts     # SearchResult envelope + SearchParams (entries kept as JsonObject)
+    filters.ts   # facet filters: attribute allowlist, query keys, echo check
     query.ts     # dependency-free query-string builder
     http.ts      # the Transport interface + default node:http/https transport
     engine.ts    # URL building, retry/backoff, redirects (with cross-origin credential stripping), JSON decoding, error mapping

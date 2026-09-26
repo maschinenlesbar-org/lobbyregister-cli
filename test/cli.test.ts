@@ -207,3 +207,63 @@ test("a non-http(s) or malformed --base-url is a usage error before any request"
     assert.match(cli.err.join("\n"), /--base-url/, bad);
   }
 });
+
+/** A /sucheJson stand-in that echoes the facet filters it received, as the live API does. */
+function echoFacets(req: HttpRequest): HttpResponse {
+  const facets: { attribute: string; value: string }[] = [];
+  for (const key of new URL(req.url).searchParams.keys()) {
+    const m = /^filter\[([^\]]+)\]\[([^\]]+)\]$/.exec(key);
+    if (m) facets.push({ attribute: m[1]!, value: m[2]! });
+  }
+  return jsonResponse({ resultCount: 680, results: [], searchParameters: { facets } });
+}
+
+test("--filter sends register facet filters, repeatable, on search and count", async () => {
+  const search = makeCli(echoFacets);
+  const code = await run(
+    ["search", "Energie", "--filter", "revolvingdoordata=true", "--filter", "RevolvingDoorPersonTypes=ENTRUSTED_PERSON", "--filter", "fieldsofinterest=FOI_WORK|FOI_WORK_POLICY"],
+    search.deps,
+  );
+  assert.equal(code, 0, search.err.join("\n"));
+  const params = new URL(search.mt.last().url).searchParams;
+  assert.equal(params.get("filter[revolvingdoordata][true]"), "true");
+  assert.equal(params.get("filter[revolvingdoorpersontypes][ENTRUSTED_PERSON]"), "true");
+  assert.equal(params.get("filter[fieldsofinterest][FOI_WORK|FOI_WORK_POLICY]"), "true");
+  assert.equal(params.get("q"), "Energie");
+
+  const count = makeCli(echoFacets);
+  assert.equal(await run(["--compact", "count", "--filter", "revolvingdoordata=true"], count.deps), 0);
+  assert.deepEqual(JSON.parse(count.out.join("\n")), {
+    query: null,
+    filters: ["revolvingdoordata=true"],
+    resultCount: 680,
+  });
+});
+
+test("a malformed or unknown --filter is a usage error before any request", async () => {
+  const cases: [string, RegExp][] = [
+    ["revolvingdoor=true", /Unknown filter "revolvingdoor"\. The register ignores unknown filters/],
+    ["revolvingdoordata", /expected attribute=value/],
+    ["=true", /expected attribute=value/],
+    ["revolvingdoordata= ", /expected attribute=value/],
+    ["revolvingdoordata=a]b", /Invalid value "a\]b" for filter "revolvingdoordata"/],
+    ["--nope", /Expected a value, got another option/],
+  ];
+  for (const [value, message] of cases) {
+    for (const command of ["search", "count"]) {
+      const cli = makeCli(echoFacets);
+      const code = await run([command, "--filter", value], cli.deps);
+      assert.equal(code, 2, `${command} --filter ${value}`);
+      assert.equal(cli.mt.calls.length, 0, `${command} --filter ${value}: no request`);
+      assert.match(cli.err.join("\n"), message, `${command} --filter ${value}`);
+    }
+  }
+});
+
+test("a filter the reply does not echo exits 1 instead of printing an unfiltered set", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 6989, results: [], searchParameters: { facets: [] } }));
+  const code = await run(["count", "--filter", "revolvingdoordata=true"], cli.deps);
+  assert.equal(code, 1);
+  assert.deepEqual(cli.out, []);
+  assert.match(cli.err.join("\n"), /The register ignored the filter "revolvingdoordata=true"/);
+});

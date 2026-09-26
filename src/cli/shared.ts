@@ -5,6 +5,11 @@ import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { EngineOptions } from "../client/engine.js";
+import {
+  FILTER_VALUE_PATTERN,
+  SEARCH_FILTER_ATTRIBUTES,
+  type SearchFilter,
+} from "../client/filters.js";
 
 /**
  * commander value-parser: a non-negative decimal integer.
@@ -39,6 +44,51 @@ export function parseNonEmpty(value: string): string {
   }
   return value;
 }
+
+/**
+ * commander value-parser for the repeatable `--filter <attribute=value>`: checks one
+ * facet filter and appends it to the ones given before. The attribute must be one
+ * of `SEARCH_FILTER_ATTRIBUTES` (compared case-insensitively, sent in lower case),
+ * because the register ignores an unknown attribute and would return the whole
+ * unfiltered set.
+ */
+export function collectFilter(value: string, previous: SearchFilter[] | undefined): SearchFilter[] {
+  if (value.startsWith("--")) {
+    throw new InvalidArgumentError(
+      "Expected a value, got another option. Give the option its value first.",
+    );
+  }
+  const eq = value.indexOf("=");
+  const attribute = eq === -1 ? "" : value.slice(0, eq).trim().toLowerCase();
+  const filterValue = eq === -1 ? "" : value.slice(eq + 1).trim();
+  if (attribute === "" || filterValue === "") {
+    throw new InvalidArgumentError(
+      `Invalid --filter ${JSON.stringify(value)}: expected attribute=value, e.g. revolvingdoordata=true.`,
+    );
+  }
+  if (!SEARCH_FILTER_ATTRIBUTES.includes(attribute)) {
+    throw new InvalidArgumentError(
+      `Unknown filter ${JSON.stringify(attribute)}. The register ignores unknown filters and would ` +
+        `return the whole unfiltered set. Filters: ${SEARCH_FILTER_ATTRIBUTES.join(", ")}.`,
+    );
+  }
+  if (!FILTER_VALUE_PATTERN.test(filterValue)) {
+    throw new InvalidArgumentError(
+      `Invalid value ${JSON.stringify(filterValue)} for filter "${attribute}": expected a code ` +
+        "such as true, FOI_ENERGY or FOI_WORK|FOI_WORK_POLICY.",
+    );
+  }
+  return [...(previous ?? []), { attribute, value: filterValue }];
+}
+
+/** Help text shared by the commands that take `--filter`. */
+export const FILTER_HELP =
+  "\nFilters (--filter attribute=value, repeatable) are the facets of the register's " +
+  "website search, e.g. revolvingdoordata=true, activelobbyist=false, " +
+  "fieldsofinterest=FOI_ENERGY. Values of one attribute are alternatives; different " +
+  "attributes must all match. An unknown value matches nothing. Attributes: " +
+  SEARCH_FILTER_ATTRIBUTES.join(", ") +
+  ".";
 
 /** Build a commander value-parser for a non-negative integer within [min, max]. */
 export function parseBoundedInt(min: number, max: number): (value: string) => number {

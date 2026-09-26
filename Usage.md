@@ -136,7 +136,36 @@ lobbyregister search Chemie --results-only --compact \
   | jq -c '.[] | {nr: .registerNumber}'
 ```
 
-### 10. Search a term that begins with a dash
+### 10. Narrow a search with the register's own filters
+
+`--filter <attribute=value>` passes the facet filters of the register's
+[website search](https://www.lobbyregister.bundestag.de/suche) to the API, on `search`
+and `count`. It can be repeated: values of one attribute are alternatives (OR),
+different attributes must all match (AND).
+
+```bash
+# Entries with revolving-door data: a lobbyist, legal representative, entrusted
+# person or contractor who recently held public office
+lobbyregister count --filter revolvingdoordata=true
+
+# ... among the energy entries, only where it concerns an entrusted person
+lobbyregister search Energie --filter revolvingdoordata=true \
+  --filter revolvingdoorpersontypes=ENTRUSTED_PERSON --results-only
+
+# Inactive entries with the field of interest "Energie"
+lobbyregister search --filter activelobbyist=false --filter fieldsofinterest=FOI_ENERGY
+```
+
+`lobbyregister search --help` lists the attributes. An unknown attribute is a usage
+error (exit `2`) because the API would silently ignore it and return the whole set; an
+unknown **value** matches nothing (`resultCount: 0`). The value codes are the ones that
+appear in the website's search URL when you tick a box there (`FOI_ENERGY`, a sub-field
+as `FOI_WORK|FOI_WORK_POLICY`, `true`/`false` for yes/no facets). If a reply does not
+confirm a filter in `searchParameters.facets`, the CLI exits `1` rather than print an
+unfiltered set. The website's number ranges (spend, staff, members from/to) are not
+supported.
+
+### 11. Search a term that begins with a dash
 
 A leading `-` would otherwise be parsed as an option. End the options with `--`.
 

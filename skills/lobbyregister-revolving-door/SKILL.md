@@ -2,11 +2,12 @@
 name: lobbyregister-revolving-door
 description: >
   Surface the "revolving door" in the German lobby register — registered
-  lobbyists who recently held a Bundestag seat or a government office, using the
-  lobbyregister-cli. Trigger when the user asks "which former MdBs are now
-  lobbyists?", "revolving door in the lobby register", "ex-politicians lobbying
-  on energy", "any former government officials registered for pharma?", or wants
-  a conflict-of-interest / transparency check on a topic or the whole register.
+  lobbyists, or the people working for them, who recently held a Bundestag seat
+  or a government office, using the lobbyregister-cli. Trigger when the user asks
+  "which former MdBs are now lobbyists?", "revolving door in the lobby register",
+  "ex-politicians lobbying on energy", "any former government officials
+  registered for pharma?", or wants a conflict-of-interest / transparency check
+  on a topic or the whole register.
 compatibility: >
   Requires the `lobbyregister` CLI (npm package
   @maschinenlesbar.org/lobbyregister-cli) on PATH, installed by the user; the
@@ -16,11 +17,12 @@ compatibility: >
 
 # Lobbyregister Revolving Door
 
-Find the registered interest representatives who **recently held public office** — former
-members of the Bundestag, federal government, or other public functions now working as
-lobbyists. This is the register's built-in revolving-door disclosure; the CLI returns it
-buried inside each entry, and this skill extracts, classifies and ranks it into a
-transparency briefing.
+Find the registered interest representatives where someone **recently held public office** —
+former members of the Bundestag, federal government, or other public functions now working
+as lobbyists, legal representatives, entrusted persons or contractors. This is the
+register's built-in revolving-door disclosure; the register filters on it server-side, the
+CLI returns the details buried inside each entry, and this skill extracts, classifies and
+ranks them into a transparency briefing.
 
 ## Tooling
 
@@ -32,30 +34,50 @@ Data comes from the `lobbyregister` CLI over the open German Lobbyregister searc
 
 Always `--results-only --compact`. An empty result set (`results: []`, exit `0`) is valid.
 
-## Step 1 — Fetch the set, then filter to office-holders
+## Step 1 — Let the register filter, then split by what the JSON shows
 
-There is **no server-side filter** for the revolving door — you fetch a set and filter it
-yourself. Scope it to the user's interest:
+The register has a **server-side revolving-door filter**, `--filter revolvingdoordata=true`:
+it keeps every entry that records a recent public office for **any** of its people — the
+lobbyist, a legal representative, an entrusted person (e.g. an employee who lobbies) or a
+contractor. Count first, then fetch the set, scoped to the user's interest:
 
 ```bash
-# topic-scoped (German keyword)
-lobbyregister search Energie --results-only --compact > /tmp/rd.json
-# whole register (~6,900 entries; the comprehensive sweep)
-lobbyregister search          --results-only --compact > /tmp/rd.json
+lobbyregister count             --filter revolvingdoordata=true   # whole register (680 on 2026-09-26)
+lobbyregister count Energie     --filter revolvingdoordata=true   # topic (323 of 2,409)
+lobbyregister count Energie                                       # the topic's total, for "N of M"
+lobbyregister search Energie --filter revolvingdoordata=true --results-only --compact > /tmp/rd.json
 ```
 
-Then keep only entries flagged as former office-holders:
+Then split the set — the JSON carries the office details **only for the lobbyist
+themselves**:
 
 ```bash
+# office detail in the data (Step 2)
 jq -c '[ .[] | select(.lobbyistIdentity.recentGovernmentFunctionPresent == true) ]' /tmp/rd.json
+# office held by someone else (employee, entrusted person, …): details only on the register page
+jq -r '.[] | select(.lobbyistIdentity.recentGovernmentFunctionPresent != true)
+       | [.registerNumber, .lobbyistIdentity.name, .registerEntryDetails.detailsPageUrl] | @tsv' /tmp/rd.json
 ```
 
-> **The flag lives on `lobbyistIdentity`, and is set on `NATURAL` (individual) entries.**
-> `recentGovernmentFunctionPresent === true` is the gate. Every flagged entry was
-> `lobbyistIdentity.identity === "NATURAL"` on 2026-09-15; organisations carry `null`, and
-> non-flagged individuals `false`. Filter on `== true` (which handles both), not on
-> identity. The flag is **sparse**: a topic search may return only a handful (e.g. 2 of 402
-> for Wasserstoff), and that small count is itself the finding.
+> **Never use the JSON flag alone as the revolving-door count.**
+> `lobbyistIdentity.recentGovernmentFunctionPresent === true` covers only a lobbyist who is a
+> natural person and held office themselves (every flagged entry was `identity: "NATURAL"`;
+> organisations carry `null`). On 2026-09-26 it was set on **39** entries, while the
+> register's own filter found **680** (Energie: 19 of 323). For the other entries
+> `/sucheJson` returns no names, roles or dates of the office-holder — only the register
+> page (`detailsPageUrl`) shows them, e.g. R002822 (UNITI) lists an employee who worked
+> for an MdB ("Büroleiter/Persönlicher Referent/…") until 10/23. Report those entries as "revolving-door data on the
+> register page" and offer the links; don't invent the role.
+
+> **Narrow on the server.** Repeat `--filter` to split the set without downloading it:
+> `revolvingdoorpersontypes=LOBBYIST`, `=LEGAL_REPRESENTATIVE`, `=ENTRUSTED_PERSON`,
+> `=CONTRACTOR` (who held the office) and `revolvingdoorareas=HOUSE_OF_REPRESENTATIVES`,
+> `=FEDERAL_GOVERNMENT`, `=FEDERAL_ADMINISTRATION` (where). Values of one attribute are
+> alternatives, different attributes must all match, so
+> `count --filter revolvingdoordata=true --filter revolvingdoorpersontypes=ENTRUSTED_PERSON`
+> counts the entries with an entrusted person who held office. An unknown attribute is a
+> usage error (exit `2`); a mistyped value matches nothing (`resultCount: 0`), so check the
+> spelling before reporting "none".
 
 > **A keyword hit isn't always visible in the returned data.** The search also matches text
 > that `/sucheJson` doesn't return, such as the activity description on the entry's register
@@ -64,9 +86,9 @@ jq -c '[ .[] | select(.lobbyistIdentity.recentGovernmentFunctionPresent == true)
 > "entries whose register text mentions the term", not "organisations that mainly lobby on
 > it"; open `detailsPageUrl` to see why an entry matched.
 
-## Step 2 — Read the office detail
+## Step 2 — Read the office detail (lobbyist's own office)
 
-The detail is under `lobbyistIdentity.recentGovernmentFunction`:
+For the flagged entries, the detail is under `lobbyistIdentity.recentGovernmentFunction`:
 
 | Path | Meaning |
 |---|---|
@@ -81,8 +103,9 @@ The detail is under `lobbyistIdentity.recentGovernmentFunction`:
 >
 > - `HOUSE_OF_REPRESENTATIVES` / `Bundestag` → `houseOfRepresentatives.function.de`
 >   (e.g. `Mitglied des Deutschen Bundestages`, or `Funktion für eine Fraktion/Gruppe im
->   Deutschen Bundestag`). **This is the common case** (25 of the 38 flagged entries
->   register-wide on 2026-09-15; the rest were 11 Bundesverwaltung and 2 Bundesregierung).
+>   Deutschen Bundestag`). **This is the common case** among the flagged entries (25 of
+>   38 register-wide on 2026-09-15; the rest were 11 Bundesverwaltung and 2
+>   Bundesregierung).
 >   Note the `.code` is `HOUSE_OF_REPRESENTATIVES`, *not* `BUNDESTAG` — only the `.de`
 >   label reads "Bundestag".
 > - `FEDERAL_GOVERNMENT` / `Bundesregierung` → `federalGovernment.function.de` (an
@@ -111,7 +134,9 @@ For each office-holder, pull the lobbying context so the conflict is legible:
 ## Step 4 — Brief the user
 
 ```
-Revolving door — register entries on "Energie" with recent public office (17 of 2,352)
+Revolving door — register entries on "Energie" with revolving-door data (323 of 2,409)
+19 of them name the lobbyist's own former office in the data; for the other 304 the
+office-holder (employee, entrusted person, …) is shown only on the register page.
 
 • Marco Wanderwitz — former Mitglied des Deutschen Bundestages (Bundestag, ended 2025-03)
   Now: law firm / sole lawyer · lobbies on … · R007660 · https://www.lobbyregister…/…
@@ -121,18 +146,25 @@ Revolving door — register entries on "Energie" with recent public office (17 o
   Now: consultancy · R002845
   …
 
+Office held by someone working for the entry (details on the register page):
+• UNITI Bundesverband EnergieMittelstand e.V. · R002822 · https://www.lobbyregister…/…
+  …
+
 Across the whole register, run the same sweep without a topic term for the full list.
 ```
 
 Rules:
-- Lead with **"N of M"** — how many of the searched set held office. The ratio is the story.
+- Lead with **"N of M"** — N from `count … --filter revolvingdoordata=true`, M from the plain
+  `count`. The ratio is the story. Then say how many of the N carry the office detail in
+  the data (the flag) and that the rest are documented on the register pages.
 - State institution + role + `endDate` for each; distinguish `ended: true` (former) from
   `ended: false` (still in office — a stronger conflict signal).
 - Pair former remit with current `fieldsOfInterest` so a same-sector move is visible.
 - Show declared spend as a **range**, labelled "declared"; `null` = "not declared".
 - Trim stray spaces in names; cite `registerNumber` and offer `detailsPageUrl`.
 - This data is a self-disclosure field — report what's declared, don't infer offices the
-  data doesn't state. If a topic search yields zero office-holders, say so plainly; that's
-  a valid, informative answer.
-- For a comprehensive audit, sweep the whole register (no query term) and group the
-  office-holders by `activity.de` or by field-of-interest.
+  data doesn't state. If the filtered count is zero, say so plainly; that's a valid,
+  informative answer.
+- For a comprehensive audit, sweep the whole register (no query term, with
+  `--filter revolvingdoordata=true`) and group the entries by `activity.de`, by
+  field-of-interest, or by person type / institution with the filters above.

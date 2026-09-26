@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LobbyregisterClient } from "../src/client/client.js";
-import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "../src/client/errors.js";
+import { LobbyApiError, LobbyError, LobbyNetworkError, LobbyParseError } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>): LobbyregisterClient {
@@ -71,4 +71,36 @@ test("the client rejects a file: base URL before any request reaches a custom tr
     LobbyNetworkError,
   );
   assert.equal(mt.calls.length, 0);
+});
+
+test("search sends filters as filter[attribute][value]=true and checks the echo", async () => {
+  const echoed = { resultCount: 1, results: [], searchParameters: { facets: [{ attribute: "revolvingdoordata", value: "true" }] } };
+  const mt = constantJson(echoed);
+  const res = await clientWith(mt).search({ q: "R002822", filters: [{ attribute: "revolvingdoordata", value: "true" }] });
+  assert.equal(res.resultCount, 1);
+  assert.equal(new URL(mt.last().url).searchParams.get("filter[revolvingdoordata][true]"), "true");
+  assert.equal(await clientWith(mt).count("R002822", [{ attribute: "revolvingdoordata", value: "true" }]), 1);
+});
+
+test("search rejects a filter the reply leaves out of searchParameters.facets", async () => {
+  const mt = constantJson({ resultCount: 6989, results: [], searchParameters: { facets: [] } });
+  await assert.rejects(
+    () => clientWith(mt).search({ filters: [{ attribute: "bogusattr", value: "true" }] }),
+    (err) => err instanceof LobbyError && /ignored the filter "bogusattr=true"/.test((err as Error).message),
+  );
+  // No facets array in the reply: nothing to check against, passed through.
+  const bare = constantJson({ resultCount: 3, results: [] });
+  assert.equal((await clientWith(bare).search({ filters: [{ attribute: "activelobbyist", value: "true" }] })).resultCount, 3);
+});
+
+test("a malformed filter is rejected before any request", async () => {
+  for (const filter of [
+    { attribute: "revolving door", value: "true" },
+    { attribute: "revolvingdoordata", value: "" },
+    { attribute: "revolvingdoordata", value: "true][x" },
+  ]) {
+    const mt = constantJson({ resultCount: 0, results: [] });
+    await assert.rejects(() => clientWith(mt).search({ filters: [filter] }), LobbyError, JSON.stringify(filter));
+    assert.equal(mt.calls.length, 0);
+  }
 });

@@ -60,6 +60,21 @@ Relevanz), `REGISTRATION_DESC` (neueste Registrierungen zuerst) und `REGISTRATIO
 (älteste zuerst). Der Live-Endpoint ignoriert einen unbekannten Wert stillschweigend
 (HTTP `200`), statt ihn abzulehnen. CLI: `search --sort <order>`.
 
+**Filter (`filter[<attribute>][<value>]`).** Die Facettenfilter der Suche auf der
+Website des Registers; `/sucheJson` nimmt sie als `filter[<attribute>][<value>]=true`
+an und gibt sie in `searchParameters.facets` zurück. Beispiele: `revolvingdoordata=true`
+(ein Eintrag verzeichnet ein kürzlich ausgeübtes öffentliches Amt für die
+Interessenvertretung selbst, eine gesetzliche Vertretung, eine betraute Person oder
+einen Auftragnehmer – weit mehr Einträge, als das Merkmal
+`recentGovernmentFunctionPresent` tragen, das nur die Interessenvertretung selbst
+abdeckt), `revolvingdoorpersontypes`, `revolvingdoorareas`, `activelobbyist`,
+`fieldsofinterest` (`FOI_ENERGY`, Unterbereiche als `FOI_WORK|FOI_WORK_POLICY`),
+`activity`, `legalform`, `donationsreceived`. Werte desselben Attributs sind
+Alternativen, verschiedene Attribute müssen alle zutreffen. Die API ignoriert ein
+unbekanntes Attribut (und lieferte dann alles), deshalb nimmt die CLI nur die bekannten
+an; ein unbekannter Wert trifft nichts. CLI: `search`/`count --filter <attribute=value>`
+(wiederholbar); Bibliothek: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
+
 **`page` / `pageSize`.** Eine Seitennummer ab 1 und eine Seitengröße. Beide gibt es in
 `SearchParams`, ein Live-Test (2026-06) hat aber gezeigt, dass `/sucheJson` sie
 **ignoriert**: Es liefert immer das vollständige `results`-Array. Die CLI wendet
@@ -96,7 +111,8 @@ sein Name, eine kanonische URL und das Erstellungsdatum.
 entspricht und sich im Browser öffnen lässt.
 
 **`searchParameters`.** Die Parameter, die der Server für diese Suche ausgewertet hat,
-als JSON-Objekt zurückgegeben.
+als JSON-Objekt zurückgegeben: `queryString`, `sortOrder`, `facets` (die angewandten
+Filter als `{attribute, value}`) und `numberRanges`.
 
 **`jsonDocumentationUrl`.** Eine URL zur Dokumentation des JSON-Antwortformats.
 
@@ -107,11 +123,12 @@ als JSON-Objekt zurückgegeben.
 **`search [query]`.** Führt eine Suche aus und gibt den vollständigen
 **SearchResult**-Envelope aus. `--results-only` gibt nur das Array `results` aus;
 `--compact` gibt einzeiliges JSON aus. Unterstützt `--page`, `--page-size`, `--sort`
-(siehe oben).
+und `--filter` (siehe oben).
 
-**`count [query]`.** Gibt nur die Trefferzahl aus: `{ query, resultCount }`. Eine dünne
-Hülle um `search` mit `pageSize: 1`, die `resultCount` ausliest. Nimmt nur den
-optionalen Suchbegriff und die globalen Optionen entgegen.
+**`count [query]`.** Gibt nur die Trefferzahl aus: `{ query, resultCount }` (mit
+`filters`, wenn `--filter` angegeben wurde). Eine dünne Hülle um `search` mit
+`pageSize: 1`, die `resultCount` ausliest. Nimmt den optionalen Suchbegriff, `--filter`
+und die globalen Optionen entgegen.
 
 ---
 

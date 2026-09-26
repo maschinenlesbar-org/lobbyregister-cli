@@ -4,6 +4,8 @@
 // `results` are exposed as faithful raw `JsonObject`s while the search envelope
 // is typed at the top level.
 
+import type { SearchFilter } from "./filters.js";
+
 export type JsonValue =
   | string
   | number
@@ -40,4 +42,11 @@ export interface SearchParams {
   pageSize?: number;
   /** Sort order, e.g. "RELEVANCE_DESC", "REGISTRATION_DESC". */
   sort?: string;
+  /**
+   * Facet filters, sent as `filter[<attribute>][<value>]=true` — e.g.
+   * `[{ attribute: "revolvingdoordata", value: "true" }]`. Values of one attribute
+   * are alternatives; different attributes must all match. See
+   * `SEARCH_FILTER_ATTRIBUTES`.
+   */
+  filters?: readonly SearchFilter[];
 }
