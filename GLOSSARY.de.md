@@ -79,8 +79,10 @@ an; ein unbekannter Wert trifft nichts. CLI: `search`/`count --filter <attribute
 `SearchParams`, ein Live-Test (2026-06) hat aber gezeigt, dass `/sucheJson` sie
 **ignoriert**: Es liefert immer das vollständige `results`-Array. Die CLI wendet
 `--page` / `--page-size` deshalb **clientseitig** an und schneidet das gelieferte Array
-zu; der gemeldete `resultCount` ist immer die tatsächliche Gesamtzahl. CLI: `search --page <n>
---page-size <n>`.
+zu; der gemeldete `resultCount` ist immer die tatsächliche Gesamtzahl. Weil jeder Aufruf
+die Menge neu lädt und die Relevanz-Reihenfolge (`RELEVANCE_DESC`) bei identischen Anfragen
+wechselt, passen Seiten aus getrennten Aufrufen nur bei einer Datumssortierung wie
+`REGISTRATION_DESC` zusammen. CLI: `search --page <n> --page-size <n>`.
 
 ---
 

@@ -107,9 +107,10 @@ lobbyregister search Energie --filter revolvingdoordata=true --results-only
 # Just the entries — no envelope — for piping into jq
 lobbyregister search Wasserstoff --results-only
 
-# Page through a large result set (1-based pages, client-side slicing)
-lobbyregister search Digitalisierung --page-size 10 --page 1
-lobbyregister search Digitalisierung --page-size 10 --page 2
+# Page through a large result set (1-based pages, client-side slicing);
+# sort by date: the relevance order changes between requests
+lobbyregister search Digitalisierung --sort REGISTRATION_DESC --page-size 10 --page 1
+lobbyregister search Digitalisierung --sort REGISTRATION_DESC --page-size 10 --page 2
 
 # Compare topic coverage across several terms
 for topic in Energie Verkehr Gesundheit; do
@@ -152,6 +153,12 @@ do the same thing.
 > **Note on `--page` / `--page-size`** — these are still sent to the API, but the
 > live endpoint ignores them and returns all matches, so the CLI slices the
 > `results` array client-side. `resultCount` always reflects the true total.
+> Every run fetches the set again, and the register's **relevance order**
+> (`RELEVANCE_DESC`, the default with a query) differs between two identical
+> requests, so pages from separate runs can repeat or miss entries. Page with a
+> date sort such as `--sort REGISTRATION_DESC` (stable in our checks), or fetch
+> once and slice the file. The CLI prints a `Note:` on stderr when it pages a
+> relevance-ordered set.
 
 **Exit codes** make the CLI easy to use in scripts:
 

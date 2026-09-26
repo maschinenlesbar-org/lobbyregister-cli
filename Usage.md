@@ -87,13 +87,21 @@ array). `--page` is 1-based and requires `--page-size`.
 
 ```bash
 # First 10 entries
-lobbyregister search Digitalisierung --page-size 10 --page 1
+lobbyregister search Digitalisierung --sort REGISTRATION_DESC --page-size 10 --page 1
 
 # Next 10 entries
-lobbyregister search Digitalisierung --page-size 10 --page 2
+lobbyregister search Digitalisierung --sort REGISTRATION_DESC --page-size 10 --page 2
 ```
 
 `resultCount` still reflects the true total; only the visible slice is trimmed.
+
+Each run downloads the set again, and the register's relevance order
+(`RELEVANCE_DESC`, the default with a query) is **not stable between requests**:
+two identical searches return the entries in a different order, so page 1 and
+page 2 from separate runs can overlap or skip entries. Page with a date sort
+(`REGISTRATION_DESC`, stable in our checks), or fetch the whole set once and
+slice it yourself. When it pages a relevance-ordered set, the CLI prints a
+`Note:` on stderr (exit `0`).
 
 ### 6. Extract just the names of matching organisations with jq
 

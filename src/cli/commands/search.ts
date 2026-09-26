@@ -31,6 +31,12 @@ function paginate(result: SearchResult, page?: number, pageSize?: number): Searc
   return { ...result, results: result.results.slice(start, end) };
 }
 
+/** The sort order the server says it applied (`searchParameters.sortOrder`), if any. */
+function sortOrderOf(result: SearchResult): string | undefined {
+  const order = result.searchParameters?.["sortOrder"];
+  return typeof order === "string" ? order : undefined;
+}
+
 export function registerSearchCommands(program: Command, deps: CliDeps): void {
   program
     .command("search")
@@ -77,6 +83,17 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         // meaningful instead of being silent no-ops.
         const paged = paginate(result, page, pageSize);
         renderJson(deps, global, opts["resultsOnly"] ? paged.results : paged);
+        if (pageSize !== undefined) {
+          const order = sortOrderOf(result) ?? (opts["sort"] as string | undefined);
+          if (order === undefined || order.startsWith("RELEVANCE")) {
+            deps.io.err(
+              `Note: the results are in relevance order (${order ?? "the default"}), which the ` +
+                "register does not keep stable between requests, so pages from separate runs can " +
+                "repeat or miss entries. To page across runs, sort by date (--sort " +
+                "REGISTRATION_DESC), or fetch once and slice.",
+            );
+          }
+        }
       }),
     );
 

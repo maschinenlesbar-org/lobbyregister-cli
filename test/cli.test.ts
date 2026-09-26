@@ -267,3 +267,22 @@ test("a filter the reply does not echo exits 1 instead of printing an unfiltered
   assert.deepEqual(cli.out, []);
   assert.match(cli.err.join("\n"), /The register ignored the filter "revolvingdoordata=true"/);
 });
+
+test("paging in relevance order warns on stderr that pages across runs are unstable", async () => {
+  const results = Array.from({ length: 20 }, (_, i) => ({ n: i }));
+  const relevance = makeCli(() =>
+    jsonResponse({ resultCount: 20, results, searchParameters: { sortOrder: "RELEVANCE_DESC" } }),
+  );
+  assert.equal(await run(["search", "x", "--page-size", "5", "--page", "2"], relevance.deps), 0);
+  assert.match(relevance.err.join("\n"), /^Note: the results are in relevance order \(RELEVANCE_DESC\).*--sort REGISTRATION_DESC/);
+
+  const byDate = makeCli(() =>
+    jsonResponse({ resultCount: 20, results, searchParameters: { sortOrder: "REGISTRATION_DESC" } }),
+  );
+  assert.equal(await run(["search", "x", "--page-size", "5", "--sort", "REGISTRATION_DESC"], byDate.deps), 0);
+  assert.deepEqual(byDate.err, []);
+
+  const unpaged = makeCli(() => jsonResponse({ resultCount: 20, results, searchParameters: { sortOrder: "RELEVANCE_DESC" } }));
+  assert.equal(await run(["search", "x"], unpaged.deps), 0);
+  assert.deepEqual(unpaged.err, []);
+});

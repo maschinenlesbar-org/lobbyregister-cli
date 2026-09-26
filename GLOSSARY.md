@@ -76,8 +76,10 @@ an unknown value matches nothing. CLI: `search`/`count --filter <attribute=value
 `SearchParams`, but a live probe (2026-06) showed `/sucheJson` **ignores** them:
 it always returns the full `results` array regardless. The CLI therefore applies
 `--page` / `--page-size` **client-side**, slicing the returned array; the
-reported `resultCount` is always the true total. CLI: `search --page <n>
---page-size <n>`.
+reported `resultCount` is always the true total. Because every run fetches the
+set again and the relevance order (`RELEVANCE_DESC`) differs between identical
+requests, pages from separate runs are only consistent under a date sort such as
+`REGISTRATION_DESC`. CLI: `search --page <n> --page-size <n>`.
 
 ---
 
