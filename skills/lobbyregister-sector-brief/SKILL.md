@@ -115,7 +115,8 @@ Build the briefing numbers from the array — don't enumerate all 400 entries:
   treating `null` as 0, and list the top ~10. The spend is the entry's **total** declared
   lobbying spend across all its topics, not spend on this topic — say so. **The value is a
   range** like `{from: 12730001, to: 12740000}` — present it as a band ("€12.73M–€12.74M"), never a
-  point figure. Many entries are `{from: 0, to: 0}` (declared zero or below threshold).
+  point figure. Many entries are `{from: 0, to: 0}` (exactly €0 declared — there is no
+  threshold; the smallest non-zero band is €1–10,000).
 - **Field-of-interest tags.** Tally `fieldsOfInterest[].de` across the set to show the
   sub-themes within the topic (e.g. within Wasserstoff: Energienetze, Erneuerbare
   Energien, Nachhaltigkeit…).
@@ -154,10 +155,11 @@ Rules:
   not the whole list. Offer to widen the list or filter (by actor type, by field-of-interest
   tag, by spend threshold) on request.
 - Always show spend as a **range with units**, and say "declared" — these are self-reported
-  bands, not audited figures, and `{0,0}` means "below threshold or none declared", not
-  "no lobbying".
+  bands, not audited figures, and `{0,0}` means "€0 declared".
 - Cite `registerNumber` and offer `detailsPageUrl` for any entry the user wants to open.
 - Exclude `activeLobbyist === false` from rankings by default but say how many you dropped.
 - If the user names two topics, run two searches and compare counts/spend side by side
   (`count` gives the totals in one line each, but downloads each topic's full set too).
-- Don't invent figures the data doesn't carry; `null` financials/FTE = "not declared".
+- Don't invent figures the data doesn't carry. `null` spend = "no figure yet" (the entry's
+  first fiscal year is not completed, `financialExpenses.relatedFiscalYearFinished: false`);
+  `refuseFinancialExpensesInformation: true` = "refused"; `null` FTE = "not declared".

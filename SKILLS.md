@@ -91,8 +91,10 @@ Every skill is a single `SKILL.md` — a short, model-facing playbook describing
 how to interpret it. The skills encode the non-obvious parts of this API, for example:
 
 - **declared spend is a `{from, to}` euro *range*, not a number** — rank on `to`, always
-  present both ends as a band, and label it "declared"; `{0,0}` means "below threshold /
-  none", while `null` means "not declared" — coalesce to 0 before sorting either way
+  present both ends as a band, and label it "declared"; `{0,0}` means exactly €0 declared
+  (there is no threshold: the smallest non-zero band is €1–10,000), while `null` means the
+  entry's first fiscal year is not completed yet (and `refuseFinancialExpensesInformation`
+  marks a refusal) — coalesce to 0 before sorting either way
   (see **lobbyregister-money-ranking**);
 - **search is German-only** — querying English words finds little; map the topic to its
   German keyword (hydrogen → `Wasserstoff`, climate → `Klimaschutz`) and a bare `search`

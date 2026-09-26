@@ -6,8 +6,8 @@ description: >
   user asks "who spends the most on lobbying?", "biggest lobbying budgets in
   energy", "top-spending lobbyists on pharma", "rank by lobbying expenses", or
   wants a money-led league table for a topic or the whole register. Handles the
-  declared-spend value being a euro *range*, not a number, and the many null /
-  zero declarations.
+  declared-spend value being a euro *range*, not a number, and the null / zero
+  declarations.
 compatibility: >
   Requires the `lobbyregister` CLI (npm package
   @maschinenlesbar.org/lobbyregister-cli) on PATH, installed by the user; the
@@ -81,11 +81,17 @@ financialExpenses.financialExpensesEuro = { "from": <int>, "to": <int> }   // or
 > `{from: 12730001, to: 12740000}` ("between €12.73M and €12.74M"). Rank on `to`
 > (descending) as the upper bound, but **always present both ends** as a range. Pitfalls,
 > all observed live:
-> - `financialExpensesEuro` can be **`null`** (nothing declared) — coalesce to 0 before
->   sorting (`(.financialExpenses.financialExpensesEuro.to // 0)`), and label such entries
->   "not declared", not "€0".
-> - `{from: 0, to: 0}` is common and means "below the reporting threshold or none" — it is
->   **not** the same as a big spender; it sits at the bottom of the table.
+> - `financialExpensesEuro` can be **`null`**. On 2026-09-26 all 120 such entries came with
+>   `financialExpenses.relatedFiscalYearFinished: false`: the entry's first fiscal year is
+>   not over yet, so there is no figure to declare. Coalesce to 0 before sorting
+>   (`(.financialExpenses.financialExpensesEuro.to // 0)`), and label such entries "no
+>   figure yet (first fiscal year not completed)" — not "€0", not "refused".
+> - An entry can also **refuse** to state its spend: `financialExpenses.refuseFinancialExpensesInformation`
+>   is then `true`, with the reason in `…refuseFinancialExpensesInformationReason`. Label it
+>   "refused" and quote the reason.
+> - `{from: 0, to: 0}` is common and means exactly **€0 declared**. There is no reporting
+>   threshold: every non-zero declaration is a €10,000 band starting at 1 (`1–10,000`,
+>   `12,430,001–12,440,000`). It sits at the bottom of the table.
 > - `financialExpenses.relatedFiscalYearStart` / `…End` give the **period** the figure
 >   covers — surface it so two entries' bands are comparable (most are a calendar year).
 
@@ -121,21 +127,21 @@ jq '[.[] | select(.accountDetails.activeLobbyist == false)] | length' /tmp/money
 ```
 Top total declared lobbying spend — entries matching "Energie" (2,401 registered, 2,185 active; 2026-09-15)
 Figures are self-declared annual ranges (FY2025) for each entry's lobbying as a whole, not
-for "Energie"; €0–0 = below threshold / none.
+for "Energie"; €0–0 = €0 declared.
 
  #  Declared spend (range)     Lobbyist                                                  Type             FTE
  1  €15.83M – €15.84M          Gesamtverband der Deutschen Versicherungswirtschaft e.V.  industry assoc.  31.2
  2  €12.43M – €12.44M          Verbraucherzentrale Bundesverband e.V.                    NGO              75.5
  3  €10.27M – €10.28M          Verband der Automobilindustrie e.V.                       industry assoc.  27.3
  …
-(262 active entries declared no or zero spend; 216 inactive entries left out.)
+(262 active entries declared €0 or have no figure yet; 216 inactive entries left out.)
 ```
 
 Rules:
 - **Always a range, always "declared".** These are self-reported brackets, not audited
   spend; say so once, up front.
 - Sort by `to` descending; tie-break by `from`. Coalesce `null`/missing to 0 so the sort
-  is stable, but render those as "not declared", not "€0".
+  is stable, but render those as "no figure yet" (or "refused", see above), not "€0".
 - State the **fiscal period** (`relatedFiscalYearStart`/`End`) the figures cover; warn if
   entries in the table span different periods.
 - Exclude `activeLobbyist === false` by default; report how many you dropped.

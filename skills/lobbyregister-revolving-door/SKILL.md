@@ -139,7 +139,7 @@ For each office-holder, pull the lobbying context so the conflict is legible:
 |---|---|
 | `activitiesAndInterests.activity.de` | What they now do (often `Beratungsunternehmen…` — a consultancy) |
 | `activitiesAndInterests.fieldsOfInterest[].de` | The policy areas they now lobby on — compare against their former remit |
-| `financialExpenses.financialExpensesEuro` | Declared spend `{from,to}` range (or `null`) — present as a band |
+| `financialExpenses.financialExpensesEuro` | Declared spend `{from,to}` range — present as a band; `{0,0}` = €0 declared, `null` = no figure yet (first fiscal year not completed) |
 | `registerNumber` / `registerEntryDetails.detailsPageUrl` | Cite + drill-down link |
 | `accountDetails.activeLobbyist` | `false` = inactive entry; note it |
 
@@ -172,7 +172,8 @@ Rules:
 - State institution + role + `endDate` for each; distinguish `ended: true` (former) from
   `ended: false` (still in office — a stronger conflict signal).
 - Pair former remit with current `fieldsOfInterest` so a same-sector move is visible.
-- Show declared spend as a **range**, labelled "declared"; `null` = "not declared".
+- Show declared spend as a **range**, labelled "declared"; `{0,0}` = "€0 declared", `null` =
+  "no figure yet" (first fiscal year not completed).
 - Trim stray spaces in names; cite `registerNumber` and offer `detailsPageUrl`.
 - This data is a self-disclosure field — report what's declared, don't infer offices the
   data doesn't state. If the filtered count is zero, say so plainly; that's a valid,

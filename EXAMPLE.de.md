@@ -68,7 +68,7 @@ der Arzneimittelhersteller ist der vfa auf Platz 4.
 
 ```
 Höchste angegebene Lobbyausgaben – Thema „Arzneimittel" (655 registriert, 603 aktiv)
-Selbst angegebene Jahresspannen, für 524 der 603 Geschäftsjahr 2025; 0–0 € = unter der Schwelle / keine.
+Selbst angegebene Jahresspannen, für 524 der 603 Geschäftsjahr 2025; 0–0 € = 0 € angegeben.
 
  #  Angegebene Ausgaben (Spanne)  Lobbyist                                                  Art                 VZÄ
  1  15,83 – 15,84 Mio. €          Gesamtverband der Deutschen Versicherungswirtschaft e.V.  Wirtschaftsverband  31,21

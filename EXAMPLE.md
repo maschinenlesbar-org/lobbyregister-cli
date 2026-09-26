@@ -67,7 +67,7 @@ association is vfa at #4.
 
 ```
 Top declared lobbying spend — topic "Arzneimittel" (655 registered, 603 active)
-Self-declared annual ranges, FY 2025 for 524 of the 603; €0–0 = below threshold / none.
+Self-declared annual ranges, FY 2025 for 524 of the 603; €0–0 = €0 declared.
 
  #  Declared spend (range)  Lobbyist                                                  Type             FTE
  1  €15.83M – €15.84M       Gesamtverband der Deutschen Versicherungswirtschaft e.V.  industry assoc.  31.21
