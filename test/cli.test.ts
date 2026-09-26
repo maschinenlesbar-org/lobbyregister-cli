@@ -321,3 +321,24 @@ test("--page 0 and --page-size 0 are usage errors before any request", async () 
     assert.match(cli.err.join("\n"), /Must be >= 1\./);
   }
 });
+
+test("a blank or unsendable --user-agent is a usage error before any request", async () => {
+  const cases: [string, RegExp][] = [
+    ["", /Expected a non-empty value\./],
+    ["   ", /Expected a non-empty value\./],
+    ["a\nX-Evil: 1", /Value contains control characters\./],
+    ["a" + String.fromCharCode(0x7f), /Value contains control characters\./],
+    ["café ☃", /Value contains characters outside Latin-1 \(above U\+00FF\)\./],
+  ];
+  for (const [ua, message] of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["--user-agent", ua, "count"], cli.deps), 2, JSON.stringify(ua));
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), message);
+  }
+  for (const ua of ["my-app/1.0", "tab\there", "café"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["--user-agent", ua, "count"], cli.deps), 0, ua);
+    assert.equal(cli.mt.last().headers?.["User-Agent"], ua);
+  }
+});
