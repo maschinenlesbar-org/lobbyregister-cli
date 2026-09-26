@@ -3,7 +3,8 @@
 Real examples for the Claude Code skills of the `lobbyregister` plugin, one per skill: a request,
 the `lobbyregister` commands the skill ran, and the answer Claude gave.
 
-Every example ran against the live API on 15 September 2026 with `lobbyregister` 0.0.7.
+Every example ran against the live API on 15 September 2026 with `lobbyregister` 0.0.7, unless
+its section says it was re-run later.
 The data changes, so your results will differ; the ids and keys shown work for trying the
 requests yourself. Long lists are shortened.
 
@@ -55,19 +56,25 @@ Details: https://www.lobbyregister.bundestag.de/suche/R000815/85634
 
 > Who spends the most on lobbying around medicines and pharma?
 
+Re-run on 26 September 2026 with `lobbyregister` 0.1.0.
+
 ```bash
-lobbyregister count Arzneimittel --compact        # 655
-lobbyregister count Pharma --compact              # 307
-lobbyregister search Arzneimittel --results-only --compact > money.json
+lobbyregister count Pharma --compact                                        # 310
+lobbyregister search Arzneimittel --results-only --compact > money.json     # 655 entries
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  money.json > money.json.tmp && mv money.json.tmp money.json                # still 655
 ```
 
-`Arzneimittel` matched twice as many entries as `Pharma`, so the skill ranked that set. The term
-is broad: the insurers' umbrella association tops the table, and the first drug-maker
-association is vfa at #4.
+`Arzneimittel` matched twice as many entries as `Pharma`, so the skill ranked that set. Keeping
+the newest version per `registerNumber` changed nothing here: the entry the API returns twice
+(R000534, BDI) is not in this set. The term is broad and the spend is each entry's total, not
+its spend on medicines: the insurers' umbrella association tops the table, and the first
+drug-maker association is vfa at #4.
 
 ```
-Top declared lobbying spend — topic "Arzneimittel" (655 registered, 603 active)
-Self-declared annual ranges, FY 2025 for 524 of the 603; €0–0 = €0 declared.
+Top total declared lobbying spend — entries matching "Arzneimittel" (655 registered, 605 active; 2026-09-26)
+Self-declared annual ranges for each entry's lobbying as a whole, FY 2025 for 525 of the 605;
+€0–0 = €0 declared.
 
  #  Declared spend (range)  Lobbyist                                                  Type             FTE
  1  €15.83M – €15.84M       Gesamtverband der Deutschen Versicherungswirtschaft e.V.  industry assoc.  31.21
@@ -86,7 +93,8 @@ Self-declared annual ranges, FY 2025 for 524 of the 603; €0–0 = €0 declare
 14  €2.20M – €2.21M         ABDA - Bundesvereinigung Deutscher Apothekerverbände e. V.  private org.   5.6
 15  €2.18M – €2.19M         Bayer AG                                                  company          4.59
 
-52 inactive entries dropped; 73 active entries declared €0–0 and 8 declared nothing.
+50 inactive entries left out. Of the 605 active: 73 declared €0, 8 have no figure yet (first
+fiscal year not completed), none refused to state their spend.
 No code-of-conduct violations or recent government functions among the top 15.
 ```
 
@@ -133,16 +141,29 @@ Went inactive (18):
 
 > Which former Bundestag members or federal officials are now registered lobbyists?
 
+Re-run on 26 September 2026 with `lobbyregister` 0.1.0.
+
 ```bash
-lobbyregister search --results-only --compact > rd.json      # whole register: 6979 entries, 17.8 MB, one call
+lobbyregister count --filter revolvingdoordata=true --compact     # 680
+lobbyregister count --compact                                     # 6989 (whole register)
+lobbyregister search --filter revolvingdoordata=true --results-only --compact > rd.json   # 2.2 MB
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  rd.json > rd.json.tmp && mv rd.json.tmp rd.json                  # 679: R000534 (BDI) came twice
 ```
 
-All 38 flagged entries are natural persons. Each role was read from the sub-object that matches
-its `type.code`; for `FEDERAL_ADMINISTRATION` the function is a plain string.
+The register's own revolving-door filter found 680 entries, 679 distinct once the second
+version of R000534 (BDI) was dropped. Only 39 of them carry the office detail in the data
+(`recentGovernmentFunctionPresent`): natural persons who held the office themselves. The
+other 640 are organisations where someone working for them held it; `/sucheJson` doesn't say
+who, only the register page does. Each role was read from the sub-object that matches its
+`type.code`; for `FEDERAL_ADMINISTRATION` the function is a plain string.
 
 ```
-Revolving door — register entries with recent public office: 38 of 6,979
-25 Bundestag · 11 Bundesverwaltung · 2 Bundesregierung · 6 of the entries inactive
+Revolving door — register entries with revolving-door data: 680 of 6,989
+(counts as the API reports them; the fetched 680 held R000534/BDI twice, so 679 distinct)
+39 name the lobbyist's own former office in the data: 25 Bundestag · 12 Bundesverwaltung ·
+2 Bundesregierung, 6 of them inactive. For the other 640 the office-holder (employee,
+entrusted person, …) is shown only on the register page.
 
 Still in office (ended: false):
 • Dr. Reinhard Göhner — Mitglied des Nationalen Normenkontrollrates (Bundesverwaltung, NKR)
@@ -150,22 +171,32 @@ Still in office (ended: false):
 
 Most recent moves (office ended 2025 or later: 20):
 • Dr. Joachim Stamp — Sonderbevollmächtigter der Bundesregierung für Migrationsabkommen, BKAmt
-  (Bundesverwaltung, ended 2025-12) · Now: consultancy · registered 2026-07-10 · declared €0–0 · R008103
+  (Bundesverwaltung, ended 2025-12) · Now: consultancy · registered 2026-07-10 · declared €0 · R008103
 • Dr. Sven Halldorn — Abteilungsleiter, BMV (ended 2025-06) · consultancy · Verkehrsinfrastruktur · R002845
 • Silvia Bender — Staatssekretärin, BMLEH (Bundesverwaltung, ended 2025-05) · Now: consultancy ·
-  Land- und Forstwirtschaft, Fischerei/Aquakultur, Lebensmittelsicherheit · registered 2026-09-02 · R008201
+  Land- und Forstwirtschaft, Fischerei/Aquakultur, Lebensmittelsicherheit · registered 2026-09-02 ·
+  declared €0 · R008201
 • Burkhard Blienert — Beauftragter der Bundesregierung für Sucht- und Drogenfragen, BMG (ended 2025-05)
   Now: consultancy · Kultur, Arbeitsrecht/Arbeitsbedingungen · declared €1–10,000 · R007582
 • Dr. Hans-Peter Friedrich — Mitglied des Deutschen Bundestages (ended 2025-03)
-  Now: law firm / sole lawyer · Innere Sicherheit, Verkehrsinfrastruktur · registered 2026-09-14 · R008222
+  Now: law firm / sole lawyer · Innere Sicherheit, Verkehrsinfrastruktur · registered 2026-09-14 ·
+  declared €0 · R008222
 • Christine Aschenberg-Dugnus — MdB (ended 2025-03) · law firm · Gesundheitsversorgung, Krankenversicherung · R007688
 • Marco Wanderwitz — MdB (ended 2025-03) · law firm · Energienetze, Rechtspolitik · R007660
   … 13 more (12 former MdBs, e.g. Karsten Klein, Oliver Grundmann, Till Mansmann, Torsten Herbst)
 Earlier: Annegret Kramp-Karrenbauer — Bundesministerin der Verteidigung (Bundesregierung, ended 2021-12),
-entry inactive · R007251; Volkmar Vogel — Parl. Staatssekretär, BMI (ended 2021-12) · R005605; … 15 more.
+entry inactive · R007251; Volkmar Vogel — Parl. Staatssekretär, BMI (ended 2021-12) · R005605; … 16 more.
 
-8 of the 38 registered in 2026; the latest, Reinhard Klingen (Abteilungsleiter BMV until 2021-12),
-on 2026-09-15 · R008225.
+9 of the 39 registered in 2026; the latest, Gunther Beger (Abteilungsleiter BMZ until 2022-02),
+on 2026-09-25 · no figure yet (first fiscal year not completed) · R008244.
+
+Office held by someone working for the entry (details on the register page): 640 entries
+161 companies · 154 non-profit organisations · 98 industry/trade associations · 50 consultancies ·
+46 private organisations · 39 NGOs · 39 platforms/networks · 31 professional associations ·
+22 other; 19 inactive.
+Largest declared spenders among them: Gesamtverband der Deutschen Versicherungswirtschaft (R000774),
+Verbraucherzentrale Bundesverband (R001211), Verband der Automobilindustrie (R001243),
+BDEW (R000888), BDI (R000534), e.g. https://www.lobbyregister.bundestag.de/suche/R000774/86322
 ```
 
 ## lobbyregister-sector-brief

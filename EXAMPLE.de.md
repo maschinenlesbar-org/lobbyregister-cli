@@ -3,7 +3,8 @@
 Echte Beispiele für die Claude-Code-Skills des Plugins `lobbyregister`, eines pro Skill: eine
 Anfrage, die `lobbyregister`-Befehle, die der Skill ausgeführt hat, und Claudes Antwort.
 
-Jedes Beispiel lief am 15. September 2026 mit `lobbyregister` 0.0.7 gegen die Live-API.
+Jedes Beispiel lief am 15. September 2026 mit `lobbyregister` 0.0.7 gegen die Live-API, sofern
+sein Abschnitt keinen späteren Lauf nennt.
 Die Daten ändern sich, Ihre Ergebnisse werden also abweichen; mit den gezeigten IDs und
 Schlüsseln können Sie die Anfragen selbst ausprobieren. Lange Listen sind gekürzt.
 
@@ -56,19 +57,26 @@ Details: https://www.lobbyregister.bundestag.de/suche/R000815/85634
 
 > Wer gibt am meisten für Lobbyarbeit rund um Arzneimittel und Pharma aus?
 
+Neu ausgeführt am 26. September 2026 mit `lobbyregister` 0.1.0.
+
 ```bash
-lobbyregister count Arzneimittel --compact        # 655
-lobbyregister count Pharma --compact              # 307
-lobbyregister search Arzneimittel --results-only --compact > money.json
+lobbyregister count Pharma --compact                                        # 310
+lobbyregister search Arzneimittel --results-only --compact > money.json     # 655 Einträge
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  money.json > money.json.tmp && mv money.json.tmp money.json                # weiterhin 655
 ```
 
 `Arzneimittel` traf gut doppelt so viele Einträge wie `Pharma`, also hat der Skill diese Menge
-gerankt. Der Begriff ist breit: Ganz oben steht der Dachverband der Versicherer, der erste Verband
-der Arzneimittelhersteller ist der vfa auf Platz 4.
+gerankt. Das Behalten der neuesten Version je `registerNumber` änderte hier nichts: Der Eintrag,
+den die API doppelt liefert (R000534, BDI), gehört nicht zu dieser Menge. Der Begriff ist breit,
+und die Ausgaben sind jeweils die Gesamtausgaben eines Eintrags, nicht seine Ausgaben für
+Arzneimittel: Ganz oben steht der Dachverband der Versicherer, der erste Verband der
+Arzneimittelhersteller ist der vfa auf Platz 4.
 
 ```
-Höchste angegebene Lobbyausgaben – Thema „Arzneimittel" (655 registriert, 603 aktiv)
-Selbst angegebene Jahresspannen, für 524 der 603 Geschäftsjahr 2025; 0–0 € = 0 € angegeben.
+Höchste angegebene Lobbyausgaben insgesamt – Einträge zu „Arzneimittel" (655 registriert, 605 aktiv; 2026-09-26)
+Selbst angegebene Jahresspannen für die gesamte Lobbyarbeit des Eintrags, für 525 der 605
+Geschäftsjahr 2025; 0–0 € = 0 € angegeben.
 
  #  Angegebene Ausgaben (Spanne)  Lobbyist                                                  Art                 VZÄ
  1  15,83 – 15,84 Mio. €          Gesamtverband der Deutschen Versicherungswirtschaft e.V.  Wirtschaftsverband  31,21
@@ -87,7 +95,8 @@ Selbst angegebene Jahresspannen, für 524 der 603 Geschäftsjahr 2025; 0–0 €
 14  2,20 – 2,21 Mio. €            ABDA - Bundesvereinigung Deutscher Apothekerverbände e. V.  priv. Organisation  5,6
 15  2,18 – 2,19 Mio. €            Bayer AG                                                  Unternehmen         4,59
 
-52 inaktive Einträge ausgeblendet; 73 aktive Einträge gaben 0–0 € an, 8 gaben nichts an.
+50 inaktive Einträge ausgeblendet. Von den 605 aktiven gaben 73 0 € an, 8 haben noch keinen
+Betrag (erstes Geschäftsjahr nicht abgeschlossen), keiner hat die Angabe verweigert.
 Unter den Top 15 keine Verstöße gegen den Verhaltenskodex und keine früheren Regierungsämter.
 ```
 
@@ -135,16 +144,29 @@ Inaktiv geworden (18):
 
 > Welche ehemaligen Bundestagsabgeordneten oder Bundesbediensteten sind heute als Lobbyisten registriert?
 
+Neu ausgeführt am 26. September 2026 mit `lobbyregister` 0.1.0.
+
 ```bash
-lobbyregister search --results-only --compact > rd.json      # ganzes Register: 6979 Einträge, 17,8 MB, ein Aufruf
+lobbyregister count --filter revolvingdoordata=true --compact     # 680
+lobbyregister count --compact                                     # 6989 (ganzes Register)
+lobbyregister search --filter revolvingdoordata=true --results-only --compact > rd.json   # 2,2 MB
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  rd.json > rd.json.tmp && mv rd.json.tmp rd.json                  # 679: R000534 (BDI) kam doppelt
 ```
 
-Alle 38 markierten Einträge sind natürliche Personen. Die Funktion stammt jeweils aus dem
-Unterobjekt, das zum `type.code` passt; bei `FEDERAL_ADMINISTRATION` ist sie ein einfacher String.
+Der Drehtür-Filter des Registers fand 680 Einträge, 679 verschiedene, nachdem die zweite Version
+von R000534 (BDI) entfernt war. Nur 39 davon enthalten die Amtsangaben in den Daten
+(`recentGovernmentFunctionPresent`): natürliche Personen, die das Amt selbst innehatten. Die
+übrigen 640 sind Organisationen, für die jemand arbeitet, der das Amt innehatte; wer, sagt
+`/sucheJson` nicht, nur die Registerseite. Die Funktion stammt jeweils aus dem Unterobjekt, das
+zum `type.code` passt; bei `FEDERAL_ADMINISTRATION` ist sie ein einfacher String.
 
 ```
-Drehtür – Registereinträge mit kürzlichem öffentlichem Amt: 38 von 6.979
-25 Bundestag · 11 Bundesverwaltung · 2 Bundesregierung · 6 der Einträge inaktiv
+Drehtür – Registereinträge mit Drehtür-Angaben: 680 von 6.989
+(Zahlen wie von der API gemeldet; die abgerufenen 680 enthielten R000534/BDI doppelt, also 679 verschiedene)
+39 nennen das eigene frühere Amt des Lobbyisten in den Daten: 25 Bundestag · 12 Bundesverwaltung ·
+2 Bundesregierung, 6 davon inaktiv. Bei den übrigen 640 steht die Person mit dem Amt
+(Beschäftigte, betraute Person, …) nur auf der Registerseite.
 
 Noch im Amt (ended: false):
 • Dr. Reinhard Göhner – Mitglied des Nationalen Normenkontrollrates (Bundesverwaltung, NKR)
@@ -152,22 +174,32 @@ Noch im Amt (ended: false):
 
 Jüngste Wechsel (Amt 2025 oder später beendet: 20):
 • Dr. Joachim Stamp – Sonderbevollmächtigter der Bundesregierung für Migrationsabkommen, BKAmt
-  (Bundesverwaltung, bis 2025-12) · Heute: Beratung · registriert 2026-07-10 · angegeben 0–0 € · R008103
+  (Bundesverwaltung, bis 2025-12) · Heute: Beratung · registriert 2026-07-10 · angegeben 0 € · R008103
 • Dr. Sven Halldorn – Abteilungsleiter, BMV (bis 2025-06) · Beratung · Verkehrsinfrastruktur · R002845
 • Silvia Bender – Staatssekretärin, BMLEH (Bundesverwaltung, bis 2025-05) · Heute: Beratung ·
-  Land- und Forstwirtschaft, Fischerei/Aquakultur, Lebensmittelsicherheit · registriert 2026-09-02 · R008201
+  Land- und Forstwirtschaft, Fischerei/Aquakultur, Lebensmittelsicherheit · registriert 2026-09-02 ·
+  angegeben 0 € · R008201
 • Burkhard Blienert – Beauftragter der Bundesregierung für Sucht- und Drogenfragen, BMG (bis 2025-05)
   Heute: Beratung · Kultur, Arbeitsrecht/Arbeitsbedingungen · angegeben 1–10.000 € · R007582
 • Dr. Hans-Peter Friedrich – Mitglied des Deutschen Bundestages (bis 2025-03)
-  Heute: Kanzlei / Einzelanwalt · Innere Sicherheit, Verkehrsinfrastruktur · registriert 2026-09-14 · R008222
+  Heute: Kanzlei / Einzelanwalt · Innere Sicherheit, Verkehrsinfrastruktur · registriert 2026-09-14 ·
+  angegeben 0 € · R008222
 • Christine Aschenberg-Dugnus – MdB (bis 2025-03) · Kanzlei · Gesundheitsversorgung, Krankenversicherung · R007688
 • Marco Wanderwitz – MdB (bis 2025-03) · Kanzlei · Energienetze, Rechtspolitik · R007660
   … 13 weitere (12 ehemalige MdB, z. B. Karsten Klein, Oliver Grundmann, Till Mansmann, Torsten Herbst)
 Früher: Annegret Kramp-Karrenbauer – Bundesministerin der Verteidigung (Bundesregierung, bis 2021-12),
-Eintrag inaktiv · R007251; Volkmar Vogel – Parl. Staatssekretär, BMI (bis 2021-12) · R005605; … 15 weitere.
+Eintrag inaktiv · R007251; Volkmar Vogel – Parl. Staatssekretär, BMI (bis 2021-12) · R005605; … 16 weitere.
 
-8 der 38 haben sich 2026 registriert; zuletzt Reinhard Klingen (Abteilungsleiter BMV bis 2021-12)
-am 2026-09-15 · R008225.
+9 der 39 haben sich 2026 registriert; zuletzt Gunther Beger (Abteilungsleiter BMZ bis 2022-02)
+am 2026-09-25 · noch kein Betrag (erstes Geschäftsjahr nicht abgeschlossen) · R008244.
+
+Amt bei jemandem, der für den Eintrag arbeitet (Angaben auf der Registerseite): 640 Einträge
+161 Unternehmen · 154 gemeinnützige Organisationen · 98 Wirtschafts-/Gewerbeverbände ·
+50 Beratungen · 46 priv. Organisationen · 39 NGOs · 39 Plattformen/Netzwerke · 31 Berufsverbände ·
+22 sonstige; 19 inaktiv.
+Größte angegebene Ausgaben darunter: Gesamtverband der Deutschen Versicherungswirtschaft (R000774),
+Verbraucherzentrale Bundesverband (R001211), Verband der Automobilindustrie (R001243),
+BDEW (R000888), BDI (R000534), z. B. https://www.lobbyregister.bundestag.de/suche/R000774/86322
 ```
 
 ## lobbyregister-sector-brief
