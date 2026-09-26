@@ -172,11 +172,12 @@ CLI: `--max-response-bytes`.
 
 **Redirects & cross-origin credential stripping.** The engine follows up to
 `maxRedirects` (default `5`) HTTP redirects (`301/302/303/307/308`).
-Credential-bearing headers (`Authorization`, `Cookie`, `X-API-Key`) are stripped
-before following a redirect to a **different origin** (scheme + host + port) —
-including a same-host `https:` -> `http:` downgrade — so they never leak to an
-arbitrary host named in a `Location` header, nor cross the wire in cleartext.
-Same-origin redirects keep the headers. A 3xx without a `Location`, or with one that
+Before following a redirect to a **different origin** (scheme + host + port) —
+including a same-host `https:` -> `http:` downgrade — every header passed in
+`headers` is dropped (`Authorization`, `Proxy-Authorization`, `Cookie`, `X-API-Key`,
+`X-Auth-Token`, any other); only the engine's own `Accept` and `User-Agent` go
+along, so no credential leaks to an arbitrary host named in a `Location` header, nor
+crosses the wire in cleartext. Same-origin redirects keep the headers. A 3xx without a `Location`, or with one that
 is not a valid URL, is not followed: it surfaces as a `LobbyApiError` whose `location`
 field and message name the target (`HTTP 302 for GET …: redirect to http://[::1 not
 followed`, or `redirect not followed (no Location header)`).

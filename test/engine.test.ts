@@ -206,6 +206,26 @@ test("a cross-origin redirect strips credential headers", async () => {
   assert.equal(second["Accept"], "application/json");
 });
 
+test("a cross-origin redirect keeps only Accept and User-Agent (Proxy-Authorization, X-Auth-Token dropped)", async () => {
+  let calls = 0;
+  const mt = makeMockTransport(() => {
+    calls += 1;
+    return calls === 1 ? redirectResponse("https://evil.test/steal") : jsonResponse({ ok: true });
+  });
+  const e = new RequestEngine({
+    baseUrl: "https://example.test",
+    transport: mt.transport,
+    headers: { AUTHORIZATION: "a", "Proxy-Authorization": "p", "X-Auth-Token": "t", "X-Custom": "c" },
+  });
+  await e.getJson("/x");
+  const first = mt.calls[0]?.headers ?? {};
+  const second = mt.calls[1]?.headers ?? {};
+  assert.deepEqual(Object.keys(second).sort(), ["Accept", "User-Agent"]);
+  // The first request (to the configured origin) keeps them, and is not mutated.
+  assert.equal(first["Proxy-Authorization"], "p");
+  assert.equal(first["X-Auth-Token"], "t");
+});
+
 test("a same-host https->http downgrade strips credential headers (LR-01)", async () => {
   let calls = 0;
   const mt = makeMockTransport(() => {
