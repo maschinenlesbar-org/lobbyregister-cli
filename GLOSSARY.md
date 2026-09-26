@@ -133,7 +133,8 @@ JSON. Supports `--page`, `--page-size`, `--sort` and `--filter` (see above).
 
 **`count [query]`.** Print only the match count: `{ query, resultCount }` (with
 `filters` listed when `--filter` was given). A thin wrapper over `search` with
-`pageSize: 1` that reads back `resultCount`. Takes the optional query, `--filter` and
+`pageSize: 1` that reads back `resultCount`; the endpoint ignores `pageSize`, so it
+downloads every matching record, just like `search`. Takes the optional query, `--filter` and
 the global options.
 
 ---

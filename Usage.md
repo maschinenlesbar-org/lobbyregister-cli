@@ -28,7 +28,7 @@ Without a global install you can also run it from a checkout with
 
 ### 1. Count how many entries mention a topic
 
-Quick way to gauge how strongly a sector is represented before pulling full records.
+Gauge how strongly a sector is represented, as a single number.
 
 ```bash
 lobbyregister count Energie
@@ -40,8 +40,11 @@ Prints an envelope with the query and the API-reported total:
 { "query": "Energie", "resultCount": 1234 }
 ```
 
-`count` takes only an optional query plus the global options — no paging or
-sorting flags.
+`count` takes an optional query, `--filter` and the global options — no paging or
+sorting flags. It is not a cheaper request: the API has no count-only mode, so
+`count` downloads the same records as `search` (the whole register, about 18 MB,
+without a query or filter) and prints only `resultCount`. A loop over several topics
+(§7) downloads each topic's full set.
 
 ### 2. Search lobbyists by keyword
 

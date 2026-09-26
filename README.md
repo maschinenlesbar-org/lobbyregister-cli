@@ -49,11 +49,15 @@ total count under `resultCount`. Pull out just the entries with `jq`:
 lobbyregister search Energie | jq '.results'
 ```
 
-Count how many entries mention a topic without fetching the full records:
+Print just the number of entries that mention a topic:
 
 ```bash
 lobbyregister count Energie
 ```
+
+`count` prints one number, but the API has no count-only mode: it still downloads
+every matching record (the whole register, about 18 MB, when you give no query or
+filter), so it is no faster than `search`.
 
 ## Commands
 

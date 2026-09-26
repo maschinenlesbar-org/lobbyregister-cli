@@ -136,7 +136,8 @@ und `--filter` (siehe oben).
 
 **`count [query]`.** Gibt nur die Trefferzahl aus: `{ query, resultCount }` (mit
 `filters`, wenn `--filter` angegeben wurde). Eine dünne Hülle um `search` mit
-`pageSize: 1`, die `resultCount` ausliest. Nimmt den optionalen Suchbegriff, `--filter`
+`pageSize: 1`, die `resultCount` ausliest; der Endpoint ignoriert `pageSize`, also lädt
+sie wie `search` alle passenden Einträge herunter. Nimmt den optionalen Suchbegriff, `--filter`
 und die globalen Optionen entgegen.
 
 ---

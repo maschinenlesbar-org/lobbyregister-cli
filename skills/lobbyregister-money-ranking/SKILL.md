@@ -142,5 +142,5 @@ Rules:
 - Cap the table (~10–15 rows) unless asked for more; mention how many declared zero/none.
 - Flag any top-table entry with `accountHasCodexViolations === true` or
   `recentGovernmentFunctionPresent === true`.
-- For a quick footprint comparison across topics, use `count <term>` per topic rather than
-  re-ranking each set.
+- For a footprint comparison across topics, `count <term>` per topic prints just the totals
+  (it still downloads each topic's full set; the API has no count-only mode).

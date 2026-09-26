@@ -38,11 +38,15 @@ that term". The query is German: search `Wasserstoff`, not "hydrogen" (see Step 
 
 ## Step 1 — Size the topic, then pull the entries
 
-First gauge the footprint cheaply:
+First gauge the footprint:
 
 ```bash
 lobbyregister count Wasserstoff      # → { "query": "Wasserstoff", "resultCount": 402 }
 ```
+
+(`count` is not a cheap request: the API has no count-only mode, so it downloads the same
+records as `search` and prints only the number. If you are going to fetch the set anyway,
+skip it and take the length of the deduplicated array.)
 
 Then fetch the records. The endpoint **returns every match in one response** regardless of
 `--page` / `--page-size` (those slice client-side; `resultCount` is always the true total),
@@ -155,5 +159,5 @@ Rules:
 - Cite `registerNumber` and offer `detailsPageUrl` for any entry the user wants to open.
 - Exclude `activeLobbyist === false` from rankings by default but say how many you dropped.
 - If the user names two topics, run two searches and compare counts/spend side by side
-  (the `count` command is perfect for a quick footprint comparison across terms).
+  (`count` gives the totals in one line each, but downloads each topic's full set too).
 - Don't invent figures the data doesn't carry; `null` financials/FTE = "not declared".
