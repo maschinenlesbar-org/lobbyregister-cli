@@ -309,3 +309,15 @@ test("a --sort the API did not apply gets a stderr warning (exit 0)", async () =
   assert.equal(await run(["search", "x", "--sort", "whatever"], bare.deps), 0);
   assert.deepEqual(bare.err, []);
 });
+
+test("--page 0 and --page-size 0 are usage errors before any request", async () => {
+  for (const argv of [
+    ["search", "x", "--page", "0", "--page-size", "3"],
+    ["search", "x", "--page-size", "0"],
+  ]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, `${argv.join(" ")}: no request`);
+    assert.match(cli.err.join("\n"), /Must be >= 1\./);
+  }
+});

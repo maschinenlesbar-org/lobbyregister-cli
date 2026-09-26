@@ -73,8 +73,8 @@ count   [query]   count entries matching a query
 | `[query]` | free-text search term (optional — omit to match everything) |
 | `--sort <order>` | sort order, e.g. `RELEVANCE_DESC`, `REGISTRATION_DESC`, `FINANCIALEXPENSES_DESC` (all values below) |
 | `--filter <attribute=value>` | register facet filter, repeatable (see below) |
-| `--page <n>` | 1-based page number (client-side paging) |
-| `--page-size <n>` | results per page (client-side paging) |
+| `--page <n>` | 1-based page number, 1 or more (client-side paging) |
+| `--page-size <n>` | results per page, 1 or more (client-side paging) |
 | `--results-only` | print just the `results` array, not the envelope |
 
 `count` takes the optional query, `--filter` and the global options — no `--page`,

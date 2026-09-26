@@ -7,7 +7,7 @@ import {
   FILTER_HELP,
   action,
   collectFilter,
-  parseIntArg,
+  parseBoundedInt,
   parseNonEmpty,
   renderJson,
 } from "../shared.js";
@@ -24,8 +24,9 @@ function paginate(result: SearchResult, page?: number, pageSize?: number): Searc
   // `--page` without `--page-size` is rejected up front (see the action), so by
   // here either both are set or only `--page-size` is.
   if (pageSize === undefined) return result;
-  // A 1-based page number; default to the first page when only --page-size is set.
-  const effectivePage = page !== undefined ? Math.max(page, 1) : 1;
+  // A 1-based page number (the option parser rejects 0); default to the first page
+  // when only --page-size is set.
+  const effectivePage = page ?? 1;
   const start = (effectivePage - 1) * pageSize;
   const end = start + pageSize;
   return { ...result, results: result.results.slice(start, end) };
@@ -52,8 +53,16 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
     .command("search")
     .description("Search the lobby register")
     .argument("[query]", "free-text search term (omit to match everything)", parseNonEmpty)
-    .option("--page <n>", "1-based page number (client-side paging)", parseIntArg)
-    .option("--page-size <n>", "results per page (client-side paging)", parseIntArg)
+    .option(
+      "--page <n>",
+      "1-based page number (1 or more; client-side paging)",
+      parseBoundedInt(1, Number.MAX_SAFE_INTEGER),
+    )
+    .option(
+      "--page-size <n>",
+      "results per page (1 or more; client-side paging)",
+      parseBoundedInt(1, Number.MAX_SAFE_INTEGER),
+    )
     .option("--sort <order>", 'e.g. RELEVANCE_DESC, REGISTRATION_DESC', parseNonEmpty)
     .option(
       "--filter <attribute=value>",
