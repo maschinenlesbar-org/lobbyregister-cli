@@ -115,12 +115,18 @@ const realSleep = (ms: number): Promise<void> =>
 // endpoint cannot park the client for an arbitrarily long time.
 const MAX_RETRY_AFTER_MS = 60_000;
 
+/** RFC 9110's preferred HTTP-date format (IMF-fixdate), e.g. `Wed, 21 Oct 2026 07:28:00 GMT`. */
+const IMF_FIXDATE =
+  /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{4} \d{2}:\d{2}:\d{2} GMT$/;
+
 /**
  * Parse an HTTP `Retry-After` header into a delay in milliseconds. Supports both
- * forms from RFC 9110: a delta in seconds (`Retry-After: 5`) and an HTTP-date
- * (`Retry-After: Wed, 21 Oct 2026 07:28:00 GMT`). Returns `undefined` when the
- * header is absent or unparseable (so the caller falls back to linear backoff),
- * and clamps to `[0, MAX_RETRY_AFTER_MS]`.
+ * forms from RFC 9110: a delta in seconds (`Retry-After: 5`) and an HTTP-date in
+ * IMF-fixdate form (`Retry-After: Wed, 21 Oct 2026 07:28:00 GMT`). Returns
+ * `undefined` when the header is absent or invalid (so the caller falls back to
+ * linear backoff), and clamps to `[0, MAX_RETRY_AFTER_MS]`. Only the IMF-fixdate
+ * shape goes to `Date.parse`: V8 reads "-1" or "1.5" as dates (year -1,
+ * 2001-01-05), which would mean "retry immediately".
  */
 export function parseRetryAfter(value: string | undefined, now: number = Date.now()): number | undefined {
   if (value === undefined) return undefined;
@@ -129,7 +135,7 @@ export function parseRetryAfter(value: string | undefined, now: number = Date.no
   if (/^\d+$/.test(trimmed)) {
     return Math.min(Number(trimmed) * 1000, MAX_RETRY_AFTER_MS);
   }
-  const dateMs = Date.parse(trimmed);
+  const dateMs = IMF_FIXDATE.test(trimmed) ? Date.parse(trimmed) : Number.NaN;
   if (!Number.isNaN(dateMs)) {
     return Math.min(Math.max(dateMs - now, 0), MAX_RETRY_AFTER_MS);
   }

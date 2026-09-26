@@ -82,6 +82,22 @@ test("parseRetryAfter understands delta-seconds, HTTP-date and junk", () => {
   assert.equal(parseRetryAfter("Thu, 01 Jan 2026 00:00:03 GMT", now), 3000);
   // a past date floors at 0
   assert.equal(parseRetryAfter("Thu, 01 Jan 2026 00:00:00 GMT", now + 10_000), 0);
+  // invalid values fall back to linear backoff, never "retry at once"
+  for (const bad of ["-1", "1.5", "+5", "1e3", "0x10", "2026-01-01T00:00:03Z", "Thursday, 01-Jan-26 00:00:03 GMT", "Thu Jan  1 00:00:03 2026"]) {
+    assert.equal(parseRetryAfter(bad, now), undefined, bad);
+  }
+});
+
+test("a 503 with an invalid Retry-After uses linear backoff", async () => {
+  const delays: number[] = [];
+  const mt = makeMockTransport(() => ({
+    status: 503,
+    headers: { "content-type": "application/json", "retry-after": "1.5" },
+    body: Buffer.from("{}"),
+  }));
+  const e = new RequestEngine({ transport: mt.transport, maxRetries: 2, retryDelayMs: 200, sleep: async (ms) => { delays.push(ms); } });
+  await assert.rejects(() => e.getJson("/x"), LobbyApiError);
+  assert.deepEqual(delays, [200, 400]);
 });
 
 test("a 503 with Retry-After honours it over linear backoff", async () => {

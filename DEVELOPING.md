@@ -161,8 +161,9 @@ subprocess.
 
 **Retry / backoff.** Transient `429` (rate-limited) and `503` responses are
 retried automatically. A server-provided `Retry-After` header is honoured (both
-the delta-seconds and HTTP-date forms, clamped to a 60 s ceiling); without one,
-the client falls back to linear backoff (`retryDelayMs * attempt`). Count via
+the delta-seconds and the IMF-fixdate HTTP-date forms, clamped to a 60 s ceiling);
+without one, or with an invalid one (`-1`, `1.5`, other date formats), the client
+falls back to linear backoff (`retryDelayMs * attempt`). Count via
 `--max-retries` / `maxRetries` (default `2`). `LobbyApiError` exposes
 `isRetryable`.
 
