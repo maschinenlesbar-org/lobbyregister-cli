@@ -52,6 +52,18 @@ so a single `search` gives you the whole set:
 lobbyregister search Wasserstoff --results-only --compact > /tmp/sector.json
 ```
 
+> **The API can return two versions of one entry.** On 2026-09-26 `R000534` (BDI) came back
+> twice — an older version (`registerEntryId` 84196) and the current one (85248) — so
+> `resultCount` (and `count`) was one higher than the number of distinct entries (Energie
+> 2,409 vs 2,408; whole register 6,989 vs 6,988), and a ranking listed BDI twice. Keep the
+> newest version per `registerNumber` right after fetching, and count entries from the
+> deduplicated array:
+>
+> ```bash
+> jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+>   /tmp/sector.json > /tmp/sector.json.tmp && mv /tmp/sector.json.tmp /tmp/sector.json
+> ```
+
 > **Use the German term.** The register's text is German; querying English words finds
 > little. Map the user's topic to the German keyword (hydrogen → `Wasserstoff`, climate →
 > `Klimaschutz`, defence → `Rüstung`/`Verteidigung`, AI → `künstliche Intelligenz` or

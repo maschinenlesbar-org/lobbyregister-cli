@@ -96,6 +96,13 @@ This is the single number reported by the `count` command.
 
 **`results`.** The array of matching register entries (each a **RegisterEntry**).
 
+**Duplicate versions.** The API can return more than one version of the same register
+entry: on 2026-09-26 `R000534` came back twice (`registerEntryDetails.registerEntryId`
+84196, valid from 2026-08-20, and 85248, valid from 2026-09-10), and `resultCount`
+counted both. The CLI passes the data through unchanged; to count or rank entries,
+keep one per `registerNumber` (the newest `registerEntryDetails.validFromDate`), e.g.
+`jq 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))'`.
+
 **RegisterEntry.** One register entry — a registered interest representative.
 Typed as a raw `JsonObject` (a faithful, untyped JSON document) because entries
 are large and schema-versioned; the client does not guess their internal shape.

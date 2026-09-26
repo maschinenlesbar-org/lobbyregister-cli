@@ -45,6 +45,18 @@ lobbyregister search Energie --results-only --compact > /tmp/money.json    # top
 lobbyregister search          --results-only --compact > /tmp/money.json    # whole register
 ```
 
+> **The API can return two versions of one entry.** On 2026-09-26 `R000534` (BDI) came back
+> twice — an older version (`registerEntryId` 84196) and the current one (85248) — so
+> `resultCount` (and `count`) was one higher than the number of distinct entries (Energie
+> 2,409 vs 2,408; whole register 6,989 vs 6,988), and a ranking listed BDI twice. Keep the
+> newest version per `registerNumber` right after fetching, and count entries from the
+> deduplicated array:
+>
+> ```bash
+> jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+>   /tmp/money.json > /tmp/money.json.tmp && mv /tmp/money.json.tmp /tmp/money.json
+> ```
+
 > **A topic only selects the entries; the spend is not per topic.** `financialExpenses` is
 > an entry's total declared lobbying spend across everything it lobbies on, so a broad
 > association tops many topic tables. Head the table "entries matching <term>, by total

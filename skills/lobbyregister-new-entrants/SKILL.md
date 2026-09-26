@@ -44,6 +44,18 @@ lobbyregister search Wasserstoff --sort REGISTRATION_DESC --results-only --compa
 lobbyregister search             --sort REGISTRATION_DESC --results-only --compact > /tmp/ne.json
 ```
 
+> **The API can return two versions of one entry.** On 2026-09-26 `R000534` (BDI) came back
+> twice — an older version (`registerEntryId` 84196) and the current one (85248) — so
+> `resultCount` (and `count`) was one higher than the number of distinct entries (Energie
+> 2,409 vs 2,408; whole register 6,989 vs 6,988), and a ranking listed BDI twice. Keep the
+> newest version per `registerNumber` right after fetching, and count entries from the
+> deduplicated array:
+>
+> ```bash
+> jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+>   /tmp/ne.json > /tmp/ne.json.tmp && mv /tmp/ne.json.tmp /tmp/ne.json
+> ```
+
 > **`--sort REGISTRATION_DESC` orders by `firstPublicationDate`** (when the entry first
 > appeared), which is exactly the "new entrant" signal. The endpoint returns every match in
 > one response regardless of `--page`/`--page-size`, so one `search` gives the full set and

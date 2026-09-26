@@ -59,6 +59,18 @@ jq -r '.[] | select(.lobbyistIdentity.recentGovernmentFunctionPresent != true)
        | [.registerNumber, .lobbyistIdentity.name, .registerEntryDetails.detailsPageUrl] | @tsv' /tmp/rd.json
 ```
 
+> **The API can return two versions of one entry.** On 2026-09-26 `R000534` (BDI) came back
+> twice — an older version (`registerEntryId` 84196) and the current one (85248) — so
+> `resultCount` (and `count`) was one higher than the number of distinct entries (Energie
+> 2,409 vs 2,408; whole register 6,989 vs 6,988), and a ranking listed BDI twice. Keep the
+> newest version per `registerNumber` right after fetching, and count entries from the
+> deduplicated array:
+>
+> ```bash
+> jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+>   /tmp/rd.json > /tmp/rd.json.tmp && mv /tmp/rd.json.tmp /tmp/rd.json
+> ```
+
 > **Never use the JSON flag alone as the revolving-door count.**
 > `lobbyistIdentity.recentGovernmentFunctionPresent === true` covers only a lobbyist who is a
 > natural person and held office themselves (every flagged entry was `identity: "NATURAL"`;

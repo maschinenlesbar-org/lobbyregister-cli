@@ -114,6 +114,9 @@ how to interpret it. The skills encode the non-obvious parts of this API, for ex
   the Bundesregierung, `federalAdministration.function` (a plain string, with a
   `supremeFederalAuthority`) for the Bundesverwaltung — a blind fallback prints `?`
   (see **lobbyregister-revolving-door**);
+- **the API can return two versions of one entry** (R000534 twice on 2026-09-26), so
+  `resultCount` can be one too high — the skills keep the newest version per
+  `registerNumber` before counting or ranking;
 - **entry names carry stray double / trailing spaces** and several fields
   (`financialExpensesEuro`, `employeeFTE`, the count objects) are frequently `null` — trim
   for display, coalesce before maths, and never sort without a `// 0` fallback.

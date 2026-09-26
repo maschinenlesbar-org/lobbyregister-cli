@@ -99,6 +99,13 @@ zugeschnitten werden. Dies ist die eine Zahl, die der Befehl `count` ausgibt.
 
 **`results`.** Das Array der passenden Registereinträge (jeweils ein **RegisterEntry**).
 
+**Doppelte Versionen.** Die API kann mehr als eine Version desselben Registereintrags
+liefern: Am 2026-09-26 kam `R000534` zweimal (`registerEntryDetails.registerEntryId`
+84196, gültig ab 2026-08-20, und 85248, gültig ab 2026-09-10), und `resultCount` zählte
+beide. Die CLI gibt die Daten unverändert weiter; wer Einträge zählt oder rankt, behält je
+`registerNumber` eine Version (das neueste `registerEntryDetails.validFromDate`), z. B.
+`jq 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))'`.
+
 **RegisterEntry.** Ein Registereintrag – ein registrierter Interessenvertreter.
 Typisiert als rohes `JsonObject` (ein unverändertes, untypisiertes JSON-Dokument), weil
 Einträge groß und schemaversioniert sind; der Client rät ihre interne Struktur nicht.
