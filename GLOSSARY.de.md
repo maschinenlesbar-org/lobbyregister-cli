@@ -54,11 +54,17 @@ Text, den die Antwort nicht enthält (etwa die Tätigkeitsbeschreibung auf der R
 eines Eintrags); ein Eintrag kann also passen, ohne dass der Begriff irgendwo in seinem JSON
 vorkommt.
 
-**`sort`.** Die Sortierreihenfolge der Ergebnisse; wird unverändert weitergegeben und
-clientseitig **nicht** geprüft. Beobachtete Werte: `RELEVANCE_DESC` (Standard, nach
-Relevanz), `REGISTRATION_DESC` (neueste Registrierungen zuerst) und `REGISTRATION_ASC`
-(älteste zuerst). Der Live-Endpoint ignoriert einen unbekannten Wert stillschweigend
-(HTTP `200`), statt ihn abzulehnen. CLI: `search --sort <order>`.
+**`sort`.** Die Sortierreihenfolge der Ergebnisse; wird unverändert weitergegeben
+(Groß-/Kleinschreibung zählt). Die Werte sind die der Suche auf der Website des Registers:
+`RELEVANCE_DESC` (Standard bei einem Suchbegriff), `REGISTRATION_DESC` (Erstveröffentlichung),
+`UPDATE_DESC` (letzte Aktualisierung), `INACTIVITY_DESC` (Beendigung), `NAME_ASC`,
+`FINANCIALEXPENSES_DESC` (angegebene Ausgaben), `DONATIONAMOUNT_DESC`, `MEMBERSHIPFEES_DESC`,
+`NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFSTATEMENTS_DESC`, `NUMBEROFFTE_DESC`,
+`NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
+`NUMBEROFMEMBERSHIPS_DESC` – jeweils auch in der Gegenrichtung (`_ASC` / `_DESC`). Der
+Live-Endpoint ignoriert einen unbekannten Wert (HTTP `200`) und fällt auf seine
+Standardreihenfolge zurück, statt ihn abzulehnen; die CLI warnt dann auf stderr und nennt
+die in `searchParameters.sortOrder` gemeldete Reihenfolge. CLI: `search --sort <order>`.
 
 **Filter (`filter[<attribute>][<value>]`).** Die Facettenfilter der Suche auf der
 Website des Registers; `/sucheJson` nimmt sie als `filter[<attribute>][<value>]=true`

@@ -71,7 +71,7 @@ count   [query]   count entries matching a query
 | Flag | Meaning |
 | --- | --- |
 | `[query]` | free-text search term (optional — omit to match everything) |
-| `--sort <order>` | sort order: `RELEVANCE_DESC`, `REGISTRATION_DESC`, `REGISTRATION_ASC` |
+| `--sort <order>` | sort order, e.g. `RELEVANCE_DESC`, `REGISTRATION_DESC`, `FINANCIALEXPENSES_DESC` (all values below) |
 | `--filter <attribute=value>` | register facet filter, repeatable (see below) |
 | `--page <n>` | 1-based page number (client-side paging) |
 | `--page-size <n>` | results per page (client-side paging) |
@@ -149,10 +149,17 @@ lobbyregister search Chemie --results-only --compact \
 both `lobbyregister --compact search Energie` and `lobbyregister search Energie --compact`
 do the same thing.
 
-> **Note on `--sort`** — the value is passed through verbatim and not validated
-> client-side. An unrecognised value is silently ignored by the live API (HTTP
-> `200`) and the results fall back to the default ordering — so a typo won't
-> raise an error or an exit-`1` `400`; it just won't sort the way you asked.
+> **Note on `--sort`** — the register's website offers these orders:
+> `RELEVANCE_DESC` (the default with a query), `REGISTRATION_DESC` (first published),
+> `UPDATE_DESC` (last updated), `INACTIVITY_DESC` (went inactive), `NAME_ASC`,
+> `FINANCIALEXPENSES_DESC` (declared spend), `DONATIONAMOUNT_DESC`, `MEMBERSHIPFEES_DESC`,
+> `NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFSTATEMENTS_DESC`, `NUMBEROFFTE_DESC`,
+> `NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
+> `NUMBEROFMEMBERSHIPS_DESC` — each also in the other direction (`_ASC` / `_DESC`).
+> The value is passed through verbatim and is case-sensitive. The live API
+> ignores an unrecognised value (HTTP `200`) and falls back to its default order;
+> the CLI then prints a `Warning:` on stderr naming the order the API used
+> (`searchParameters.sortOrder`), and still exits `0`.
 
 > **Note on `--page` / `--page-size`** — these are still sent to the API, but the
 > live endpoint ignores them and returns all matches, so the CLI slices the

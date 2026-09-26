@@ -286,3 +286,26 @@ test("paging in relevance order warns on stderr that pages across runs are unsta
   assert.equal(await run(["search", "x"], unpaged.deps), 0);
   assert.deepEqual(unpaged.err, []);
 });
+
+test("a --sort the API did not apply gets a stderr warning (exit 0)", async () => {
+  const ignored = makeCli(() =>
+    jsonResponse({ resultCount: 1, results: [{}], searchParameters: { sortOrder: "RELEVANCE_DESC" } }),
+  );
+  assert.equal(await run(["search", "R002822", "--sort", "registration_desc"], ignored.deps), 0);
+  assert.equal(
+    ignored.err.join("\n"),
+    'Warning: the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead. ' +
+      "Sort orders are upper case, e.g. REGISTRATION_DESC (see search --help).",
+  );
+
+  const applied = makeCli(() =>
+    jsonResponse({ resultCount: 1, results: [{}], searchParameters: { sortOrder: "FINANCIALEXPENSES_DESC" } }),
+  );
+  assert.equal(await run(["search", "x", "--sort", "FINANCIALEXPENSES_DESC"], applied.deps), 0);
+  assert.deepEqual(applied.err, []);
+
+  // No echo to compare against: nothing to say.
+  const bare = makeCli(() => jsonResponse({ resultCount: 1, results: [{}] }));
+  assert.equal(await run(["search", "x", "--sort", "whatever"], bare.deps), 0);
+  assert.deepEqual(bare.err, []);
+});

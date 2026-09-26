@@ -76,10 +76,23 @@ See which interest representatives most recently registered for a topic.
 lobbyregister search Pharma --sort REGISTRATION_DESC
 ```
 
-Common `--sort` values: `RELEVANCE_DESC`, `REGISTRATION_DESC`,
-`REGISTRATION_ASC`. The value is passed through verbatim and is not validated
-client-side; an unrecognised value is silently ignored by the API (HTTP `200`,
-default ordering), so a bad sort never raises a `400` — it just won't reorder.
+`--sort` values (the orders of the register's website search):
+`RELEVANCE_DESC` (the default with a query), `REGISTRATION_DESC` (first published),
+`UPDATE_DESC` (last updated), `INACTIVITY_DESC` (went inactive), `NAME_ASC`,
+`FINANCIALEXPENSES_DESC` (declared spend), `DONATIONAMOUNT_DESC`, `MEMBERSHIPFEES_DESC`,
+`NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFSTATEMENTS_DESC`, `NUMBEROFFTE_DESC`,
+`NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
+`NUMBEROFMEMBERSHIPS_DESC` — each also in the other direction (`_ASC` / `_DESC`).
+The value is passed through verbatim and is case-sensitive. The API ignores an
+unrecognised value (HTTP `200`, default ordering), so a bad sort never raises a
+`400`; the CLI compares the order the API reports (`searchParameters.sortOrder`)
+with the one you asked for and prints a `Warning:` on stderr when they differ
+(exit `0`).
+
+```bash
+# Biggest declared lobbying budgets first
+lobbyregister search Energie --sort FINANCIALEXPENSES_DESC --page-size 10 --results-only
+```
 
 ### 5. Page through a large result set
 

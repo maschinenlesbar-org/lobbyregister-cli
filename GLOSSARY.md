@@ -52,11 +52,15 @@ separator (e.g. `search -- -Energie`). The server also matches text that the res
 doesn't contain (such as the activity description on an entry's register page), so an
 entry can match without the term appearing anywhere in its JSON.
 
-**`sort`.** The result sort order, passed through verbatim and **not** validated
-client-side. Observed values: `RELEVANCE_DESC` (default relevance ranking),
-`REGISTRATION_DESC` (newest registrations first) and `REGISTRATION_ASC` (oldest
-first). The live endpoint silently ignores an unrecognised value (HTTP `200`)
-rather than rejecting it. CLI: `search --sort <order>`.
+**`sort`.** The result sort order, passed through verbatim (case-sensitive). The
+values are those of the register's website search: `RELEVANCE_DESC` (the default with a query), `REGISTRATION_DESC` (first published),
+`UPDATE_DESC` (last updated), `INACTIVITY_DESC` (went inactive), `NAME_ASC`,
+`FINANCIALEXPENSES_DESC` (declared spend), `DONATIONAMOUNT_DESC`, `MEMBERSHIPFEES_DESC`,
+`NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFSTATEMENTS_DESC`, `NUMBEROFFTE_DESC`,
+`NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
+`NUMBEROFMEMBERSHIPS_DESC` — each also in the other direction (`_ASC` / `_DESC`). The live endpoint ignores an unrecognised value (HTTP `200`) and falls back
+to its default order rather than rejecting it; the CLI then warns on stderr, using the
+order echoed in `searchParameters.sortOrder`. CLI: `search --sort <order>`.
 
 **Filters (`filter[<attribute>][<value>]`).** The facet filters of the register's
 website search, which `/sucheJson` accepts as `filter[<attribute>][<value>]=true`

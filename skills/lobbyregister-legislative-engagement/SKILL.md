@@ -57,9 +57,11 @@ lobbyregister search         --results-only --compact > /tmp/le.json
 >   /tmp/le.json > /tmp/le.json.tmp && mv /tmp/le.json.tmp /tmp/le.json
 > ```
 
-> There is **no server-side sort by these counts** (`--sort` only offers RELEVANCE / 
-> REGISTRATION orderings), so you rank with `jq` in Step 3. Use the German term (energy →
-> `Energie`, hydrogen → `Wasserstoff`); an English query finds little.
+> The server can sort by these counts (`--sort NUMBEROFSTATEMENTS_DESC`,
+> `NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFCONTRACTS_DESC`), but it still returns the
+> whole set, and you need the deduplicated array with all three counts anyway, so rank
+> with `jq` in Step 3. Use the German term (energy → `Energie`, hydrogen →
+> `Wasserstoff`); an English query finds little.
 
 > **A keyword hit isn't always visible in the returned data.** The search also matches text
 > that `/sucheJson` doesn't return, such as the activity description on the entry's register

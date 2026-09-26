@@ -31,6 +31,16 @@ function paginate(result: SearchResult, page?: number, pageSize?: number): Searc
   return { ...result, results: result.results.slice(start, end) };
 }
 
+/** The sort orders of the register's website search (2026-09-26), for --help. */
+const SORT_HELP =
+  "\nSort orders (--sort; each also in the other direction, _ASC/_DESC): RELEVANCE_DESC (the default with a query), " +
+  "REGISTRATION_DESC (first published), UPDATE_DESC, INACTIVITY_DESC, NAME_ASC, " +
+  "FINANCIALEXPENSES_DESC, DONATIONAMOUNT_DESC, MEMBERSHIPFEES_DESC, " +
+  "NUMBEROFREGULATORYPROJECTS_DESC, NUMBEROFSTATEMENTS_DESC, NUMBEROFFTE_DESC, " +
+  "NUMBEROFENTRUSTEDPERSONS_DESC, NUMBEROFCONTRACTS_DESC, NUMBEROFMEMBERS_DESC, " +
+  "NUMBEROFMEMBERSHIPS_DESC. The API ignores an unknown value and falls back to its " +
+  "default order; the CLI then warns on stderr.\n";
+
 /** The sort order the server says it applied (`searchParameters.sortOrder`), if any. */
 function sortOrderOf(result: SearchResult): string | undefined {
   const order = result.searchParameters?.["sortOrder"];
@@ -55,6 +65,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
       "after",
       "\nTo search a term that starts with a dash, end the options with `--`, " +
         'e.g. `search -- -foo` searches for "-foo".\n' +
+        SORT_HELP +
         FILTER_HELP,
     )
     .action(
@@ -83,6 +94,15 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         // meaningful instead of being silent no-ops.
         const paged = paginate(result, page, pageSize);
         renderJson(deps, global, opts["resultsOnly"] ? paged.results : paged);
+        const requested = opts["sort"] as string | undefined;
+        const applied = sortOrderOf(result);
+        if (requested !== undefined && applied !== undefined && applied !== requested) {
+          deps.io.err(
+            `Warning: the API did not apply --sort ${JSON.stringify(requested)} and sorted by ` +
+              `${applied} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
+              "(see search --help).",
+          );
+        }
         if (pageSize !== undefined) {
           const order = sortOrderOf(result) ?? (opts["sort"] as string | undefined);
           if (order === undefined || order.startsWith("RELEVANCE")) {

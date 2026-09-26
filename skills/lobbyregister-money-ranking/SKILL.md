@@ -95,6 +95,9 @@ financialExpenses.financialExpensesEuro = { "from": <int>, "to": <int> }   // or
 > - `financialExpenses.relatedFiscalYearStart` / `…End` give the **period** the figure
 >   covers — surface it so two entries' bands are comparable (most are a calendar year).
 
+(`--sort FINANCIALEXPENSES_DESC` sorts by spend on the server too, but the response is
+the whole set either way; rank the deduplicated array with `jq` so the rules below apply.)
+
 A ready `jq` for the table (active entries only; see the rules):
 
 ```bash
