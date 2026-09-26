@@ -129,3 +129,14 @@ test("a malformed filter is rejected before any request", async () => {
     assert.equal(mt.calls.length, 0);
   }
 });
+
+test("a negative, fractional or non-finite resultCount is a LobbyParseError", async () => {
+  for (const body of ['{"resultCount":-5,"results":[]}', '{"resultCount":1e400,"results":[]}', '{"resultCount":2.5,"results":[]}']) {
+    const mt = makeMockTransport(() => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(body) }));
+    await assert.rejects(
+      () => clientWith(mt).count(),
+      (err) => err instanceof LobbyParseError && /expected a non-negative integer resultCount\./.test((err as Error).message),
+      body,
+    );
+  }
+});

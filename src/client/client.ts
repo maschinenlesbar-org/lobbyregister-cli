@@ -19,16 +19,25 @@ const PATH = "/sucheJson";
  * `200`, or a future schema change could all yield valid JSON of the wrong
  * shape), so reject anything missing a numeric `resultCount` or an array
  * `results` rather than silently reporting a bogus count or crashing later.
+ * The count must be a non-negative safe integer: `-5` or `1e400` (Infinity,
+ * which JSON output prints as `null`) is no count.
  */
 function assertSearchResult(value: unknown): asserts value is SearchResult {
   if (
     typeof value !== "object" ||
     value === null ||
+    Array.isArray(value) ||
     typeof (value as { resultCount?: unknown }).resultCount !== "number" ||
     !Array.isArray((value as { results?: unknown }).results)
   ) {
     throw new LobbyParseError(
-      "Unexpected response shape from /sucheJson (missing numeric resultCount or results array).",
+      `Unexpected response shape from ${PATH}: expected a JSON object with a numeric resultCount and a results array.`,
+    );
+  }
+  const count = (value as { resultCount: number }).resultCount;
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new LobbyParseError(
+      `Unexpected response shape from ${PATH}: expected a non-negative integer resultCount.`,
     );
   }
 }
