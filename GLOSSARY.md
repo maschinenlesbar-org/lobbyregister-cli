@@ -76,10 +76,11 @@ attribute (and would return everything), so the CLI accepts only the known ones;
 an unknown value matches nothing. CLI: `search`/`count --filter <attribute=value>`
 (repeatable); library: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
 
-**`page` / `pageSize`.** A 1-based page number and a page size. These exist in
-`SearchParams`, but a live probe (2026-06) showed `/sucheJson` **ignores** them:
-it always returns the full `results` array regardless. The CLI therefore applies
-`--page` / `--page-size` **client-side**, slicing the returned array; the
+**`page` / `pageSize`.** A 1-based page number and a page size (both integers
+>= 1; `page` needs `pageSize`). A live probe (2026-06) showed `/sucheJson`
+**ignores** them: it always returns the full `results` array regardless. So they
+are not sent; the client (`SearchParams`, and through it the CLI's `--page` /
+`--page-size`) downloads the whole set and slices `results` **client-side**; the
 reported `resultCount` is always the true total. Because every run fetches the
 set again and the relevance order (`RELEVANCE_DESC`) differs between identical
 requests, pages from separate runs are only consistent under a date sort such as
@@ -136,9 +137,9 @@ format.
 JSON. Supports `--page`, `--page-size`, `--sort` and `--filter` (see above).
 
 **`count [query]`.** Print only the match count: `{ query, resultCount }` (with
-`filters` listed when `--filter` was given). A thin wrapper over `search` with
-`pageSize: 1` that reads back `resultCount`; the endpoint ignores `pageSize`, so it
-downloads every matching record, just like `search`. Takes the optional query, `--filter` and
+`filters` listed when `--filter` was given). A thin wrapper over `search` that reads
+back `resultCount`; the API has no count-only mode, so it downloads every matching
+record, just like `search`. Takes the optional query, `--filter` and
 the global options.
 
 ---

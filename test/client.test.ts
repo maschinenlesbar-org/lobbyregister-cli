@@ -8,15 +8,40 @@ function clientWith(mt: ReturnType<typeof makeMockTransport>): LobbyregisterClie
   return new LobbyregisterClient({ transport: mt.transport });
 }
 
-test("search passes q, page, pageSize and sort", async () => {
-  const mt = constantJson({ resultCount: 0, results: [] });
-  await clientWith(mt).search({ q: "Energie", page: 2, pageSize: 10, sort: "REGISTRATION_DESC" });
+test("search passes q and sort, and slices page/pageSize itself", async () => {
+  const results = Array.from({ length: 25 }, (_, i) => ({ n: i }));
+  const mt = constantJson({ resultCount: 25, results });
+  const res = await clientWith(mt).search({ q: "Energie", page: 2, pageSize: 10, sort: "REGISTRATION_DESC" });
   const url = new URL(mt.last().url);
   assert.equal(url.pathname, "/sucheJson");
   assert.equal(url.searchParams.get("q"), "Energie");
-  assert.equal(url.searchParams.get("page"), "2");
-  assert.equal(url.searchParams.get("pageSize"), "10");
+  assert.equal(url.searchParams.get("page"), null);
+  assert.equal(url.searchParams.get("pageSize"), null);
   assert.equal(url.searchParams.get("sort"), "REGISTRATION_DESC");
+  assert.equal(res.resultCount, 25);
+  assert.deepEqual(res.results.map((r) => r["n"]), [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+  const first = await clientWith(mt).search({ q: "Energie", pageSize: 10 });
+  assert.equal(first.results.length, 10);
+  assert.deepEqual(first.results[0], { n: 0 });
+  assert.equal((await clientWith(mt).search({ q: "Energie" })).results.length, 25);
+});
+
+test("search rejects invalid paging before any request", async () => {
+  for (const params of [
+    { page: -3, pageSize: 10 },
+    { page: 1, pageSize: Number.NaN },
+    { pageSize: 0 },
+    { pageSize: 1.5 },
+    { page: 2 },
+  ]) {
+    const mt = constantJson({ resultCount: 0, results: [] });
+    await assert.rejects(() => clientWith(mt).search(params), LobbyError, JSON.stringify(params));
+    assert.equal(mt.calls.length, 0);
+  }
+  await assert.rejects(
+    () => clientWith(constantJson({ resultCount: 0, results: [] })).search({ page: -3, pageSize: 10 }),
+    /Invalid page: expected an integer >= 1, got -3\./,
+  );
 });
 
 test("search with no params sends no query", async () => {
@@ -25,11 +50,11 @@ test("search with no params sends no query", async () => {
   assert.equal(new URL(mt.last().url).search, "");
 });
 
-test("count returns resultCount and asks for a single result", async () => {
+test("count returns resultCount", async () => {
   const mt = constantJson({ resultCount: 42, results: [{}] });
   const n = await clientWith(mt).count("Energie");
   assert.equal(n, 42);
-  assert.equal(new URL(mt.last().url).searchParams.get("pageSize"), "1");
+  assert.equal(new URL(mt.last().url).searchParams.get("q"), "Energie");
 });
 
 test("count parses resultCount even from an empty-results envelope", async () => {

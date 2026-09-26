@@ -39,8 +39,8 @@ import { LobbyregisterClient, LobbyApiError } from "@maschinenlesbar.org/lobbyre
 
 const client = new LobbyregisterClient(); // defaults to https://www.lobbyregister.bundestag.de
 
-const page = await client.search({ q: "Energie", pageSize: 10 });
-console.log(page.resultCount, page.results.length);
+const page = await client.search({ q: "Energie", pageSize: 10 }); // first 10 of all matches
+console.log(page.resultCount, page.results.length);             // e.g. 2409 10
 
 const total = await client.count("Energie");
 
@@ -70,8 +70,14 @@ new LobbyregisterClient({
 
 ### Methods
 
-`client.search({ q?, page?, pageSize?, sort?, filters? })` returns the full `SearchResult`
+`client.search({ q?, page?, pageSize?, sort?, filters? })` returns the `SearchResult`
 envelope. `client.count(q?, filters?)` returns just the integer match count.
+
+`/sucheJson` ignores paging and always returns every match, so `page`/`pageSize` are not
+sent: the client downloads the whole set and slices `results` (1-based `page`, default 1;
+`resultCount` stays the total). Both must be integers >= 1 and `page` needs `pageSize`,
+else `LobbyError` before any request. `count` downloads the whole set too — there is no
+count-only request.
 
 `filters` are the facet filters of the register's website search, sent as
 `filter[<attribute>][<value>]=true` (`src/client/filters.ts`). The client checks their

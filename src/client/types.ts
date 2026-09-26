@@ -37,8 +37,12 @@ export interface SearchResult {
 export interface SearchParams {
   /** Free-text query string. */
   q?: string;
-  /** 1-based page number. */
+  /**
+   * 1-based page number (default 1). Needs `pageSize`. Applied by the client, not
+   * sent: the API ignores paging and returns every match.
+   */
   page?: number;
+  /** Results per page, sliced client-side out of the full result set. */
   pageSize?: number;
   /** Sort order, e.g. "RELEVANCE_DESC", "REGISTRATION_DESC". */
   sort?: string;

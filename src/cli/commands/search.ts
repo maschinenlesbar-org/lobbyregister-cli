@@ -12,26 +12,6 @@ import {
   renderJson,
 } from "../shared.js";
 
-/**
- * Apply client-side pagination to a search envelope.
- *
- * The live `/sucheJson` endpoint ignores `page`/`pageSize` and returns every
- * match, so we slice the `results` array ourselves. `resultCount` is left as the
- * API reported it (the true total number of matches); only the visible slice is
- * trimmed. With neither flag set the envelope is returned unchanged.
- */
-function paginate(result: SearchResult, page?: number, pageSize?: number): SearchResult {
-  // `--page` without `--page-size` is rejected up front (see the action), so by
-  // here either both are set or only `--page-size` is.
-  if (pageSize === undefined) return result;
-  // A 1-based page number (the option parser rejects 0); default to the first page
-  // when only --page-size is set.
-  const effectivePage = page ?? 1;
-  const start = (effectivePage - 1) * pageSize;
-  const end = start + pageSize;
-  return { ...result, results: result.results.slice(start, end) };
-}
-
 /** The sort orders of the register's website search (2026-09-26), for --help. */
 const SORT_HELP =
   "\nSort orders (--sort; each also in the other direction, _ASC/_DESC): RELEVANCE_DESC (the default with a query), " +
@@ -97,12 +77,9 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
           sort: opts["sort"] as string | undefined,
           filters: opts["filter"] as SearchFilter[] | undefined,
         });
-        // The live `/sucheJson` endpoint ignores `page`/`pageSize` and always
-        // returns the full result set, so honour these flags client-side by
-        // slicing the returned `results` array. This keeps `--page`/`--page-size`
-        // meaningful instead of being silent no-ops.
-        const paged = paginate(result, page, pageSize);
-        renderJson(deps, global, opts["resultsOnly"] ? paged.results : paged);
+        // The client slices the page out of the full result set (the live
+        // `/sucheJson` endpoint ignores paging and returns every match).
+        renderJson(deps, global, opts["resultsOnly"] ? result.results : result);
         const requested = opts["sort"] as string | undefined;
         const applied = sortOrderOf(result);
         if (requested !== undefined && applied !== undefined && applied !== requested) {

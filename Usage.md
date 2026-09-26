@@ -97,9 +97,9 @@ lobbyregister search Energie --sort FINANCIALEXPENSES_DESC --page-size 10 --resu
 ### 5. Page through a large result set
 
 Browse results in fixed-size chunks instead of dumping everything at once. The
-parameters are sent to the API, but the live endpoint ignores them and returns
-all matches, so paging is applied client-side (the CLI slices the `results`
-array). `--page` is 1-based and requires `--page-size`; both must be 1 or more
+live endpoint ignores paging parameters and returns all matches, so paging is
+applied client-side: every run downloads the full set and the client slices the
+`results` array (nothing paging-related is sent). `--page` is 1-based and requires `--page-size`; both must be 1 or more
 (`0` is a usage error, exit `2`).
 
 ```bash

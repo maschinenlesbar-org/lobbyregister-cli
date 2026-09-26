@@ -22,14 +22,14 @@ function makeCli(responder: (req: HttpRequest) => HttpResponse) {
   return { deps, out, err, mt };
 }
 
-test("search passes the query and pageSize", async () => {
+test("search passes the query; paging is not sent (the API ignores it)", async () => {
   const cli = makeCli(() => jsonResponse({ resultCount: 1, results: [{ id: "e1" }] }));
   const code = await run(["search", "Energie", "--page-size", "5"], cli.deps);
   assert.equal(code, 0);
   const url = new URL(cli.mt.last().url);
   assert.equal(url.pathname, "/sucheJson");
   assert.equal(url.searchParams.get("q"), "Energie");
-  assert.equal(url.searchParams.get("pageSize"), "5");
+  assert.equal(url.searchParams.get("pageSize"), null);
 });
 
 test("--results-only prints just the results array", async () => {
@@ -58,7 +58,7 @@ test("DEL and C1 control characters in server data are escaped in the JSON outpu
   }
 });
 
-test("search forwards --page, --page-size and --sort to the API", async () => {
+test("search forwards --sort to the API and keeps --page/--page-size client-side", async () => {
   const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
   const code = await run(
     ["search", "Energie", "--page", "3", "--page-size", "5", "--sort", "REGISTRATION_DESC"],
@@ -66,8 +66,8 @@ test("search forwards --page, --page-size and --sort to the API", async () => {
   );
   assert.equal(code, 0);
   const url = new URL(cli.mt.last().url);
-  assert.equal(url.searchParams.get("page"), "3");
-  assert.equal(url.searchParams.get("pageSize"), "5");
+  assert.equal(url.searchParams.get("page"), null);
+  assert.equal(url.searchParams.get("pageSize"), null);
   assert.equal(url.searchParams.get("sort"), "REGISTRATION_DESC");
 });
 

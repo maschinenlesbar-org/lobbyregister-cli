@@ -161,9 +161,9 @@ do the same thing.
 > the CLI then prints a `Warning:` on stderr naming the order the API used
 > (`searchParameters.sortOrder`), and still exits `0`.
 
-> **Note on `--page` / `--page-size`** — these are still sent to the API, but the
-> live endpoint ignores them and returns all matches, so the CLI slices the
-> `results` array client-side. `resultCount` always reflects the true total.
+> **Note on `--page` / `--page-size`** — the live endpoint ignores paging and
+> returns all matches, so these are not sent: the client downloads the full set
+> and slices the `results` array itself. `resultCount` always reflects the true total.
 > Every run fetches the set again, and the register's **relevance order**
 > (`RELEVANCE_DESC`, the default with a query) differs between two identical
 > requests, so pages from separate runs can repeat or miss entries. Page with a

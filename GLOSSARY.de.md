@@ -81,11 +81,12 @@ unbekanntes Attribut (und lieferte dann alles), deshalb nimmt die CLI nur die be
 an; ein unbekannter Wert trifft nichts. CLI: `search`/`count --filter <attribute=value>`
 (wiederholbar); Bibliothek: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
 
-**`page` / `pageSize`.** Eine Seitennummer ab 1 und eine Seitengröße. Beide gibt es in
-`SearchParams`, ein Live-Test (2026-06) hat aber gezeigt, dass `/sucheJson` sie
-**ignoriert**: Es liefert immer das vollständige `results`-Array. Die CLI wendet
-`--page` / `--page-size` deshalb **clientseitig** an und schneidet das gelieferte Array
-zu; der gemeldete `resultCount` ist immer die tatsächliche Gesamtzahl. Weil jeder Aufruf
+**`page` / `pageSize`.** Eine Seitennummer ab 1 und eine Seitengröße (beide ganze Zahlen
+ab 1; `page` braucht `pageSize`). Ein Live-Test (2026-06) hat gezeigt, dass `/sucheJson`
+sie **ignoriert**: Es liefert immer das vollständige `results`-Array. Sie werden deshalb
+nicht gesendet; der Client (`SearchParams`, und über ihn `--page` / `--page-size` der
+CLI) lädt die ganze Menge und schneidet `results` **clientseitig** zu; der gemeldete
+`resultCount` ist immer die tatsächliche Gesamtzahl. Weil jeder Aufruf
 die Menge neu lädt und die Relevanz-Reihenfolge (`RELEVANCE_DESC`) bei identischen Anfragen
 wechselt, passen Seiten aus getrennten Aufrufen nur bei einer Datumssortierung wie
 `REGISTRATION_DESC` zusammen. CLI: `search --page <n> --page-size <n>`.
@@ -141,9 +142,9 @@ Filter als `{attribute, value}`) und `numberRanges`.
 und `--filter` (siehe oben).
 
 **`count [query]`.** Gibt nur die Trefferzahl aus: `{ query, resultCount }` (mit
-`filters`, wenn `--filter` angegeben wurde). Eine dünne Hülle um `search` mit
-`pageSize: 1`, die `resultCount` ausliest; der Endpoint ignoriert `pageSize`, also lädt
-sie wie `search` alle passenden Einträge herunter. Nimmt den optionalen Suchbegriff, `--filter`
+`filters`, wenn `--filter` angegeben wurde). Eine dünne Hülle um `search`, die
+`resultCount` ausliest; die API kennt keinen reinen Zählmodus, also lädt sie wie `search`
+alle passenden Einträge herunter. Nimmt den optionalen Suchbegriff, `--filter`
 und die globalen Optionen entgegen.
 
 ---
