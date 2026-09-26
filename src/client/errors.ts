@@ -22,7 +22,10 @@ function truncateUrl(url: string): string {
 
 /**
  * The API responded with a non-2xx status code. `detail` holds a human-readable
- * message extracted from the response body when one is present.
+ * message extracted from the response body when one is present. For a 3xx that
+ * was not followed (no Location, or one that is not a valid URL), `location` holds
+ * the redirect target as sent (control characters stripped) and the message names
+ * it.
  */
 export class LobbyApiError extends LobbyError {
   readonly status: number;
@@ -30,6 +33,7 @@ export class LobbyApiError extends LobbyError {
   readonly url: string;
   readonly method: string;
   readonly body: string;
+  readonly location: string | undefined;
 
   constructor(args: {
     status: number;
@@ -37,8 +41,18 @@ export class LobbyApiError extends LobbyError {
     method: string;
     body: string;
     detail?: string;
+    location?: string;
   }) {
-    const detailPart = args.detail ? `: ${args.detail}` : "";
+    const parts: string[] = [];
+    if (args.detail) parts.push(args.detail);
+    if (args.status >= 300 && args.status < 400) {
+      parts.push(
+        args.location
+          ? `redirect to ${args.location} not followed`
+          : "redirect not followed (no Location header)",
+      );
+    }
+    const detailPart = parts.length > 0 ? `: ${parts.join("; ")}` : "";
     // Cap the URL in the human-readable message so a pathologically long URL
     // (e.g. a huge query that triggers an HTTP 414) doesn't dump multiple KB to
     // stderr. The full URL remains available on `this.url` for programmatic use.
@@ -48,6 +62,7 @@ export class LobbyApiError extends LobbyError {
     this.method = args.method;
     this.body = args.body;
     this.detail = args.detail;
+    this.location = args.location;
   }
 
   /** True for statuses the API documents as transient and retry-able. */

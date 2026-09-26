@@ -221,9 +221,11 @@ export class RequestEngine {
       }
 
       // Follow redirects, resolving the Location relative to the current URL.
+      const locationHeader = response.headers["location"];
+      const location = typeof locationHeader === "string" ? locationHeader : undefined;
       if (status >= 300 && status < 400) {
-        const location = response.headers["location"];
-        if (typeof location === "string" && location.length > 0) {
+        const nextUrl = resolveLocation(location, url);
+        if (nextUrl !== undefined) {
           // A redirect we cannot follow because the budget is spent: surface a
           // clear "too many redirects" error rather than a bare 3xx status (which
           // normally implies an *unfollowed* redirect and is confusing here).
@@ -232,7 +234,6 @@ export class RequestEngine {
               `Exceeded the maximum of ${this.maxRedirects} redirects (last from ${url}).`,
             );
           }
-          const nextUrl = new URL(location, url);
           // Credential-strip guard: if the redirect target is a different origin,
           // drop any sensitive headers so Authorization/cookie-style credentials
           // are never sent to an arbitrary host named in Location. (This is what
@@ -248,13 +249,15 @@ export class RequestEngine {
           redirects += 1;
           continue;
         }
-        // A 3xx with no usable Location is malformed; fall through and let the
-        // status be surfaced as a LobbyApiError rather than looping forever.
+        // A 3xx with no usable Location (missing, or not a valid URL) is
+        // malformed; fall through and let the status be surfaced as a
+        // LobbyApiError naming the target, rather than looping forever or
+        // throwing a raw "Invalid URL" TypeError.
       }
 
       const contentType = String(response.headers["content-type"] ?? "");
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, response.body);
+        throw this.toApiError(method, url, status, response.body, location);
       }
 
       return { data: response.body, contentType, status };
@@ -283,7 +286,13 @@ export class RequestEngine {
     }
   }
 
-  private toApiError(method: string, url: string, status: number, body: Buffer): LobbyApiError {
+  private toApiError(
+    method: string,
+    url: string,
+    status: number,
+    body: Buffer,
+    locationHeader?: string,
+  ): LobbyApiError {
     const text = body.toString("utf8");
     let detail: string | undefined;
     try {
@@ -296,6 +305,22 @@ export class RequestEngine {
     // `detail` came from the response body; strip control characters so a hostile
     // endpoint cannot inject terminal escape sequences via the stderr error message.
     if (detail !== undefined) detail = sanitizeServerText(detail);
-    return new LobbyApiError({ status, url, method, body: text, detail });
+    // Name the target of a redirect that was not followed (server text: sanitised).
+    let location: string | undefined;
+    if (status >= 300 && status < 400 && locationHeader) {
+      const resolved = resolveLocation(locationHeader, url);
+      location = sanitizeServerText(resolved ? resolved.href : locationHeader).trim() || undefined;
+    }
+    return new LobbyApiError({ status, url, method, body: text, detail, location });
+  }
+}
+
+/** Resolve a Location header against the current URL; undefined if missing or malformed. */
+function resolveLocation(location: string | undefined, base: string): URL | undefined {
+  if (location === undefined || location === "") return undefined;
+  try {
+    return new URL(location, base);
+  } catch {
+    return undefined;
   }
 }

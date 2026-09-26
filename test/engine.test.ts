@@ -234,8 +234,27 @@ test("a 3xx with no Location header surfaces as a LobbyApiError", async () => {
   const e = new RequestEngine({ transport: mt.transport });
   await assert.rejects(
     () => e.getJson("/x"),
-    (err) => err instanceof LobbyApiError && err.status === 302,
+    (err) =>
+      err instanceof LobbyApiError &&
+      err.status === 302 &&
+      /: redirect not followed \(no Location header\)$/.test(err.message),
   );
+});
+
+test("a malformed Location surfaces as a LobbyApiError naming it, not a raw TypeError", async () => {
+  for (const maxRedirects of [5, 0]) {
+    const mt = makeMockTransport(() => redirectResponse("http://[::1" + ESC + "[2J"));
+    const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport, maxRedirects });
+    await assert.rejects(
+      () => e.getJson("/x"),
+      (err) =>
+        err instanceof LobbyApiError &&
+        err.location === "http://[::1[2J" &&
+        err.message === "HTTP 302 for GET https://example.test/x: redirect to http://[::1[2J not followed",
+      String(maxRedirects),
+    );
+    assert.equal(mt.calls.length, 1);
+  }
 });
 
 test("exceeding maxRedirects raises a clear LobbyNetworkError, not a bare 3xx", async () => {
