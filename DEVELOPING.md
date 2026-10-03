@@ -98,7 +98,8 @@ src/
     query.ts     # dependency-free query-string builder
     http.ts      # the Transport interface + default node:http/https transport
     engine.ts    # URL building, retry/backoff, redirects (with cross-origin credential stripping), JSON decoding, error mapping
-    errors.ts    # LobbyError / LobbyApiError / LobbyNetworkError / LobbyParseError
+    errors.ts    # LobbyError / LobbyApiError / LobbyNetworkError / LobbyParseError / LobbyValidationError
+    validate.ts  # Problem type + assertValid: the input rules the library and CLI share
     client.ts    # LobbyregisterClient — search + count over the engine
   cli/
     io.ts        # injectable I/O seam (stdout/stderr)
@@ -158,6 +159,17 @@ subprocess.
   timeout).
 - **`LobbyParseError`** — the body could not be parsed as the expected JSON, or
   had an unexpected content type.
+- **`LobbyValidationError`** — a rejected input: a client option or method argument
+  that breaks one of the library's rules. Thrown before any request is made (a
+  method rejects, the constructor throws), with the message
+  `Invalid <name>: <reason>`. The CLI maps it to its usage exit code `2`.
+
+**Input validation** ([`validate.ts`](src/client/validate.ts)). Every rule about what
+a request may contain lives in the library as a pure, exported function: a
+`Problem` (`(value) => string | undefined`) returns the reason a value is invalid,
+and `assertValid(name, value, problem)` throws `LobbyValidationError` with it. The
+CLI's option parsers call the same functions and turn the reason into a usage error,
+so the CLI and a library caller accept and reject the same inputs.
 
 **Retry / backoff.** Transient `429` (rate-limited) and `503` responses are
 retried automatically. A server-provided `Retry-After` header is honoured (both
@@ -198,6 +210,7 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`http.test.ts`** — the default transport against a real loopback `http.createServer`.
 - **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry (incl. `maxRetries: 0`), same-/cross-origin redirects (cross-origin credential stripping), missing-`Location` handling — mocked transport.
 - **`client.test.ts`** — the search URL/param mapping, empty-query semantics and the `count` helper — mocked transport.
+- **`validate.test.ts`** — `assertValid`, the `LobbyValidationError` -> exit `2` mapping, and the `parity()` helper (`test/helpers.ts`), which sends one input through `run()` and through the library on one recording mock transport.
 - **`cli.test.ts`** — command parsing, `--page`/`--sort`/`--results-only` passthrough, `count`, and exit codes (404, 400-with-hint, network and parse errors) — mocked client.
 
 ## Continuous integration

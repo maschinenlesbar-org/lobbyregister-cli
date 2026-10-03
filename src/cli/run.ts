@@ -5,7 +5,7 @@
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
 import type { CliDeps } from "./io.js";
-import { LobbyApiError, LobbyError } from "../client/errors.js";
+import { LobbyApiError, LobbyError, LobbyValidationError } from "../client/errors.js";
 
 /** Conventional CLI exit code for a usage error (bad/unknown option, no command). */
 const USAGE_ERROR_EXIT_CODE = 2;
@@ -70,6 +70,12 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       // Map a few notable statuses to distinct exit codes for scripting.
       if (err.status === 404) return 4;
       return 1;
+    }
+    if (err instanceof LobbyValidationError) {
+      // An input the library rejected before any request (a library rule the
+      // commander parsers did not already catch): a usage error, like commander's.
+      deps.io.err(`Error: ${err.message}`);
+      return USAGE_ERROR_EXIT_CODE;
     }
     if (err instanceof LobbyError) {
       deps.io.err(`Error: ${err.message}`);
