@@ -5,7 +5,7 @@ import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { EngineOptions } from "../client/engine.js";
-import { nonEmptyProblem } from "../client/validate.js";
+import { intInRangeProblem, nonEmptyProblem } from "../client/validate.js";
 import {
   FILTER_VALUE_PATTERN,
   SEARCH_FILTER_ATTRIBUTES,
@@ -111,12 +111,17 @@ export const FILTER_HELP =
   SEARCH_FILTER_ATTRIBUTES.join(", ") +
   ".";
 
-/** Build a commander value-parser for a non-negative integer within [min, max]. */
+/**
+ * Build a commander value-parser for a non-negative integer within [min, max]:
+ * parseIntArg turns the string into a number, and the range is the library's
+ * intInRangeProblem, the rule the client enforces on its options too.
+ */
 export function parseBoundedInt(min: number, max: number): (value: string) => number {
+  const problem = intInRangeProblem(min, max);
   return (value: string) => {
     const n = parseIntArg(value);
-    if (n < min) throw new InvalidArgumentError(`Must be >= ${min}.`);
-    if (n > max) throw new InvalidArgumentError(`Must be <= ${max}.`);
+    const reason = problem(n);
+    if (reason !== undefined) throw new InvalidArgumentError(reason);
     return n;
   };
 }

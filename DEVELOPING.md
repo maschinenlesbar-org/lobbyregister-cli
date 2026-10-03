@@ -68,6 +68,15 @@ new LobbyregisterClient({
 });
 ```
 
+The numeric options are checked when the client is built: `timeoutMs` must be an
+integer `0..MAX_TIMEOUT_MS` (2^31 - 1 ms, the largest timer Node supports), and
+`maxRetries`, `retryDelayMs`, `maxRedirects` and `maxResponseBytes` non-negative
+integers. Anything else — `-1`, `NaN` (e.g. `Number()` of an unset variable),
+`1.5`, `Infinity` — throws `LobbyValidationError` instead of silently switching the
+limit off. `0` keeps its meaning (no timeout, no retries, no redirects, no cap). The
+CLI's `--timeout`, `--max-retries`, `--max-redirects` and `--max-response-bytes`
+parsers apply the same rule (`intInRangeProblem`).
+
 ### Methods
 
 `client.search({ q?, page?, pageSize?, sort?, filters? })` returns the `SearchResult`

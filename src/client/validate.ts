@@ -38,3 +38,17 @@ export function isBlank(value: string): boolean {
  */
 export const nonEmptyProblem: Problem<string> = (value) =>
   isBlank(value) ? "Expected a non-empty value." : undefined;
+
+/**
+ * A rule for an integer option: valid when `value` is a safe integer in
+ * `min..max`. NaN, Infinity and fractions are no integer. The reasons match the
+ * CLI's integer parsers ("Must be >= 0.", "Must be <= 2147483647.").
+ */
+export function intInRangeProblem(min: number, max: number = Number.MAX_SAFE_INTEGER): Problem<unknown> {
+  return (value) => {
+    if (typeof value !== "number" || !Number.isSafeInteger(value)) return "Expected an integer.";
+    if (value < min) return `Must be >= ${min}.`;
+    if (value > max) return `Must be <= ${max}.`;
+    return undefined;
+  };
+}

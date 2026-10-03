@@ -131,10 +131,10 @@ export const nodeHttpTransport: Transport = (request) =>
 
     if (request.timeoutMs && request.timeoutMs > 0) {
       // Node's timers are backed by a 32-bit signed integer; a larger delay emits
-      // a TimeoutOverflowWarning on stderr and is silently truncated. The CLI rejects
-      // a --timeout above MAX_TIMEOUT_MS; library callers can still pass one, so clamp
-      // here as defence in depth to keep that internal warning out of the user's
-      // terminal. (~24.8 days is already an effectively-unbounded request timeout.)
+      // a TimeoutOverflowWarning on stderr and is silently truncated. RequestEngine
+      // rejects a timeoutMs above MAX_TIMEOUT_MS; a caller of this transport can still
+      // pass one, so clamp here as defence in depth to keep that internal warning out
+      // of the user's terminal. (~24.8 days is already an effectively-unbounded request timeout.)
       const timeoutMs = Math.min(request.timeoutMs, MAX_TIMEOUT_MS);
       timer = setTimeout(() => {
         const err = new LobbyNetworkError(`Request timed out after ${timeoutMs}ms`);

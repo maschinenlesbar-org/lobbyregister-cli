@@ -6,7 +6,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LobbyregisterClient } from "../src/client/client.js";
 import { LobbyValidationError } from "../src/client/errors.js";
-import { isBlank, nonEmptyProblem } from "../src/client/validate.js";
+import { intInRangeProblem, isBlank, nonEmptyProblem } from "../src/client/validate.js";
+import { MAX_TIMEOUT_MS } from "../src/client/http.js";
 import type { Transport } from "../src/client/http.js";
 import { SEARCH_FILTER_ATTRIBUTES, ignoredSort, knownFilterAttributeProblem } from "../src/client/filters.js";
 import { jsonResponse, parity, type CliOutcome, type LibOutcome } from "./helpers.js";
@@ -144,4 +145,55 @@ test("parity: a sort the register ignored is reported by both sides, with the sa
   assert.ok(applied.lib.ok);
   assert.equal("sortIgnored" in (applied.lib.value as object), false);
   assert.doesNotMatch(applied.cli.err, /Warning/);
+});
+
+// ---- finding 3: the engine's numeric limits (PAT-8) ----------------------------
+
+test("intInRangeProblem accepts only safe integers in min..max", () => {
+  const p = intInRangeProblem(0, 10);
+  assert.equal(p(0), undefined);
+  assert.equal(p(10), undefined);
+  assert.equal(p(-1), "Must be >= 0.");
+  assert.equal(p(11), "Must be <= 10.");
+  for (const v of [NaN, Infinity, -Infinity, 1.5, "5", undefined]) assert.equal(p(v), "Expected an integer.", String(v));
+  assert.equal(intInRangeProblem(0)(Number.MAX_SAFE_INTEGER), undefined);
+});
+
+const engineLimitCases: Array<[string, Record<string, number>]> = [
+  ["--timeout=-1", { timeoutMs: -1 }],
+  ["--timeout=NaN", { timeoutMs: NaN }],
+  ["--timeout=1.5", { timeoutMs: 1.5 }],
+  ["--timeout=2147483648", { timeoutMs: 2_147_483_648 }],
+  ["--max-retries=-1", { maxRetries: -1 }],
+  ["--max-retries=Infinity", { maxRetries: Infinity }],
+  ["--max-retries=1.5", { maxRetries: 1.5 }],
+  ["--max-redirects=-1", { maxRedirects: -1 }],
+  ["--max-redirects=NaN", { maxRedirects: NaN }],
+  ["--max-redirects=1.5", { maxRedirects: 1.5 }],
+  ["--max-response-bytes=-1", { maxResponseBytes: -1 }],
+  ["--max-response-bytes=NaN", { maxResponseBytes: NaN }],
+  ["--max-response-bytes=1.5", { maxResponseBytes: 1.5 }],
+];
+
+test("parity: an out-of-range engine limit is rejected by both sides before any request", async () => {
+  for (const [flag, options] of engineLimitCases) {
+    const r = await parity([flag, "count"], (t) => new LobbyregisterClient({ ...options, transport: t }).count());
+    assertBothReject(r.cli, r.lib, flag);
+  }
+});
+
+test("the library also range-checks retryDelayMs, which has no CLI flag", () => {
+  for (const retryDelayMs of [-1, NaN, Infinity, 0.5]) {
+    assert.throws(() => new LobbyregisterClient({ retryDelayMs }), LobbyValidationError, String(retryDelayMs));
+  }
+});
+
+test("parity: in-range engine limits (0 and the maximum) send the same request", async () => {
+  const argv = ["--timeout=0", "--max-retries=0", "--max-redirects=0", "--max-response-bytes=0", "count"];
+  const r = await parity(argv, (t) =>
+    new LobbyregisterClient({ timeoutMs: 0, maxRetries: 0, maxRedirects: 0, maxResponseBytes: 0, transport: t }).count());
+  assertSameRequests(r.cli, r.lib, argv.join(" "));
+  const max = await parity([`--timeout=${MAX_TIMEOUT_MS}`, "count"], (t) =>
+    new LobbyregisterClient({ timeoutMs: MAX_TIMEOUT_MS, transport: t }).count());
+  assertSameRequests(max.cli, max.lib, "--timeout=MAX_TIMEOUT_MS");
 });

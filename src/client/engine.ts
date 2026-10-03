@@ -2,9 +2,10 @@
 // requests via a Transport, applies retry/backoff for transient statuses
 // (429, 503), and decodes responses.
 
-import { nodeHttpTransport, type Transport } from "./http.js";
+import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "./errors.js";
+import { assertValid, intInRangeProblem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://www.lobbyregister.bundestag.de";
 const DEFAULT_USER_AGENT = "lobbyregister-cli";
@@ -33,18 +34,26 @@ export interface EngineOptions {
   headers?: Record<string, string>;
   /**
    * Time limit per request in milliseconds, covering the whole response body, not
-   * only idle gaps (0 disables).
+   * only idle gaps: an integer 0..`MAX_TIMEOUT_MS` (2^31 - 1, the largest timer
+   * Node supports); 0 disables. Defaults to 30000.
    */
   timeoutMs?: number;
-  /** Number of automatic retries for transient (429/503) responses. */
+  /**
+   * Number of automatic retries for transient (429/503) responses, a non-negative
+   * integer. Defaults to 2.
+   */
   maxRetries?: number;
-  /** Base backoff between retries in milliseconds (grows linearly). */
+  /** Base backoff between retries in milliseconds (grows linearly), a non-negative integer. Defaults to 200. */
   retryDelayMs?: number;
-  /** Number of HTTP redirects (301/302/303/307/308) to follow. Defaults to 5. */
+  /**
+   * Number of HTTP redirects (301/302/303/307/308) to follow, a non-negative
+   * integer (0 = none). Defaults to 5.
+   */
   maxRedirects?: number;
   /**
    * Hard cap on response body size in bytes (defends against memory exhaustion
-   * from a hostile/buggy endpoint). Defaults to 100 MiB; set to 0 for no limit.
+   * from a hostile/buggy endpoint), a non-negative integer. Defaults to 100 MiB;
+   * set to 0 for no limit.
    */
   maxResponseBytes?: number;
   /** Injectable sleep, primarily for deterministic tests. */
@@ -108,6 +117,16 @@ function assertHttpScheme(baseUrl: string): void {
   }
 }
 
+/**
+ * A numeric engine option: `fallback` when undefined, else an integer in 0..max,
+ * or a `LobbyValidationError` (`Invalid <name>: ...`). A negative, NaN or
+ * fractional value would otherwise silently disable the timeout, the size cap or
+ * the redirect limit, and Infinity would retry without end.
+ */
+export function intOption(name: string, value: number | undefined, max: number, fallback: number): number {
+  return value === undefined ? fallback : assertValid(name, value, intInRangeProblem(0, max));
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -163,11 +182,13 @@ export class RequestEngine {
     this.transport = options.transport ?? nodeHttpTransport;
     this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
     this.extraHeaders = options.headers ?? {};
-    this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.maxRetries = options.maxRetries ?? 2;
-    this.retryDelayMs = options.retryDelayMs ?? 200;
-    this.maxRedirects = options.maxRedirects ?? 5;
-    this.maxResponseBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+    // Range-check the numeric options before any request (see intOption).
+    const anyInt = Number.MAX_SAFE_INTEGER;
+    this.timeoutMs = intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 30_000);
+    this.maxRetries = intOption("maxRetries", options.maxRetries, anyInt, 2);
+    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, anyInt, 200);
+    this.maxRedirects = intOption("maxRedirects", options.maxRedirects, anyInt, 5);
+    this.maxResponseBytes = intOption("maxResponseBytes", options.maxResponseBytes, anyInt, DEFAULT_MAX_RESPONSE_BYTES);
     this.sleep = options.sleep ?? realSleep;
   }
 
