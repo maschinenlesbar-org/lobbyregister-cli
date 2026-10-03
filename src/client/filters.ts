@@ -139,3 +139,26 @@ export function ignoredFilters(
       ),
   );
 }
+
+/** A sort the register did not apply: the order asked for and the one it used. */
+export interface SortIgnored {
+  requested: string;
+  applied: string;
+}
+
+/**
+ * The requested sort, when the reply's `searchParameters.sortOrder` names a
+ * different one: the register ignores an unknown or wrong-case sort (HTTP 200)
+ * and falls back to its default order (`RELEVANCE_DESC`, which is not stable
+ * between requests). `undefined` when no sort was requested, when it was
+ * applied, or when the reply echoes no `sortOrder` string to compare against.
+ */
+export function ignoredSort(requested: string | undefined, searchParameters: unknown): SortIgnored | undefined {
+  if (requested === undefined) return undefined;
+  const applied =
+    typeof searchParameters === "object" && searchParameters !== null
+      ? (searchParameters as { sortOrder?: unknown }).sortOrder
+      : undefined;
+  if (typeof applied !== "string" || applied === requested) return undefined;
+  return { requested, applied };
+}

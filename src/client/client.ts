@@ -7,7 +7,7 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { LobbyError, LobbyParseError } from "./errors.js";
-import { describeFilter, filterQuery, ignoredFilters, type SearchFilter } from "./filters.js";
+import { describeFilter, filterQuery, ignoredFilters, ignoredSort, type SearchFilter } from "./filters.js";
 import type { QueryParams } from "./query.js";
 import type { SearchResult, SearchParams } from "./types.js";
 import { assertValid, nonEmptyProblem } from "./validate.js";
@@ -88,6 +88,11 @@ export class LobbyregisterClient {
    * `searchParameters.facets`; one the register ignored (it would return the
    * unfiltered set) throws `LobbyError`. A reply without a `facets` array cannot
    * be checked and is passed through.
+   *
+   * The register ignores an unknown or wrong-case `sort` and falls back to its
+   * default order. When `searchParameters.sortOrder` differs from the requested
+   * `sort`, the result carries `sortIgnored: { requested, applied }` (see
+   * `ignoredSort`); the data is still returned.
    */
   async search(params: SearchParams = {}): Promise<SearchResult> {
     if (params.q !== undefined) assertValid("q", params.q, nonEmptyProblem);
@@ -110,7 +115,9 @@ export class LobbyregisterClient {
           "(missing from searchParameters.facets in the reply), so the result would not be filtered.",
       );
     }
-    return slicePage(result, params.page, params.pageSize);
+    const sortIgnored = ignoredSort(params.sort, result.searchParameters);
+    const page = slicePage(result, params.page, params.pageSize);
+    return sortIgnored === undefined ? page : { ...page, sortIgnored };
   }
 
   /**

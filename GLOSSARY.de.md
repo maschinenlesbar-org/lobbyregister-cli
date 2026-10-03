@@ -64,8 +64,9 @@ vorkommt.
 `NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
 `NUMBEROFMEMBERSHIPS_DESC` – jeweils auch in der Gegenrichtung (`_ASC` / `_DESC`). Der
 Live-Endpoint ignoriert einen unbekannten Wert (HTTP `200`) und fällt auf seine
-Standardreihenfolge zurück, statt ihn abzulehnen; die CLI warnt dann auf stderr und nennt
-die in `searchParameters.sortOrder` gemeldete Reihenfolge. CLI: `search --sort <order>`.
+Standardreihenfolge zurück, statt ihn abzulehnen. Die Bibliothek ergänzt das Ergebnis dann
+um `sortIgnored: { requested, applied }` aus der in `searchParameters.sortOrder` gemeldeten
+Reihenfolge, und die CLI warnt auf stderr. CLI: `search --sort <order>`.
 
 **Filter (`filter[<attribute>][<value>]`).** Die Facettenfilter der Suche auf der
 Website des Registers; `/sucheJson` nimmt sie als `filter[<attribute>][<value>]=true`

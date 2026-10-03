@@ -12,8 +12,9 @@ export {
   FILTER_VALUE_PATTERN,
   filterQuery,
   knownFilterAttributeProblem,
+  ignoredSort,
 } from "./filters.js";
-export type { SearchFilter } from "./filters.js";
+export type { SearchFilter, SortIgnored } from "./filters.js";
 export { assertValid, isBlank, nonEmptyProblem } from "./validate.js";
 export type { Problem } from "./validate.js";
 export {

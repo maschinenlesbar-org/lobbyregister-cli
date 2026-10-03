@@ -70,7 +70,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
             code: "lobbyregister.pageWithoutPageSize",
           });
         }
-        const result = await client.search({
+        const { sortIgnored, ...result } = await client.search({
           q: query,
           page,
           pageSize,
@@ -78,14 +78,14 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
           filters: opts["filter"] as SearchFilter[] | undefined,
         });
         // The client slices the page out of the full result set (the live
-        // `/sucheJson` endpoint ignores paging and returns every match).
+        // `/sucheJson` endpoint ignores paging and returns every match). The
+        // envelope is printed as the API sent it; the client's `sortIgnored`
+        // verdict becomes a stderr warning instead.
         renderJson(deps, global, opts["resultsOnly"] ? result.results : result);
-        const requested = opts["sort"] as string | undefined;
-        const applied = sortOrderOf(result);
-        if (requested !== undefined && applied !== undefined && applied !== requested) {
+        if (sortIgnored !== undefined) {
           deps.io.err(
-            `Warning: the API did not apply --sort ${JSON.stringify(requested)} and sorted by ` +
-              `${applied} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
+            `Warning: the API did not apply --sort ${JSON.stringify(sortIgnored.requested)} and sorted by ` +
+              `${sortIgnored.applied} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
               "(see search --help).",
           );
         }

@@ -94,6 +94,12 @@ allowlist. On the reply the client also checks that `searchParameters.facets` ec
 each filter, which catches an attribute the register has dropped: a filter it did not
 echo throws `LobbyError` (a reply without a `facets` array is not checked).
 
+`sort` is sent verbatim. The register ignores an unknown or wrong-case value (HTTP
+`200`) and falls back to its default order, so when `searchParameters.sortOrder`
+names another order the result carries `sortIgnored: { requested, applied }`
+(`ignoredSort` in `filters.ts`); the data is still returned. The CLI prints the
+envelope without that field and turns it into its stderr `Warning:`.
+
 ## Architecture
 
 ```

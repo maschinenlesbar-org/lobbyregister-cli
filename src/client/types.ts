@@ -4,7 +4,7 @@
 // `results` are exposed as faithful raw `JsonObject`s while the search envelope
 // is typed at the top level.
 
-import type { SearchFilter } from "./filters.js";
+import type { SearchFilter, SortIgnored } from "./filters.js";
 
 export type JsonValue =
   | string
@@ -31,6 +31,11 @@ export interface SearchResult {
   searchParameters?: JsonObject;
   resultCount: number;
   results: RegisterEntry[];
+  /**
+   * Set by the client, not the API: present only when the register did not apply
+   * the requested `sort` (its `searchParameters.sortOrder` names another order).
+   */
+  sortIgnored?: SortIgnored;
 }
 
 /** Parameters for `/sucheJson`. */

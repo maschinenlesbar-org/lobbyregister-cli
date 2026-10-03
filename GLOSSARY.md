@@ -61,8 +61,9 @@ values are those of the register's website search: `RELEVANCE_DESC` (the default
 `NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFSTATEMENTS_DESC`, `NUMBEROFFTE_DESC`,
 `NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
 `NUMBEROFMEMBERSHIPS_DESC` — each also in the other direction (`_ASC` / `_DESC`). The live endpoint ignores an unrecognised value (HTTP `200`) and falls back
-to its default order rather than rejecting it; the CLI then warns on stderr, using the
-order echoed in `searchParameters.sortOrder`. CLI: `search --sort <order>`.
+to its default order rather than rejecting it. The library then adds
+`sortIgnored: { requested, applied }` to the result, from the order echoed in
+`searchParameters.sortOrder`, and the CLI warns on stderr. CLI: `search --sort <order>`.
 
 **Filters (`filter[<attribute>][<value>]`).** The facet filters of the register's
 website search, which `/sucheJson` accepts as `filter[<attribute>][<value>]=true`
