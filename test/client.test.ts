@@ -4,7 +4,6 @@ import { LobbyregisterClient } from "../src/client/client.js";
 import {
   LobbyApiError,
   LobbyError,
-  LobbyNetworkError,
   LobbyParseError,
   LobbyValidationError,
 } from "../src/client/errors.js";
@@ -109,7 +108,7 @@ test("the client rejects a file: base URL before any request reaches a custom tr
   const mt = makeMockTransport(() => jsonResponse({ resultCount: 0, results: [] }));
   assert.throws(
     () => new LobbyregisterClient({ baseUrl: "file:///etc/passwd", transport: mt.transport }),
-    LobbyNetworkError,
+    LobbyValidationError,
   );
   assert.equal(mt.calls.length, 0);
 });

@@ -4,7 +4,7 @@
 import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
-import type { EngineOptions } from "../client/engine.js";
+import { baseUrlProblem, type EngineOptions } from "../client/engine.js";
 import { headerValueProblem, intInRangeProblem, nonEmptyProblem } from "../client/validate.js";
 import { SEARCH_FILTER_ATTRIBUTES, parseFilter, type SearchFilter } from "../client/filters.js";
 import { LobbyError } from "../client/errors.js";
@@ -103,21 +103,14 @@ export function parseBoundedInt(min: number, max: number): (value: string) => nu
 }
 
 /**
- * commander value-parser: an absolute http(s) URL. Rejects a malformed value or a
- * non-http(s) scheme (`file:`, `ftp:`) at parse time, as a usage error.
+ * commander value-parser: an absolute http(s) URL. The rule is the library's
+ * baseUrlProblem, which the client enforces when it is built; here a malformed
+ * value or a non-http(s) scheme (`file:`, `ftp:`) becomes a usage error at parse
+ * time.
  */
 export function parseBaseUrl(value: string): string {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new InvalidArgumentError("Expected an absolute http(s) URL.");
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new InvalidArgumentError(
-      `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`,
-    );
-  }
+  const reason = baseUrlProblem(value);
+  if (reason !== undefined) throw new InvalidArgumentError(reason);
   return value;
 }
 

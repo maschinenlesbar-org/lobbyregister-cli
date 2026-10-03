@@ -5,7 +5,7 @@
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "./errors.js";
-import { assertValid, headerNameProblem, headerValueProblem, intInRangeProblem } from "./validate.js";
+import { assertValid, headerNameProblem, headerValueProblem, intInRangeProblem, type Problem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://www.lobbyregister.bundestag.de";
 const DEFAULT_USER_AGENT = "lobbyregister-cli";
@@ -103,23 +103,32 @@ function sanitizeServerText(text: string): string {
 }
 
 /**
- * Reject a base URL whose scheme is not http(s). The default transport already
- * gates this per hop, but the engine is exported as a library and may be handed a
- * custom transport that does no such check, so gate the configured base URL here
- * too (a `file:`/`ftp:` base URL fails fast with a typed error).
+ * A base URL must be an absolute http(s) URL. The default transport already gates
+ * the scheme per hop, but the engine is exported as a library and may be handed a
+ * custom transport that does no such check, so the configured base URL is checked
+ * up front too (a `file:`/`ftp:` base URL fails fast). The reasons match the CLI's
+ * `--base-url` parser, which calls this rule.
  */
-function assertHttpScheme(baseUrl: string): void {
+export const baseUrlProblem: Problem<string> = (value) => {
   let url: URL;
   try {
-    url = new URL(baseUrl);
+    url = new URL(value);
   } catch {
-    throw new LobbyNetworkError(`Invalid base URL: ${baseUrl}`);
+    return "Expected an absolute http(s) URL.";
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new LobbyNetworkError(
-      `Unsupported protocol "${url.protocol}" in base URL: ${baseUrl}`,
-    );
+    return `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
   }
+  return undefined;
+};
+
+/**
+ * Check a base URL (baseUrlProblem) and return it with trailing slashes stripped.
+ * A bad one is a configuration error, not a transport failure: it throws
+ * `LobbyValidationError` ("Invalid baseUrl: ..."), before any request.
+ */
+export function validateBaseUrl(raw: string): string {
+  return assertValid("baseUrl", raw, baseUrlProblem).replace(/\/+$/, "");
 }
 
 /**
@@ -202,11 +211,10 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
-    // Re-check the base-URL scheme here, not only in the default transport: a
+    // Check the base URL here, not only its scheme in the default transport: a
     // library consumer that injects a custom transport would otherwise get no
     // gating at all, and could be steered to a non-http(s) scheme.
-    assertHttpScheme(this.baseUrl);
+    this.baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
     this.transport = options.transport ?? nodeHttpTransport;
     // Only an omitted userAgent selects the default: a blank one is an error, not
     // a silent replacement, and a malformed one fails here rather than at request

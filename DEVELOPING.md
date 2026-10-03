@@ -68,8 +68,11 @@ new LobbyregisterClient({
 });
 ```
 
-The numeric options are checked when the client is built: `timeoutMs` must be an
-integer `0..MAX_TIMEOUT_MS` (2^31 - 1 ms, the largest timer Node supports), and
+`baseUrl` must be an absolute `http:`/`https:` URL (`baseUrlProblem`,
+`validateBaseUrl`); a malformed one or another scheme throws `LobbyValidationError`
+when the client is built, as the CLI's `--base-url` parser does. The numeric options
+are checked then too: `timeoutMs` must be an integer `0..MAX_TIMEOUT_MS` (2^31 - 1
+ms, the largest timer Node supports), and
 `maxRetries`, `retryDelayMs`, `maxRedirects` and `maxResponseBytes` non-negative
 integers. Anything else — `-1`, `NaN` (e.g. `Number()` of an unset variable),
 `1.5`, `Infinity` — throws `LobbyValidationError` instead of silently switching the
@@ -187,7 +190,8 @@ subprocess.
   (extracted from the body's `detail`/`message`), `url`, `method` and `body`.
   `isRetryable` is true for `429`/`503`.
 - **`LobbyNetworkError`** — a transport-level failure (DNS, connection reset,
-  timeout).
+  timeout, a redirect hop to a non-http(s) scheme). A bad configured `baseUrl` is a
+  `LobbyValidationError` instead.
 - **`LobbyParseError`** — the body could not be parsed as the expected JSON, or
   had an unexpected content type.
 - **`LobbyValidationError`** — a rejected input: a client option or method argument

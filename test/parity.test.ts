@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LobbyregisterClient } from "../src/client/client.js";
-import { LobbyValidationError } from "../src/client/errors.js";
+import { LobbyNetworkError, LobbyValidationError } from "../src/client/errors.js";
+import { baseUrlProblem } from "../src/client/engine.js";
 import { headerNameProblem, headerValueProblem, intInRangeProblem, isBlank, nonEmptyProblem } from "../src/client/validate.js";
 import { MAX_TIMEOUT_MS } from "../src/client/http.js";
 import type { HttpRequest, HttpResponse, Transport } from "../src/client/http.js";
@@ -299,5 +300,33 @@ test("parity: untrimmed or mixed-case filters send the same request on both side
     const c = await parity(["--compact", "count", "--filter", text], (t) => client(t).count(undefined, [filter]), echoFacets);
     assertSameRequests(c.cli, c.lib, `count --filter ${JSON.stringify(text)}`);
     assert.equal(c.lib.ok && c.lib.value, 2);
+  }
+});
+
+// ---- finding 7: an invalid base URL is a validation error (PAT-2) --------------
+
+test("baseUrlProblem accepts only absolute http(s) URLs", () => {
+  for (const ok of ["https://www.lobbyregister.bundestag.de", "http://localhost:8080/api/", " https://example.test "]) {
+    assert.equal(baseUrlProblem(ok), undefined, ok);
+  }
+  for (const bad of ["", "   ", "not-a-url", "http://", "https:"]) {
+    assert.equal(baseUrlProblem(bad), "Expected an absolute http(s) URL.", JSON.stringify(bad));
+  }
+  assert.equal(baseUrlProblem("ftp://x"), 'Unsupported scheme "ftp:". Expected an http(s) URL.');
+  assert.equal(baseUrlProblem("file:///etc/passwd"), 'Unsupported scheme "file:". Expected an http(s) URL.');
+});
+
+test("parity: an invalid base URL is a usage error in the CLI and a LobbyValidationError in the library", async () => {
+  for (const baseUrl of ["ftp://x", "", "http://", "   ", "not-a-url", "file:///etc/passwd", "https:", "javascript:alert(1)"]) {
+    const r = await parity(["--base-url", baseUrl, "count", "x"], (t) => new LobbyregisterClient({ baseUrl, transport: t }).count("x"));
+    assertBothReject(r.cli, r.lib, `--base-url ${JSON.stringify(baseUrl)}`);
+    if (!r.lib.ok) assert.equal(r.lib.error instanceof LobbyNetworkError, false, baseUrl);
+  }
+});
+
+test("parity: an accepted base URL sends the same request on both sides", async () => {
+  for (const baseUrl of [" https://example.test ", "https://example.test/api?foo=bar#frag", "http://localhost:8080/"]) {
+    const r = await parity(["--base-url", baseUrl, "count", "x"], (t) => new LobbyregisterClient({ baseUrl, transport: t }).count("x"));
+    assertSameRequests(r.cli, r.lib, baseUrl);
   }
 });

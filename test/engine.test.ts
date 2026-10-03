@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine, parseRetryAfter } from "../src/client/engine.js";
-import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "../src/client/errors.js";
+import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError } from "../src/client/errors.js";
 import {
   makeMockTransport,
   jsonResponse,
@@ -36,7 +36,12 @@ test("buildUrl ignores a query string in the base URL (no malformed URL)", () =>
 });
 
 test("a syntactically invalid base URL is rejected at construction", () => {
-  assert.throws(() => new RequestEngine({ baseUrl: "not-a-url" }), LobbyNetworkError);
+  assert.throws(
+    () => new RequestEngine({ baseUrl: "not-a-url" }),
+    (err: unknown) =>
+      err instanceof LobbyValidationError &&
+      (err as Error).message === "Invalid baseUrl: Expected an absolute http(s) URL.",
+  );
 });
 
 test("getJson parses a JSON body", async () => {
@@ -368,7 +373,10 @@ test("a non-http(s) base URL is rejected at construction, before any request", (
   for (const baseUrl of ["file:///etc/passwd", "ftp://example.org"]) {
     assert.throws(
       () => new RequestEngine({ baseUrl, transport: mt.transport }),
-      (err: unknown) => err instanceof LobbyNetworkError && /Unsupported protocol/.test((err as Error).message),
+      (err: unknown) =>
+        err instanceof LobbyValidationError &&
+        !(err instanceof LobbyNetworkError) &&
+        /^Invalid baseUrl: Unsupported scheme "(file|ftp):"\. Expected an http\(s\) URL\.$/.test((err as Error).message),
       baseUrl,
     );
   }
