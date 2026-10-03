@@ -13,6 +13,8 @@ export {
   filterQuery,
   knownFilterAttributeProblem,
   ignoredSort,
+  normaliseFilter,
+  parseFilter,
 } from "./filters.js";
 export type { SearchFilter, SortIgnored } from "./filters.js";
 export {

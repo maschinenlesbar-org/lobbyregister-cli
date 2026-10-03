@@ -8,8 +8,15 @@ import { LobbyregisterClient } from "../src/client/client.js";
 import { LobbyValidationError } from "../src/client/errors.js";
 import { headerNameProblem, headerValueProblem, intInRangeProblem, isBlank, nonEmptyProblem } from "../src/client/validate.js";
 import { MAX_TIMEOUT_MS } from "../src/client/http.js";
-import type { Transport } from "../src/client/http.js";
-import { SEARCH_FILTER_ATTRIBUTES, ignoredSort, knownFilterAttributeProblem } from "../src/client/filters.js";
+import type { HttpRequest, HttpResponse, Transport } from "../src/client/http.js";
+import {
+  SEARCH_FILTER_ATTRIBUTES,
+  ignoredSort,
+  knownFilterAttributeProblem,
+  normaliseFilter,
+  parseFilter,
+  type SearchFilter,
+} from "../src/client/filters.js";
 import { jsonResponse, parity, type CliOutcome, type LibOutcome } from "./helpers.js";
 
 /** Both sides reject the input as a usage/validation error and send nothing. */
@@ -237,4 +244,60 @@ test("the library checks the names and values of the headers option too", () => 
     assert.throws(() => new LobbyregisterClient({ headers }), LobbyValidationError, JSON.stringify(headers));
   }
   new LobbyregisterClient({ headers: { Authorization: "Bearer x" } });
+});
+
+// ---- finding 6: filter trimming and attribute lower-casing (PAT-16) ------------
+
+/** A /sucheJson stand-in that echoes the facet filters it received, as the live API does. */
+function echoFacets(req: HttpRequest): HttpResponse {
+  const facets: { attribute: string; value: string }[] = [];
+  for (const key of new URL(req.url).searchParams.keys()) {
+    const m = /^filter\[([^\]]+)\]\[([^\]]+)\]$/.exec(key);
+    if (m) facets.push({ attribute: m[1]!, value: m[2]! });
+  }
+  return jsonResponse({ resultCount: 2, results: [{ id: "R001" }, { id: "R002" }], searchParameters: { facets } });
+}
+
+test("normaliseFilter trims both parts and lower-cases the attribute, idempotently", () => {
+  const once = normaliseFilter({ attribute: " RevolvingDoorData ", value: "\ttrue " });
+  assert.deepEqual(once, { attribute: "revolvingdoordata", value: "true" });
+  assert.deepEqual(normaliseFilter(once), once);
+  // The value keeps its case: codes such as FOI_ENERGY are upper case.
+  assert.deepEqual(normaliseFilter({ attribute: "FieldsOfInterest", value: " FOI_ENERGY" }), {
+    attribute: "fieldsofinterest",
+    value: "FOI_ENERGY",
+  });
+});
+
+test("parseFilter splits at the first '=' and checks the filter", () => {
+  assert.deepEqual(parseFilter(" RevolvingDoorData = true "), { attribute: "revolvingdoordata", value: "true" });
+  assert.deepEqual(parseFilter("fieldsofinterest=FOI_WORK|FOI_WORK_POLICY"), {
+    attribute: "fieldsofinterest",
+    value: "FOI_WORK|FOI_WORK_POLICY",
+  });
+  for (const [text, message] of [
+    ["revolvingdoordata", /expected attribute=value/],
+    ["=true", /expected attribute=value/],
+    ["revolvingdoordata= ", /expected attribute=value/],
+    ["foo=true", /Unknown filter "foo"/],
+    ["revolvingdoordata=a=b", /Invalid filter value for "revolvingdoordata"/],
+  ] as const) {
+    assert.throws(() => parseFilter(text), (e: unknown) => e instanceof LobbyValidationError && message.test((e as Error).message), text);
+  }
+});
+
+test("parity: untrimmed or mixed-case filters send the same request on both sides", async () => {
+  const cases: Array<[string, SearchFilter]> = [
+    [" RevolvingDoorData = true ", { attribute: " RevolvingDoorData ", value: " true " }],
+    ["RevolvingDoorData=true", { attribute: "RevolvingDoorData", value: "true" }],
+    ["revolvingdoordata=true ", { attribute: "revolvingdoordata", value: "true " }],
+    ["revolvingdoordata=\ttrue", { attribute: "revolvingdoordata", value: "\ttrue" }],
+  ];
+  for (const [text, filter] of cases) {
+    const s = await parity(["--compact", "search", "--filter", text], (t) => client(t).search({ filters: [filter] }), echoFacets);
+    assertSameRequests(s.cli, s.lib, `search --filter ${JSON.stringify(text)}`);
+    const c = await parity(["--compact", "count", "--filter", text], (t) => client(t).count(undefined, [filter]), echoFacets);
+    assertSameRequests(c.cli, c.lib, `count --filter ${JSON.stringify(text)}`);
+    assert.equal(c.lib.ok && c.lib.value, 2);
+  }
 });

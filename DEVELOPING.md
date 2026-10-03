@@ -98,7 +98,11 @@ request (`count` too). Omit `q` to match everything. `count` downloads the whole
 too — there is no count-only request.
 
 `filters` are the facet filters of the register's website search, sent as
-`filter[<attribute>][<value>]=true` (`src/client/filters.ts`). The API ignores an
+`filter[<attribute>][<value>]=true` (`src/client/filters.ts`). Each filter is first
+normalised (`normaliseFilter`: both parts trimmed, the attribute lower-cased), so
+`{ attribute: " RevolvingDoorData ", value: " true " }` sends the same request as the
+CLI's `--filter " RevolvingDoorData = true "`; `parseFilter("attribute=value")` is the
+text form the CLI's `--filter` parser uses. The API ignores an
 unknown attribute and would return the whole unfiltered set, so the client accepts
 only the attributes in `SEARCH_FILTER_ATTRIBUTES`, taken from the website's search
 form (2026-09-26): any other attribute, or a malformed attribute or value, rejects

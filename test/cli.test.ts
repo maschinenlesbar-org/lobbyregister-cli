@@ -246,7 +246,7 @@ test("a malformed or unknown --filter is a usage error before any request", asyn
     ["revolvingdoordata", /expected attribute=value/],
     ["=true", /expected attribute=value/],
     ["revolvingdoordata= ", /expected attribute=value/],
-    ["revolvingdoordata=a]b", /Invalid value "a\]b" for filter "revolvingdoordata"/],
+    ["revolvingdoordata=a]b", /Invalid filter value for "revolvingdoordata": expected a code such as true, FOI_ENERGY or FOI_WORK\|FOI_WORK_POLICY, got "a\]b"/],
     ["--nope", /Expected a value, got another option/],
   ];
   for (const [value, message] of cases) {

@@ -77,7 +77,8 @@ an entrusted person or a contractor — far more entries than carry the
 alternatives, different attributes must all match. The API ignores an unknown
 attribute (and would return everything), so the CLI and the library accept only the
 known ones (`allowUnknownFilters` opts out in the library);
-an unknown value matches nothing. CLI: `search`/`count --filter <attribute=value>`
+an unknown value matches nothing. Both parts are trimmed and the attribute is
+compared case-insensitively (sent in lower case). CLI: `search`/`count --filter <attribute=value>`
 (repeatable); library: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
 
 **`page` / `pageSize`.** A 1-based page number and a page size (both integers

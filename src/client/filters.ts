@@ -76,7 +76,69 @@ const ATTRIBUTE_PATTERN = /^[a-z]+$/;
 export const FILTER_VALUE_PATTERN = /^[A-Za-z0-9_|]+$/;
 
 /**
- * Check the filters and turn them into query parameters
+ * The canonical form of a filter: both parts trimmed, the attribute lower-cased
+ * (the register's attributes are lower case; values such as `FOI_ENERGY` keep
+ * their case). Idempotent. Parts that are not strings are left for the checks in
+ * `filterQuery` / `parseFilter` to reject.
+ */
+export function normaliseFilter(filter: SearchFilter): SearchFilter {
+  if (typeof filter !== "object" || filter === null) return filter;
+  const { attribute, value } = filter;
+  return {
+    attribute: typeof attribute === "string" ? attribute.trim().toLowerCase() : attribute,
+    value: typeof value === "string" ? value.trim() : value,
+  };
+}
+
+/**
+ * Check one normalised filter; throws `LobbyValidationError` for a malformed
+ * attribute or value, and for an attribute outside `SEARCH_FILTER_ATTRIBUTES`
+ * unless `allowUnknown`.
+ */
+function checkFilter(filter: SearchFilter, allowUnknown: boolean): void {
+  if (typeof filter?.attribute !== "string") {
+    throw new LobbyValidationError(
+      `Invalid filter attribute: expected lower-case letters, got ${JSON.stringify(filter?.attribute)}.`,
+    );
+  }
+  if (!allowUnknown) assertValid("filter attribute", filter.attribute, knownFilterAttributeProblem);
+  if (!ATTRIBUTE_PATTERN.test(filter.attribute)) {
+    throw new LobbyValidationError(
+      `Invalid filter attribute: expected lower-case letters, got ${JSON.stringify(filter.attribute)}.`,
+    );
+  }
+  if (typeof filter.value !== "string" || !FILTER_VALUE_PATTERN.test(filter.value)) {
+    throw new LobbyValidationError(
+      `Invalid filter value for "${filter.attribute}": expected a code such as true, FOI_ENERGY or ` +
+        `FOI_WORK|FOI_WORK_POLICY, got ${JSON.stringify(filter.value)}.`,
+    );
+  }
+}
+
+/**
+ * Parse the text form `attribute=value` (split at the first `=`), normalise it
+ * (normaliseFilter) and check it like `filterQuery` does. Throws
+ * `LobbyValidationError` for a missing `=` or a blank part, an unknown attribute
+ * or a malformed value. The CLI's `--filter` parser is this function.
+ */
+export function parseFilter(text: string): SearchFilter {
+  const eq = text.indexOf("=");
+  const filter = normaliseFilter({
+    attribute: eq === -1 ? "" : text.slice(0, eq),
+    value: eq === -1 ? "" : text.slice(eq + 1),
+  });
+  if (filter.attribute === "" || filter.value === "") {
+    throw new LobbyValidationError(
+      `Invalid filter ${JSON.stringify(text)}: expected attribute=value, e.g. revolvingdoordata=true.`,
+    );
+  }
+  checkFilter(filter, false);
+  return filter;
+}
+
+/**
+ * Normalise and check the filters (normaliseFilter: trimmed, attribute in lower
+ * case) and turn them into query parameters
  * (`filter[revolvingdoordata][true]=true`). Throws `LobbyValidationError` for a
  * malformed attribute or value, and for an attribute outside
  * `SEARCH_FILTER_ATTRIBUTES` (knownFilterAttributeProblem) — the register would
@@ -90,20 +152,8 @@ export function filterQuery(
   options: { allowUnknown?: boolean } = {},
 ): QueryParams {
   const query: QueryParams = {};
-  for (const filter of filters) {
-    if (typeof filter?.attribute !== "string" || !ATTRIBUTE_PATTERN.test(filter.attribute)) {
-      throw new LobbyValidationError(
-        `Invalid filter attribute: expected lower-case letters, got ${JSON.stringify(filter?.attribute)}.`,
-      );
-    }
-    if (options.allowUnknown !== true) {
-      assertValid("filter attribute", filter.attribute, knownFilterAttributeProblem);
-    }
-    if (typeof filter.value !== "string" || !FILTER_VALUE_PATTERN.test(filter.value)) {
-      throw new LobbyValidationError(
-        `Invalid filter value for "${filter.attribute}": expected a code such as true or FOI_ENERGY, got ${JSON.stringify(filter.value)}.`,
-      );
-    }
+  for (const filter of filters.map(normaliseFilter)) {
+    checkFilter(filter, options.allowUnknown === true);
     query[`filter[${filter.attribute}][${filter.value}]`] = "true";
   }
   return query;
@@ -116,8 +166,9 @@ export function describeFilter(filter: SearchFilter): string {
 
 /**
  * The requested filters the reply does not echo in `searchParameters.facets`,
- * i.e. the ones the register ignored. `undefined` when the reply carries no
- * `facets` array to check against.
+ * i.e. the ones the register ignored, compared (and returned) in their
+ * normalised form (normaliseFilter), as `filterQuery` sent them. `undefined`
+ * when the reply carries no `facets` array to check against.
  */
 export function ignoredFilters(
   filters: readonly SearchFilter[],
@@ -128,7 +179,7 @@ export function ignoredFilters(
       ? (searchParameters as { facets?: unknown }).facets
       : undefined;
   if (!Array.isArray(facets)) return undefined;
-  return filters.filter(
+  return filters.map(normaliseFilter).filter(
     (f) =>
       !facets.some(
         (echo: unknown) =>

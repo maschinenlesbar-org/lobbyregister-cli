@@ -6,12 +6,8 @@ import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import type { EngineOptions } from "../client/engine.js";
 import { headerValueProblem, intInRangeProblem, nonEmptyProblem } from "../client/validate.js";
-import {
-  FILTER_VALUE_PATTERN,
-  SEARCH_FILTER_ATTRIBUTES,
-  knownFilterAttributeProblem,
-  type SearchFilter,
-} from "../client/filters.js";
+import { SEARCH_FILTER_ATTRIBUTES, parseFilter, type SearchFilter } from "../client/filters.js";
+import { LobbyError } from "../client/errors.js";
 
 /**
  * commander value-parser: a non-negative decimal integer.
@@ -61,12 +57,12 @@ export function parseHeaderValue(value: string): string {
 }
 
 /**
- * commander value-parser for the repeatable `--filter <attribute=value>`: checks one
- * facet filter and appends it to the ones given before. The attribute must be one
- * of `SEARCH_FILTER_ATTRIBUTES` (compared case-insensitively, sent in lower case) —
- * the library's knownFilterAttributeProblem, which the client enforces too —
- * because the register ignores an unknown attribute and would return the whole
- * unfiltered set.
+ * commander value-parser for the repeatable `--filter <attribute=value>`: parses
+ * one facet filter with the library's parseFilter — trimmed, the attribute
+ * compared case-insensitively and sent in lower case, and one of
+ * `SEARCH_FILTER_ATTRIBUTES`, because the register ignores an unknown attribute
+ * and would return the whole unfiltered set — and appends it to the ones given
+ * before. Only the guard against a swallowed option is CLI-specific.
  */
 export function collectFilter(value: string, previous: SearchFilter[] | undefined): SearchFilter[] {
   if (value.startsWith("--")) {
@@ -74,23 +70,12 @@ export function collectFilter(value: string, previous: SearchFilter[] | undefine
       "Expected a value, got another option. Give the option its value first.",
     );
   }
-  const eq = value.indexOf("=");
-  const attribute = eq === -1 ? "" : value.slice(0, eq).trim().toLowerCase();
-  const filterValue = eq === -1 ? "" : value.slice(eq + 1).trim();
-  if (attribute === "" || filterValue === "") {
-    throw new InvalidArgumentError(
-      `Invalid --filter ${JSON.stringify(value)}: expected attribute=value, e.g. revolvingdoordata=true.`,
-    );
+  try {
+    return [...(previous ?? []), parseFilter(value)];
+  } catch (err) {
+    if (err instanceof LobbyError) throw new InvalidArgumentError(err.message);
+    throw err;
   }
-  const unknown = knownFilterAttributeProblem(attribute);
-  if (unknown !== undefined) throw new InvalidArgumentError(unknown);
-  if (!FILTER_VALUE_PATTERN.test(filterValue)) {
-    throw new InvalidArgumentError(
-      `Invalid value ${JSON.stringify(filterValue)} for filter "${attribute}": expected a code ` +
-        "such as true, FOI_ENERGY or FOI_WORK|FOI_WORK_POLICY.",
-    );
-  }
-  return [...(previous ?? []), { attribute, value: filterValue }];
 }
 
 /** Help text shared by the commands that take `--filter`. */
