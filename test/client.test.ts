@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LobbyregisterClient } from "../src/client/client.js";
-import { LobbyApiError, LobbyError, LobbyNetworkError, LobbyParseError } from "../src/client/errors.js";
+import {
+  LobbyApiError,
+  LobbyError,
+  LobbyNetworkError,
+  LobbyParseError,
+  LobbyValidationError,
+} from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>): LobbyregisterClient {
@@ -63,12 +69,22 @@ test("count parses resultCount even from an empty-results envelope", async () =>
   assert.equal(n, 7);
 });
 
-test("search with an empty-string query sends q= (distinct from omitting q)", async () => {
+test("search rejects a blank q or sort before any request (omit q to match everything)", async () => {
+  for (const params of [{ q: "" }, { q: "   " }, { sort: "" }, { q: "x", sort: " " }]) {
+    const mt = constantJson({ resultCount: 0, results: [] });
+    const name = "sort" in params ? "sort" : "q";
+    await assert.rejects(
+      () => clientWith(mt).search(params),
+      (err) =>
+        err instanceof LobbyValidationError &&
+        err.message === `Invalid ${name}: Expected a non-empty value.`,
+      JSON.stringify(params),
+    );
+    assert.equal(mt.calls.length, 0, JSON.stringify(params));
+  }
   const mt = constantJson({ resultCount: 0, results: [] });
-  await clientWith(mt).search({ q: "" });
-  const url = new URL(mt.last().url);
-  assert.equal(url.searchParams.get("q"), "");
-  assert.ok(url.search.includes("q="));
+  await assert.rejects(() => clientWith(mt).count(" "), LobbyValidationError);
+  assert.equal(mt.calls.length, 0);
 });
 
 test("search rejects a valid-JSON body of the wrong shape", async () => {

@@ -46,8 +46,9 @@ schreibt nie.
 
 ## Suchanfrage
 
-**`q` (Suchanfrage).** Der Freitext-Suchbegriff. Optional – ein fehlendes oder leeres `q`
-liefert das gesamte Register. In der CLI ist es das Positionsargument `[query]` von
+**`q` (Suchanfrage).** Der Freitext-Suchbegriff. Optional – ohne `q` passt das gesamte
+Register; ein leeres `q` (`""` oder nur Leerraum) lehnen CLI und Bibliothek gleichermaßen
+vor jeder Anfrage ab. In der CLI ist es das Positionsargument `[query]` von
 `search` und `count`. Ein Suchbegriff, der mit einem Bindestrich beginnt, muss nach einem
 Trenner `--` übergeben werden (z. B. `search -- -Energie`). Der Server durchsucht auch
 Text, den die Antwort nicht enthält (etwa die Tätigkeitsbeschreibung auf der Registerseite
@@ -55,7 +56,7 @@ eines Eintrags); ein Eintrag kann also passen, ohne dass der Begriff irgendwo in
 vorkommt.
 
 **`sort`.** Die Sortierreihenfolge der Ergebnisse; wird unverändert weitergegeben
-(Groß-/Kleinschreibung zählt). Die Werte sind die der Suche auf der Website des Registers:
+(Groß-/Kleinschreibung zählt), ein leerer Wert wird vor jeder Anfrage abgelehnt. Die Werte sind die der Suche auf der Website des Registers:
 `RELEVANCE_DESC` (Standard bei einem Suchbegriff), `REGISTRATION_DESC` (Erstveröffentlichung),
 `UPDATE_DESC` (letzte Aktualisierung), `INACTIVITY_DESC` (Beendigung), `NAME_ASC`,
 `FINANCIALEXPENSES_DESC` (angegebene Ausgaben), `DONATIONAMOUNT_DESC`, `MEMBERSHIPFEES_DESC`,

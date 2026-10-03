@@ -25,3 +25,16 @@ export function assertValid<T>(name: string, value: T, problem: Problem<T>): T {
   if (reason !== undefined) throw new LobbyValidationError(`Invalid ${name}: ${reason}`);
   return value;
 }
+
+/** True for an empty or whitespace-only string. */
+export function isBlank(value: string): boolean {
+  return value.trim() === "";
+}
+
+/**
+ * A blank value ("" or whitespace only) is invalid: `/sucheJson` treats a blank
+ * `q` as no query and returns the whole register, and a blank `sort` as the
+ * default order — often the result of an unset variable or an empty form field.
+ */
+export const nonEmptyProblem: Problem<string> = (value) =>
+  isBlank(value) ? "Expected a non-empty value." : undefined;

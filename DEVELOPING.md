@@ -76,8 +76,11 @@ envelope. `client.count(q?, filters?)` returns just the integer match count.
 `/sucheJson` ignores paging and always returns every match, so `page`/`pageSize` are not
 sent: the client downloads the whole set and slices `results` (1-based `page`, default 1;
 `resultCount` stays the total). Both must be integers >= 1 and `page` needs `pageSize`,
-else `LobbyError` before any request. `count` downloads the whole set too — there is no
-count-only request.
+else `LobbyError` before any request. `q` and `sort` may be omitted but not blank: the
+register reads a blank `q` as no query (the whole register) and a blank `sort` as the
+default order, so `""` or whitespace rejects with `LobbyValidationError` before any
+request (`count` too). Omit `q` to match everything. `count` downloads the whole set
+too — there is no count-only request.
 
 `filters` are the facet filters of the register's website search, sent as
 `filter[<attribute>][<value>]=true` (`src/client/filters.ts`). The client checks their
@@ -209,8 +212,9 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`query.test.ts`** — query-string serialisation.
 - **`http.test.ts`** — the default transport against a real loopback `http.createServer`.
 - **`engine.test.ts`** — URL building, JSON decoding, error mapping, 429/503 retry (incl. `maxRetries: 0`), same-/cross-origin redirects (cross-origin credential stripping), missing-`Location` handling — mocked transport.
-- **`client.test.ts`** — the search URL/param mapping, empty-query semantics and the `count` helper — mocked transport.
+- **`client.test.ts`** — the search URL/param mapping, blank-query and blank-sort rejection and the `count` helper — mocked transport.
 - **`validate.test.ts`** — `assertValid`, the `LobbyValidationError` -> exit `2` mapping, and the `parity()` helper (`test/helpers.ts`), which sends one input through `run()` and through the library on one recording mock transport.
+- **`parity.test.ts`** — CLI <-> library parity: each input runs through the CLI and the library on one mock transport, and both must reject before any request or send the identical request.
 - **`cli.test.ts`** — command parsing, `--page`/`--sort`/`--results-only` passthrough, `count`, and exit codes (404, 400-with-hint, network and parse errors) — mocked client.
 
 ## Continuous integration

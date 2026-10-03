@@ -35,7 +35,10 @@ export interface SearchResult {
 
 /** Parameters for `/sucheJson`. */
 export interface SearchParams {
-  /** Free-text query string. */
+  /**
+   * Free-text query string. Omit it to match the whole register; a blank value
+   * (`""` or whitespace) rejects with `LobbyValidationError`.
+   */
   q?: string;
   /**
    * 1-based page number (default 1). Needs `pageSize`. Applied by the client, not
@@ -44,7 +47,7 @@ export interface SearchParams {
   page?: number;
   /** Results per page, sliced client-side out of the full result set. */
   pageSize?: number;
-  /** Sort order, e.g. "RELEVANCE_DESC", "REGISTRATION_DESC". */
+  /** Sort order, e.g. "RELEVANCE_DESC", "REGISTRATION_DESC". Must not be blank. */
   sort?: string;
   /**
    * Facet filters, sent as `filter[<attribute>][<value>]=true` — e.g.

@@ -45,14 +45,16 @@ never writes.
 
 ## Search request
 
-**`q` (query).** The free-text query string. Optional — an absent or empty `q`
-returns the whole register. On the CLI it is the positional `[query]` argument to
+**`q` (query).** The free-text query string. Optional — omit `q` to match the
+whole register; a blank `q` (`""` or whitespace) is rejected, by the CLI and the
+library alike, before any request. On the CLI it is the positional `[query]` argument to
 `search` and `count`. A query beginning with a dash must be passed after a `--`
 separator (e.g. `search -- -Energie`). The server also matches text that the response
 doesn't contain (such as the activity description on an entry's register page), so an
 entry can match without the term appearing anywhere in its JSON.
 
-**`sort`.** The result sort order, passed through verbatim (case-sensitive). The
+**`sort`.** The result sort order, passed through verbatim (case-sensitive); a
+blank value is rejected before any request. The
 values are those of the register's website search: `RELEVANCE_DESC` (the default with a query), `REGISTRATION_DESC` (first published),
 `UPDATE_DESC` (last updated), `INACTIVITY_DESC` (went inactive), `NAME_ASC`,
 `FINANCIALEXPENSES_DESC` (declared spend), `DONATIONAMOUNT_DESC`, `MEMBERSHIPFEES_DESC`,

@@ -10,6 +10,7 @@ import { LobbyError, LobbyParseError } from "./errors.js";
 import { describeFilter, filterQuery, ignoredFilters, type SearchFilter } from "./filters.js";
 import type { QueryParams } from "./query.js";
 import type { SearchResult, SearchParams } from "./types.js";
+import { assertValid, nonEmptyProblem } from "./validate.js";
 
 const PATH = "/sucheJson";
 
@@ -75,12 +76,18 @@ export class LobbyregisterClient {
    * total. Both must be integers >= 1, and `page` needs `pageSize`; otherwise
    * `LobbyError` is thrown before any request.
    *
+   * `q` and `sort` may be omitted, but not blank: the register reads a blank `q`
+   * as no query (the whole register) and a blank `sort` as the default order, so
+   * `""` or whitespace rejects with `LobbyValidationError` before any request.
+   *
    * With `filters`, the reply must echo every filter in
    * `searchParameters.facets`; one the register ignored (it would return the
    * unfiltered set) throws `LobbyError`. A reply without a `facets` array cannot
    * be checked and is passed through.
    */
   async search(params: SearchParams = {}): Promise<SearchResult> {
+    if (params.q !== undefined) assertValid("q", params.q, nonEmptyProblem);
+    if (params.sort !== undefined) assertValid("sort", params.sort, nonEmptyProblem);
     assertPageNumber("page", params.page);
     assertPageNumber("pageSize", params.pageSize);
     if (params.page !== undefined && params.pageSize === undefined) {
@@ -109,6 +116,7 @@ export class LobbyregisterClient {
    * it ignores `pageSize` (both `0` and `1` return the full result set, e.g. all
    * 2351 entries for `q=Energie`, with the correct `resultCount`). So this
    * downloads every matching record, like `search`, and reads `resultCount`.
+   * A blank `q` rejects with `LobbyValidationError`, as in `search`.
    */
   async count(q?: string, filters?: readonly SearchFilter[]): Promise<number> {
     const res = await this.search({ q, ...(filters !== undefined ? { filters } : {}) });
