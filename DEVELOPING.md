@@ -83,13 +83,16 @@ request (`count` too). Omit `q` to match everything. `count` downloads the whole
 too — there is no count-only request.
 
 `filters` are the facet filters of the register's website search, sent as
-`filter[<attribute>][<value>]=true` (`src/client/filters.ts`). The client checks their
-shape and, on the reply, that `searchParameters.facets` echoes each one: the API
-ignores an unknown attribute and would return the whole unfiltered set, so a filter it
-did not echo throws `LobbyError` (a reply without a `facets` array is not checked).
-The CLI additionally accepts only the attributes in `SEARCH_FILTER_ATTRIBUTES`, taken
-from the website's search form (2026-09-26) — when the register adds a filter, add it
-there.
+`filter[<attribute>][<value>]=true` (`src/client/filters.ts`). The API ignores an
+unknown attribute and would return the whole unfiltered set, so the client accepts
+only the attributes in `SEARCH_FILTER_ATTRIBUTES`, taken from the website's search
+form (2026-09-26): any other attribute, or a malformed attribute or value, rejects
+with `LobbyValidationError` before any request (`knownFilterAttributeProblem`, which
+the CLI's `--filter` parser calls too). When the register adds a filter, add it to the
+list; until a release has it, `search({ ..., allowUnknownFilters: true })` lifts the
+allowlist. On the reply the client also checks that `searchParameters.facets` echoes
+each filter, which catches an attribute the register has dropped: a filter it did not
+echo throws `LobbyError` (a reply without a `facets` array is not checked).
 
 ## Architecture
 

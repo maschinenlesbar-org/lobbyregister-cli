@@ -12,8 +12,9 @@
 // The website's number ranges (`filter[financialexpenses][100-2000]`, reported in
 // `searchParameters.numberRanges`) are not covered here.
 
-import { LobbyError } from "./errors.js";
+import { LobbyValidationError } from "./errors.js";
 import type { QueryParams } from "./query.js";
+import { assertValid, type Problem } from "./validate.js";
 
 /** One facet filter: `{ attribute: "revolvingdoordata", value: "true" }`. */
 export interface SearchFilter {
@@ -22,8 +23,8 @@ export interface SearchFilter {
 }
 
 /**
- * The facet attributes of the website's search form (2026-09-26). The CLI accepts
- * only these; when the register adds one, add it here.
+ * The facet attributes of the website's search form (2026-09-26). The client
+ * (and so the CLI) accepts only these; when the register adds one, add it here.
  */
 export const SEARCH_FILTER_ATTRIBUTES: readonly string[] = [
   "activelobbyist",
@@ -55,6 +56,16 @@ export const SEARCH_FILTER_ATTRIBUTES: readonly string[] = [
   "workascontractor",
 ];
 
+/**
+ * An attribute the register knows: one of `SEARCH_FILTER_ATTRIBUTES`. The register
+ * ignores an unknown attribute and answers with the whole unfiltered set.
+ */
+export const knownFilterAttributeProblem: Problem<string> = (attribute) =>
+  SEARCH_FILTER_ATTRIBUTES.includes(attribute)
+    ? undefined
+    : `Unknown filter ${JSON.stringify(attribute)}. The register ignores unknown filters and would ` +
+      `return the whole unfiltered set. Filters: ${SEARCH_FILTER_ATTRIBUTES.join(", ")}.`;
+
 /** An attribute name: lower-case letters only, as in the search form. */
 const ATTRIBUTE_PATTERN = /^[a-z]+$/;
 
@@ -65,23 +76,31 @@ const ATTRIBUTE_PATTERN = /^[a-z]+$/;
 export const FILTER_VALUE_PATTERN = /^[A-Za-z0-9_|]+$/;
 
 /**
- * Check the filters' shape and turn them into query parameters
- * (`filter[revolvingdoordata][true]=true`). Throws `LobbyError` for a malformed
- * attribute or value. The attribute is not checked against
- * `SEARCH_FILTER_ATTRIBUTES` here: `LobbyregisterClient.search` instead verifies
- * that the reply echoes every filter, which also catches an attribute the
- * register has dropped.
+ * Check the filters and turn them into query parameters
+ * (`filter[revolvingdoordata][true]=true`). Throws `LobbyValidationError` for a
+ * malformed attribute or value, and for an attribute outside
+ * `SEARCH_FILTER_ATTRIBUTES` (knownFilterAttributeProblem) — the register would
+ * ignore it and return the whole unfiltered set. `allowUnknown` skips only the
+ * allowlist, for an attribute the register added after this release;
+ * `LobbyregisterClient.search` still verifies that the reply echoes every filter,
+ * which also catches an attribute the register has dropped.
  */
-export function filterQuery(filters: readonly SearchFilter[]): QueryParams {
+export function filterQuery(
+  filters: readonly SearchFilter[],
+  options: { allowUnknown?: boolean } = {},
+): QueryParams {
   const query: QueryParams = {};
   for (const filter of filters) {
     if (typeof filter?.attribute !== "string" || !ATTRIBUTE_PATTERN.test(filter.attribute)) {
-      throw new LobbyError(
+      throw new LobbyValidationError(
         `Invalid filter attribute: expected lower-case letters, got ${JSON.stringify(filter?.attribute)}.`,
       );
     }
+    if (options.allowUnknown !== true) {
+      assertValid("filter attribute", filter.attribute, knownFilterAttributeProblem);
+    }
     if (typeof filter.value !== "string" || !FILTER_VALUE_PATTERN.test(filter.value)) {
-      throw new LobbyError(
+      throw new LobbyValidationError(
         `Invalid filter value for "${filter.attribute}": expected a code such as true or FOI_ENERGY, got ${JSON.stringify(filter.value)}.`,
       );
     }

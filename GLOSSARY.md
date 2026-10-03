@@ -74,7 +74,8 @@ an entrusted person or a contractor — far more entries than carry the
 `fieldsofinterest` (`FOI_ENERGY`, sub-fields as `FOI_WORK|FOI_WORK_POLICY`),
 `activity`, `legalform`, `donationsreceived`. Values of one attribute are
 alternatives, different attributes must all match. The API ignores an unknown
-attribute (and would return everything), so the CLI accepts only the known ones;
+attribute (and would return everything), so the CLI and the library accept only the
+known ones (`allowUnknownFilters` opts out in the library);
 an unknown value matches nothing. CLI: `search`/`count --filter <attribute=value>`
 (repeatable); library: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
 

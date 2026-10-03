@@ -80,7 +80,11 @@ export class LobbyregisterClient {
    * as no query (the whole register) and a blank `sort` as the default order, so
    * `""` or whitespace rejects with `LobbyValidationError` before any request.
    *
-   * With `filters`, the reply must echo every filter in
+   * Each filter attribute must be one of `SEARCH_FILTER_ATTRIBUTES` (the register
+   * ignores any other and would return the whole unfiltered set), else
+   * `LobbyValidationError` before any request; `allowUnknownFilters: true` lifts
+   * the allowlist for an attribute the register added after this release.
+   * With `filters`, the reply must also echo every filter in
    * `searchParameters.facets`; one the register ignored (it would return the
    * unfiltered set) throws `LobbyError`. A reply without a `facets` array cannot
    * be checked and is passed through.
@@ -94,7 +98,7 @@ export class LobbyregisterClient {
       throw new LobbyError("Invalid page: page needs pageSize (the client slices the full result set into pages).");
     }
     const filters = params.filters ?? [];
-    const query: QueryParams = filterQuery(filters);
+    const query: QueryParams = filterQuery(filters, { allowUnknown: params.allowUnknownFilters });
     if (params.q !== undefined) query["q"] = params.q;
     if (params.sort !== undefined) query["sort"] = params.sort;
     const result = await this.engine.getJson<unknown>(PATH, query);

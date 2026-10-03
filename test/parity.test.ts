@@ -8,7 +8,8 @@ import { LobbyregisterClient } from "../src/client/client.js";
 import { LobbyValidationError } from "../src/client/errors.js";
 import { isBlank, nonEmptyProblem } from "../src/client/validate.js";
 import type { Transport } from "../src/client/http.js";
-import { parity, type CliOutcome, type LibOutcome } from "./helpers.js";
+import { SEARCH_FILTER_ATTRIBUTES, knownFilterAttributeProblem } from "../src/client/filters.js";
+import { jsonResponse, parity, type CliOutcome, type LibOutcome } from "./helpers.js";
 
 /** Both sides reject the input as a usage/validation error and send nothing. */
 function assertBothReject(cli: CliOutcome, lib: LibOutcome, label: string): void {
@@ -71,4 +72,36 @@ test("parity: no query and a real query send the same request on both sides", as
     client(t).search({ q: "Energie", sort: "REGISTRATION_DESC" }),
   );
   assertSameRequests(some.cli, some.lib, "search Energie");
+});
+
+// ---- finding 1: the filter attribute allowlist (PAT-13) ------------------------
+
+/** A reply with no `facets` array, so the echo check has nothing to compare. */
+const noFacets = () => jsonResponse({ resultCount: 6989, results: [{ id: 1 }], searchParameters: { sortOrder: "RELEVANCE_DESC" } });
+
+test("knownFilterAttributeProblem accepts only SEARCH_FILTER_ATTRIBUTES", () => {
+  for (const attribute of SEARCH_FILTER_ATTRIBUTES) assert.equal(knownFilterAttributeProblem(attribute), undefined);
+  for (const attribute of ["foo", "revolvingdoor", "RevolvingDoorData", "", "constructor", "toString"]) {
+    const reason = knownFilterAttributeProblem(attribute);
+    assert.ok(reason?.startsWith(`Unknown filter ${JSON.stringify(attribute)}. The register ignores unknown filters`), attribute);
+  }
+});
+
+test("parity: an unknown filter attribute is rejected by both sides before any request", async () => {
+  const c = await parity(["--compact", "count", "--filter", "foo=true"], (t) =>
+    client(t).count(undefined, [{ attribute: "foo", value: "true" }]), noFacets);
+  assertBothReject(c.cli, c.lib, "count --filter foo=true");
+  const s = await parity(
+    ["--compact", "search", "Energie", "--filter", "revolvingdoordata=true", "--filter", "foo=true"],
+    (t) => client(t).search({ q: "Energie", filters: [{ attribute: "revolvingdoordata", value: "true" }, { attribute: "foo", value: "true" }] }),
+    noFacets,
+  );
+  assertBothReject(s.cli, s.lib, "search --filter foo=true");
+  if (!s.lib.ok) assert.match(String(s.lib.error), /Invalid filter attribute: Unknown filter "foo"\. The register ignores unknown filters/);
+});
+
+test("parity: a known filter attribute sends the same request on both sides", async () => {
+  const r = await parity(["--compact", "count", "--filter", "revolvingdoordata=true"], (t) =>
+    client(t).count(undefined, [{ attribute: "revolvingdoordata", value: "true" }]), noFacets);
+  assertSameRequests(r.cli, r.lib, "count --filter revolvingdoordata=true");
 });

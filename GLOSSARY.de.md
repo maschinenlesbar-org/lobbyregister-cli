@@ -78,8 +78,8 @@ abdeckt), `revolvingdoorpersontypes`, `revolvingdoorareas`, `activelobbyist`,
 `fieldsofinterest` (`FOI_ENERGY`, Unterbereiche als `FOI_WORK|FOI_WORK_POLICY`),
 `activity`, `legalform`, `donationsreceived`. Werte desselben Attributs sind
 Alternativen, verschiedene Attribute müssen alle zutreffen. Die API ignoriert ein
-unbekanntes Attribut (und lieferte dann alles), deshalb nimmt die CLI nur die bekannten
-an; ein unbekannter Wert trifft nichts. CLI: `search`/`count --filter <attribute=value>`
+unbekanntes Attribut (und lieferte dann alles), deshalb nehmen CLI und Bibliothek nur die
+bekannten an (in der Bibliothek hebt `allowUnknownFilters` das auf); ein unbekannter Wert trifft nichts. CLI: `search`/`count --filter <attribute=value>`
 (wiederholbar); Bibliothek: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
 
 **`page` / `pageSize`.** Eine Seitennummer ab 1 und eine Seitengröße (beide ganze Zahlen

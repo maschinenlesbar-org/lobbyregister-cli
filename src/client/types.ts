@@ -52,8 +52,15 @@ export interface SearchParams {
   /**
    * Facet filters, sent as `filter[<attribute>][<value>]=true` — e.g.
    * `[{ attribute: "revolvingdoordata", value: "true" }]`. Values of one attribute
-   * are alternatives; different attributes must all match. See
-   * `SEARCH_FILTER_ATTRIBUTES`.
+   * are alternatives; different attributes must all match. Each attribute must be
+   * one of `SEARCH_FILTER_ATTRIBUTES`, else `LobbyValidationError` before any
+   * request.
    */
   filters?: readonly SearchFilter[];
+  /**
+   * Accept a filter attribute outside `SEARCH_FILTER_ATTRIBUTES`, e.g. one the
+   * register added after this release. Off by default. The reply must still echo
+   * the filter in `searchParameters.facets`.
+   */
+  allowUnknownFilters?: boolean;
 }

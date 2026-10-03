@@ -126,7 +126,13 @@ test("search sends filters as filter[attribute][value]=true and checks the echo"
 test("search rejects a filter the reply leaves out of searchParameters.facets", async () => {
   const mt = constantJson({ resultCount: 6989, results: [], searchParameters: { facets: [] } });
   await assert.rejects(
-    () => clientWith(mt).search({ filters: [{ attribute: "bogusattr", value: "true" }] }),
+    () => clientWith(mt).search({ filters: [{ attribute: "revolvingdoordata", value: "true" }] }),
+    (err) => err instanceof LobbyError && /ignored the filter "revolvingdoordata=true"/.test((err as Error).message),
+  );
+  // An attribute outside the allowlist, let through with allowUnknownFilters, is
+  // still checked against the echo.
+  await assert.rejects(
+    () => clientWith(mt).search({ filters: [{ attribute: "bogusattr", value: "true" }], allowUnknownFilters: true }),
     (err) => err instanceof LobbyError && /ignored the filter "bogusattr=true"/.test((err as Error).message),
   );
   // No facets array in the reply: nothing to check against, passed through.
@@ -134,14 +140,15 @@ test("search rejects a filter the reply leaves out of searchParameters.facets", 
   assert.equal((await clientWith(bare).search({ filters: [{ attribute: "activelobbyist", value: "true" }] })).resultCount, 3);
 });
 
-test("a malformed filter is rejected before any request", async () => {
+test("a malformed or unknown filter is rejected before any request", async () => {
   for (const filter of [
     { attribute: "revolving door", value: "true" },
+    { attribute: "bogusattr", value: "true" },
     { attribute: "revolvingdoordata", value: "" },
     { attribute: "revolvingdoordata", value: "true][x" },
   ]) {
     const mt = constantJson({ resultCount: 0, results: [] });
-    await assert.rejects(() => clientWith(mt).search({ filters: [filter] }), LobbyError, JSON.stringify(filter));
+    await assert.rejects(() => clientWith(mt).search({ filters: [filter] }), LobbyValidationError, JSON.stringify(filter));
     assert.equal(mt.calls.length, 0);
   }
 });

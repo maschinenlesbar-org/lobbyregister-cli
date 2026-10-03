@@ -9,6 +9,7 @@ import { nonEmptyProblem } from "../client/validate.js";
 import {
   FILTER_VALUE_PATTERN,
   SEARCH_FILTER_ATTRIBUTES,
+  knownFilterAttributeProblem,
   type SearchFilter,
 } from "../client/filters.js";
 
@@ -71,7 +72,8 @@ export function parseHeaderValue(value: string): string {
 /**
  * commander value-parser for the repeatable `--filter <attribute=value>`: checks one
  * facet filter and appends it to the ones given before. The attribute must be one
- * of `SEARCH_FILTER_ATTRIBUTES` (compared case-insensitively, sent in lower case),
+ * of `SEARCH_FILTER_ATTRIBUTES` (compared case-insensitively, sent in lower case) —
+ * the library's knownFilterAttributeProblem, which the client enforces too —
  * because the register ignores an unknown attribute and would return the whole
  * unfiltered set.
  */
@@ -89,12 +91,8 @@ export function collectFilter(value: string, previous: SearchFilter[] | undefine
       `Invalid --filter ${JSON.stringify(value)}: expected attribute=value, e.g. revolvingdoordata=true.`,
     );
   }
-  if (!SEARCH_FILTER_ATTRIBUTES.includes(attribute)) {
-    throw new InvalidArgumentError(
-      `Unknown filter ${JSON.stringify(attribute)}. The register ignores unknown filters and would ` +
-        `return the whole unfiltered set. Filters: ${SEARCH_FILTER_ATTRIBUTES.join(", ")}.`,
-    );
-  }
+  const unknown = knownFilterAttributeProblem(attribute);
+  if (unknown !== undefined) throw new InvalidArgumentError(unknown);
   if (!FILTER_VALUE_PATTERN.test(filterValue)) {
     throw new InvalidArgumentError(
       `Invalid value ${JSON.stringify(filterValue)} for filter "${attribute}": expected a code ` +
