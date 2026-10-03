@@ -5,7 +5,7 @@
 import { MAX_TIMEOUT_MS, nodeHttpTransport, type Transport } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
 import { LobbyApiError, LobbyNetworkError, LobbyParseError } from "./errors.js";
-import { assertValid, intInRangeProblem } from "./validate.js";
+import { assertValid, headerNameProblem, headerValueProblem, intInRangeProblem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://www.lobbyregister.bundestag.de";
 const DEFAULT_USER_AGENT = "lobbyregister-cli";
@@ -21,7 +21,11 @@ export interface EngineOptions {
   baseUrl?: string;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
   transport?: Transport;
-  /** Value of the User-Agent header. */
+  /**
+   * Value of the User-Agent header (default `lobbyregister-cli`). A blank value, a
+   * control character other than tab, or a character above U+00FF throws a
+   * `LobbyValidationError`.
+   */
   userAgent?: string;
   /**
    * Extra headers sent on every request to the configured origin (e.g. an
@@ -29,7 +33,8 @@ export interface EngineOptions {
    * crosses to a different origin, all of them are dropped (only the engine's own
    * Accept and User-Agent go along), so no credential — Authorization,
    * Proxy-Authorization, Cookie, X-API-Key, X-Auth-Token or any other — leaks to an
-   * arbitrary host named in Location.
+   * arbitrary host named in Location. Names must be HTTP tokens and values are
+   * checked like `userAgent`.
    */
   headers?: Record<string, string>;
   /**
@@ -127,6 +132,29 @@ export function intOption(name: string, value: number | undefined, max: number, 
   return value === undefined ? fallback : assertValid(name, value, intInRangeProblem(0, max));
 }
 
+/**
+ * Check a value bound for an HTTP header (see `headerValueProblem`) and return it
+ * unchanged; anything else throws a `LobbyValidationError` naming `name`
+ * ("Invalid userAgent: Value contains control characters.").
+ */
+export function assertHeaderValue(name: string, value: string): string {
+  return assertValid(name, value, headerValueProblem);
+}
+
+/** Check every name and value of the `headers` option, returning a copy. */
+function headerOption(headers: Record<string, string> | undefined): Record<string, string> {
+  if (headers === undefined) return {};
+  assertValid("headers", headers, (v) =>
+    typeof v === "object" && v !== null && !Array.isArray(v) ? undefined : "Expected an object of header names to values.",
+  );
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(headers)) {
+    assertValid("header name", name, headerNameProblem);
+    out[name] = assertHeaderValue(`headers["${name}"]`, value);
+  }
+  return out;
+}
+
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -180,8 +208,12 @@ export class RequestEngine {
     // gating at all, and could be steered to a non-http(s) scheme.
     assertHttpScheme(this.baseUrl);
     this.transport = options.transport ?? nodeHttpTransport;
-    this.userAgent = options.userAgent ?? DEFAULT_USER_AGENT;
-    this.extraHeaders = options.headers ?? {};
+    // Only an omitted userAgent selects the default: a blank one is an error, not
+    // a silent replacement, and a malformed one fails here rather than at request
+    // time (or, with a custom transport, not at all).
+    this.userAgent =
+      options.userAgent === undefined ? DEFAULT_USER_AGENT : assertHeaderValue("userAgent", options.userAgent);
+    this.extraHeaders = headerOption(options.headers);
     // Range-check the numeric options before any request (see intOption).
     const anyInt = Number.MAX_SAFE_INTEGER;
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 30_000);

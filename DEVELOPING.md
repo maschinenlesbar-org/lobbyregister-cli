@@ -77,6 +77,12 @@ limit off. `0` keeps its meaning (no timeout, no retries, no redirects, no cap).
 CLI's `--timeout`, `--max-retries`, `--max-redirects` and `--max-response-bytes`
 parsers apply the same rule (`intInRangeProblem`).
 
+`userAgent` and every value in `headers` must be a non-blank string of Latin-1
+characters without control characters (tab is allowed), and every header name an HTTP
+token; otherwise the constructor throws `LobbyValidationError` (`headerValueProblem`,
+`headerNameProblem`, `assertHeaderValue`). Only an omitted `userAgent` selects the
+default `lobbyregister-cli`. The CLI's `--user-agent` parser applies the same rule.
+
 ### Methods
 
 `client.search({ q?, page?, pageSize?, sort?, filters? })` returns the `SearchResult`

@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LobbyregisterClient } from "../src/client/client.js";
 import { LobbyValidationError } from "../src/client/errors.js";
-import { intInRangeProblem, isBlank, nonEmptyProblem } from "../src/client/validate.js";
+import { headerNameProblem, headerValueProblem, intInRangeProblem, isBlank, nonEmptyProblem } from "../src/client/validate.js";
 import { MAX_TIMEOUT_MS } from "../src/client/http.js";
 import type { Transport } from "../src/client/http.js";
 import { SEARCH_FILTER_ATTRIBUTES, ignoredSort, knownFilterAttributeProblem } from "../src/client/filters.js";
@@ -196,4 +196,45 @@ test("parity: in-range engine limits (0 and the maximum) send the same request",
   const max = await parity([`--timeout=${MAX_TIMEOUT_MS}`, "count"], (t) =>
     new LobbyregisterClient({ timeoutMs: MAX_TIMEOUT_MS, transport: t }).count());
   assertSameRequests(max.cli, max.lib, "--timeout=MAX_TIMEOUT_MS");
+});
+
+// ---- finding 5: User-Agent and header values (PAT-5) ---------------------------
+
+test("headerValueProblem / headerNameProblem", () => {
+  for (const ok of ["my-app/1.0", "café", "a\tb"]) assert.equal(headerValueProblem(ok), undefined, JSON.stringify(ok));
+  assert.equal(headerValueProblem(""), "Expected a non-empty value.");
+  assert.equal(headerValueProblem("   "), "Expected a non-empty value.");
+  assert.equal(headerValueProblem(5), "Expected a non-empty value.");
+  for (const bad of ["a\r\nX-Injected: 1", "a\u0000b", "a\u007fb"]) {
+    assert.equal(headerValueProblem(bad), "Value contains control characters.", JSON.stringify(bad));
+  }
+  for (const bad of ["agent☃", "€"]) {
+    assert.equal(headerValueProblem(bad), "Value contains characters outside Latin-1 (above U+00FF).");
+  }
+  assert.equal(headerNameProblem("X-Request-Id"), undefined);
+  for (const bad of ["", "X Bad", "X:a", "X\r\nY"]) assert.ok(headerNameProblem(bad), JSON.stringify(bad));
+});
+
+test("parity: a blank or unsendable User-Agent is rejected by both sides before any request", async () => {
+  for (const ua of ["", "   ", "a\r\nX-Injected: 1", "\u0000", "agent☃", "€"]) {
+    const r = await parity(["--user-agent", ua, "count"], (t) => new LobbyregisterClient({ userAgent: ua, transport: t }).count());
+    assertBothReject(r.cli, r.lib, `--user-agent ${JSON.stringify(ua)}`);
+  }
+});
+
+test("parity: an accepted User-Agent is sent identically by both sides", async () => {
+  for (const ua of ["café", "a\tb"]) {
+    const r = await parity(["--user-agent", ua, "count"], (t) => new LobbyregisterClient({ userAgent: ua, transport: t }).count());
+    assertSameRequests(r.cli, r.lib, JSON.stringify(ua));
+    assert.equal(r.cli.requests[0]?.headers?.["User-Agent"], ua);
+    assert.equal(r.lib.requests[0]?.headers?.["User-Agent"], ua);
+  }
+});
+
+test("the library checks the names and values of the headers option too", () => {
+  const cases: Record<string, string>[] = [{ "X-A": "a\r\nb" }, { "X-A": "" }, { "X A": "x" }];
+  for (const headers of cases) {
+    assert.throws(() => new LobbyregisterClient({ headers }), LobbyValidationError, JSON.stringify(headers));
+  }
+  new LobbyregisterClient({ headers: { Authorization: "Bearer x" } });
 });
