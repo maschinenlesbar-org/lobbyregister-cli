@@ -80,6 +80,14 @@ limit off. `0` keeps its meaning (no timeout, no retries, no redirects, no cap).
 CLI's `--timeout`, `--max-retries`, `--max-redirects` and `--max-response-bytes`
 parsers apply the same rule (`intInRangeProblem`).
 
+The validation reasons never repeat a base URL. The CLI also redacts on output:
+`run.ts` (`withRedactedOutput`) takes the exact userinfo of every argument
+(`credentialsIn`, exported) and replaces it with `***` in everything it prints —
+commander's usage errors, which echo rejected values, and its own messages — so a
+password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one.
+`redactUrl` (exported) masks the userinfo of a URL and falls back to the same
+text-based cut (`redactCredentials`, exported) for a value that doesn't parse.
+
 `userAgent` and every value in `headers` must be a non-blank string of Latin-1
 characters without control characters (tab is allowed), and every header name an HTTP
 token; otherwise the constructor throws `LobbyValidationError` (`headerValueProblem`,

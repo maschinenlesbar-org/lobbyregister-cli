@@ -39,6 +39,9 @@ export {
   LobbyNetworkError,
   LobbyParseError,
   LobbyValidationError,
+  credentialsIn,
+  redactCredentials,
+  redactUrl,
 } from "./errors.js";
 
 export * from "./types.js";
