@@ -197,6 +197,10 @@ gone away (`2>&1 | head -1`).
   your `PATH`. Run `npm prefix -g` to find it (the commands are in its `bin`
   subdirectory) and add that to your `PATH`, or run via
   `npx @maschinenlesbar.org/lobbyregister-cli …`.
+- **Exit `1` / "the register rejected the request"** — the register answers a
+  query it cannot parse with a redirect to its error page (`/fehler`) instead of
+  data: an unbalanced quote or parenthesis (`"Tabak`, `Tabak (`) or a very long
+  query. Fix the query; the CLI doesn't fetch the error page.
 - **Exit `4` / "not found"** — a `404` from the API; this is uncommon on the
   search endpoint. Check that `--base-url` points at the right host.
 - **Exit `1` / network error** — connectivity, DNS, or a timeout; the message names

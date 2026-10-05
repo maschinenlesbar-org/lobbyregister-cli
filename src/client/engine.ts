@@ -95,6 +95,19 @@ const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
 // only ones that follow a cross-origin redirect.
 const ENGINE_HEADERS = new Set(["Accept", "User-Agent"]);
 
+/**
+ * The register's error page. `/sucheJson` answers a query it cannot parse (an
+ * unbalanced quote or parenthesis, a very long query) with `302 Location: /fehler`,
+ * an HTML page; following it used to end in "Unexpected content type text/html".
+ */
+const ERROR_PAGE_PATH = /(^|\/)fehler\/?$/;
+
+/** The message for a redirect to the register's error page. */
+const ERROR_PAGE_DETAIL =
+  "the register rejected the request: it redirected to its error page (/fehler) instead of answering, " +
+  "which it does for a query it cannot parse, such as an unbalanced quote or parenthesis (\"Tabak, Tabak ( ) " +
+  "or a very long query";
+
 /** True when `a` and `b` parse and share scheme, host and port; false otherwise. */
 function sameOrigin(a: string, b: string): boolean {
   try {
@@ -582,6 +595,18 @@ export class RequestEngine {
       const location = headerValue(responseHeaders["location"]);
       if (status >= 300 && status < 400) {
         const nextUrl = resolveLocation(location, url);
+        // The register's error page is no answer: report the rejection instead of
+        // fetching an HTML page and failing on its content type.
+        if (nextUrl !== undefined && sameOrigin(nextUrl.href, url) && ERROR_PAGE_PATH.test(nextUrl.pathname)) {
+          throw new LobbyApiError({
+            status,
+            url,
+            method,
+            body: this.scrub(body.toString("utf8")),
+            detail: ERROR_PAGE_DETAIL,
+            location: cleanDetail(redactUrl(nextUrl.href)),
+          });
+        }
         if (nextUrl !== undefined) {
           // A redirect we cannot follow because the budget is spent: surface a
           // clear "too many redirects" error rather than a bare 3xx status (which

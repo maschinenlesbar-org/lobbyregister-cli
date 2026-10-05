@@ -290,7 +290,10 @@ URL's (request URLs are built from its scheme, host and path, so `https://user:p
 reaches the register without them), and not one a `Location` names. Transports are told
 `redirect: "manual"` (`HttpRequest.redirect`) and must not follow redirects themselves;
 a response whose `url` (fetch's `Response.url`) lies on another origin than the request
-is rejected as a `LobbyNetworkError`. A 3xx without a `Location`, or with one that
+is rejected as a `LobbyNetworkError`. A same-origin redirect to the register's error
+page (`/fehler`), its answer to a query it cannot parse (an unbalanced quote or
+parenthesis, a very long query), is not followed: it surfaces as a `LobbyApiError` that
+says the register rejected the request. A 3xx without a `Location`, or with one that
 is not a valid http(s) URL, is not followed: it surfaces as a `LobbyApiError` whose `location`
 field and message name the target (`HTTP 302 for GET …: redirect to http://[::1 not
 followed`, or `redirect not followed (no Location header)`).

@@ -440,3 +440,19 @@ test("a long server detail is cut at 500 characters in the message; the body kee
       err instanceof LobbyApiError && err.message.length < 1000 && err.detail?.length === 501 && err.body.length > 200_000,
   );
 });
+
+test("a redirect to the register's error page is reported as a rejected request, not followed (01#1)", async () => {
+  for (const maxRedirects of [5, 0]) {
+    const mt = makeMockTransport(() => redirectResponse("/fehler"));
+    const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport, maxRedirects });
+    await assert.rejects(
+      () => e.getJson("/sucheJson", { q: '"Tabak' }),
+      (err: unknown) =>
+        err instanceof LobbyApiError &&
+        err.status === 302 &&
+        /the register rejected the request: it redirected to its error page \(\/fehler\)/.test(err.message) &&
+        /unbalanced quote or parenthesis/.test(err.message),
+    );
+    assert.equal(mt.calls.length, 1, "the HTML error page is not fetched");
+  }
+});
