@@ -73,11 +73,12 @@ count   [query]   count entries matching a query
 | `[query]` | free-text search term (optional — omit to match everything) |
 | `--sort <order>` | sort order, e.g. `RELEVANCE_DESC`, `REGISTRATION_DESC`, `FINANCIALEXPENSES_DESC` (all values below) |
 | `--filter <attribute=value>` | register facet filter, repeatable (see below) |
+| `--allow-unknown-filters` | send a `--filter` attribute or value this release doesn't know |
 | `--page <n>` | 1-based page number, 1 or more (client-side paging) |
 | `--page-size <n>` | results per page, 1 or more (client-side paging) |
 | `--results-only` | print just the `results` array, not the envelope |
 
-`count` takes the optional query, `--filter` and the global options — no `--page`,
+`count` takes the optional query, `--filter`, `--allow-unknown-filters` and the global options — no `--page`,
 `--sort`, or `--results-only`.
 
 `--filter` passes the facet filters of the register's
@@ -85,10 +86,16 @@ count   [query]   count entries matching a query
 `revolvingdoordata=true` (entries with revolving-door data for any of their people),
 `activelobbyist=false`, `fieldsofinterest=FOI_ENERGY` or
 `revolvingdoorpersontypes=ENTRUSTED_PERSON`. Values of one attribute are alternatives;
-different attributes must all match. `lobbyregister search --help` lists the attributes;
-an unknown attribute is a usage error (the API would ignore it and return everything),
-an unknown value matches nothing. The value codes are the ones in the website's search
-URL after you tick a box there.
+different attributes must all match. `lobbyregister search --help` lists the attributes.
+The values are the register's codes: `true`/`false` for yes/no facets, otherwise codes
+such as `DONATIONS_RECEIVED` or `ACT_TRADE_ASSOC`, matched case-insensitively. A
+field-of-interest code as the entries carry it (`FOI_EU_LAWS`) is sent with its parent
+(`FOI_EUROPEAN_UNION|FOI_EU_LAWS`), the only form the register matches. The API ignores
+an unknown attribute (and would return everything) and matches nothing for an unknown
+value (`resultCount: 0`), so both are a usage error (exit `2`) whose message names the
+valid codes — `donationsreceived=true` names `DONATIONS_RECEIVED`.
+`--allow-unknown-filters` sends them anyway, for a code the register added after this
+release; a reply of 0 then gets a `Note:` on stderr.
 
 The **[Glossary](GLOSSARY.md)** explains every field and term in the response.
 

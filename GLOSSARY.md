@@ -73,13 +73,20 @@ an entrusted person or a contractor — far more entries than carry the
 `recentGovernmentFunctionPresent` flag, which covers only the lobbyist),
 `revolvingdoorpersontypes`, `revolvingdoorareas`, `activelobbyist`,
 `fieldsofinterest` (`FOI_ENERGY`, sub-fields as `FOI_WORK|FOI_WORK_POLICY`),
-`activity`, `legalform`, `donationsreceived`. Values of one attribute are
-alternatives, different attributes must all match. The API ignores an unknown
-attribute (and would return everything), so the CLI and the library accept only the
-known ones (`allowUnknownFilters` opts out in the library);
-an unknown value matches nothing. Both parts are trimmed and the attribute is
-compared case-insensitively (sent in lower case). CLI: `search`/`count --filter <attribute=value>`
-(repeatable); library: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
+`activity`, `legalform`, `donationsreceived` (`DONATIONS_RECEIVED`,
+`DONATIONS_NOT_RECEIVED`, `DONATIONS_INFORMATION_MISSING_FISCAL_YEAR` — not `true`),
+`ftepresent` (`true` = an FTE figure was declared, including the entries that declared
+0 FTE; not "has staff"). Values of one attribute are alternatives, different
+attributes must all match. The API ignores an unknown attribute (and would return
+everything) and matches nothing for an unknown value, so the CLI and the library accept
+only the known attributes and value codes (`--allow-unknown-filters`, or
+`allowUnknownFilters` in the library, opts out). Both parts are trimmed, the attribute
+is compared case-insensitively (sent in lower case), the value is matched
+case-insensitively and sent in the register's spelling, and a sub-field code as the
+entries carry it (`FOI_EU_LAWS`) is sent with its parent (`FOI_EUROPEAN_UNION|FOI_EU_LAWS`):
+the register matches a sub-field only in that form, and the parent can't be read off
+the code. CLI: `search`/`count --filter <attribute=value>` (repeatable); library:
+`SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`, `SEARCH_FILTER_VALUES`.
 
 **`page` / `pageSize`.** A 1-based page number and a page size (both integers
 >= 1; `page` needs `pageSize`). A live probe (2026-06) showed `/sucheJson`

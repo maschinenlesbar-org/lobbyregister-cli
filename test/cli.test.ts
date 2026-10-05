@@ -260,6 +260,75 @@ test("a malformed or unknown --filter is a usage error before any request", asyn
   }
 });
 
+test("a filter value the register doesn't know is a usage error naming the codes (06#1)", async () => {
+  const cases: [string, RegExp][] = [
+    ["donationsreceived=true", /Unknown value "true" for donationsreceived: the register matches nothing for it\. Values: DONATIONS_INFORMATION_MISSING_FISCAL_YEAR, DONATIONS_NOT_RECEIVED, DONATIONS_RECEIVED/],
+    ["fieldsofinterest=FOI_NOTHING", /Unknown value "FOI_NOTHING" for fieldsofinterest.*FOI_ENERGY.*or a sub-code such as/],
+    ["fieldsofinterest=|", /Unknown value "\|" for fieldsofinterest/],
+  ];
+  for (const [value, message] of cases) {
+    for (const command of ["search", "count"]) {
+      const cli = makeCli(echoFacets);
+      assert.equal(await run([command, "--filter", value], cli.deps), 2, `${command} --filter ${value}`);
+      assert.equal(cli.mt.calls.length, 0, `${command} --filter ${value}: no request`);
+      assert.match(cli.err.join("\n"), message, `${command} --filter ${value}`);
+    }
+  }
+});
+
+test("a sub-code copied from the data is sent with its parent, a wrong-case code in the register's case (01#2, 06#1)", async () => {
+  const cases: [string, string][] = [
+    ["fieldsofinterest=FOI_EU_LAWS", "fieldsofinterest=FOI_EUROPEAN_UNION|FOI_EU_LAWS"],
+    ["fieldsofinterest=FOI_ENERGY_NET", "fieldsofinterest=FOI_ENERGY|FOI_ENERGY_NET"],
+    ["fieldsofinterest=FOI_ENVIRONMENT_CLIMATE", "fieldsofinterest=FOI_ENVIRONMENT|FOI_ENVIRONMENT_CLIMATE"],
+    ["fieldsofinterest=foi_energy", "fieldsofinterest=FOI_ENERGY"],
+    ["donationsreceived=donations_received", "donationsreceived=DONATIONS_RECEIVED"],
+    ["revolvingdoordata=TRUE", "revolvingdoordata=true"],
+  ];
+  for (const [given, sent] of cases) {
+    const cli = makeCli(echoFacets);
+    assert.equal(await run(["--compact", "count", "--filter", given], cli.deps), 0, cli.err.join("\n"));
+    const [attribute, value] = sent.split("=") as [string, string];
+    assert.equal(new URL(cli.mt.last().url).searchParams.get(`filter[${attribute}][${value}]`), "true", given);
+    assert.deepEqual(JSON.parse(cli.out.join("\n")).filters, [sent], given);
+  }
+});
+
+test("--allow-unknown-filters sends an unknown code, and a reply of 0 then gets a note", async () => {
+  const empty = (req: HttpRequest): HttpResponse => {
+    const res = echoFacets(req);
+    const body = JSON.parse(res.body.toString("utf8")) as Record<string, unknown>;
+    return jsonResponse({ ...body, resultCount: 0 });
+  };
+  for (const argv of [
+    ["count", "--filter", "fieldsofinterest=FOI_NEW_CODE", "--allow-unknown-filters"],
+    ["search", "--allow-unknown-filters", "--filter", "fieldsofinterest=FOI_NEW_CODE"],
+  ]) {
+    const cli = makeCli(empty);
+    assert.equal(await run(argv, cli.deps), 0, cli.err.join("\n"));
+    assert.equal(new URL(cli.mt.last().url).searchParams.get("filter[fieldsofinterest][FOI_NEW_CODE]"), "true");
+    assert.match(cli.err.join("\n"), /Note: no entry matched\. --filter fieldsofinterest=FOI_NEW_CODE is not in this release's list/);
+  }
+  // A known code that matches nothing is a real "none": no note.
+  const known = makeCli(empty);
+  assert.equal(await run(["count", "--filter", "annotations=CODEX_VIOLATION"], known.deps), 0);
+  assert.deepEqual(known.err, []);
+});
+
+test("a single-value option given twice is a usage error before any request", async () => {
+  for (const argv of [
+    ["search", "--sort", "NAME_ASC", "--sort", "NAME_DESC"],
+    ["search", "--page-size", "5", "--page-size", "10"],
+    ["--timeout", "1000", "--timeout", "2000", "count"],
+    ["--base-url", "https://a.example", "--base-url", "https://b.example", "count"],
+  ]) {
+    const cli = makeCli(echoFacets);
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, argv.join(" "));
+    assert.match(cli.err.join("\n"), /may be given only once/, argv.join(" "));
+  }
+});
+
 test("a filter the reply does not echo exits 1 instead of printing an unfiltered set", async () => {
   const cli = makeCli(() => jsonResponse({ resultCount: 6989, results: [], searchParameters: { facets: [] } }));
   const code = await run(["count", "--filter", "revolvingdoordata=true"], cli.deps);

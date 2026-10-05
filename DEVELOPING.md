@@ -124,11 +124,23 @@ CLI's `--filter " RevolvingDoorData = true "`; `parseFilter("attribute=value")` 
 text form the CLI's `--filter` parser uses. The API ignores an
 unknown attribute and would return the whole unfiltered set, so the client accepts
 only the attributes in `SEARCH_FILTER_ATTRIBUTES`, taken from the website's search
-form (2026-09-26): any other attribute, or a malformed attribute or value, rejects
-with `LobbyValidationError` before any request (`knownFilterAttributeProblem`, which
-the CLI's `--filter` parser calls too). When the register adds a filter, add it to the
-list; until a release has it, `search({ ..., allowUnknownFilters: true })` lifts the
-allowlist. On the reply the client also checks that `searchParameters.facets` echoes
+form (2026-09-26). It matches nothing for an unknown value (HTTP 200,
+`resultCount: 0`), so the client also accepts only the value codes in
+`SEARCH_FILTER_VALUES` (read from the form on 2026-10-06): normalisation matches them
+case-insensitively and gives a bare sub-code from the data its parent
+(`canonicalFilterValue`: `FOI_EU_LAWS` → `FOI_EUROPEAN_UNION|FOI_EU_LAWS`, the only
+form the register matches); anything else — `donationsreceived=true`, an unknown code,
+a sub-code under the wrong parent — rejects with `LobbyValidationError` naming the
+valid codes, before any request (`knownFilterAttributeProblem`,
+`knownFilterValueProblem`). Both lists are frozen. When the register adds a filter or
+a value, add it; until a release has it, `search({ ..., allowUnknownFilters: true })`
+(CLI: `--allow-unknown-filters`) lifts both checks, and the CLI then notes on stderr
+when a reply of 0 follows a code it didn't know (`isKnownFilter`). The CLI's `--filter`
+parser checks only the syntax and leaves the catalogue check to the client, so the
+flag works wherever it stands. `search()` also rejects a parameter key it doesn't take
+(`{ filter: … }`, `{ revolvingdoordata: "true" }`, `__proto__`), which it used to ignore
+and so return the whole register. The CLI's single-value options (`--sort`, `--page`,
+`--page-size` and the global ones) may be given only once. On the reply the client also checks that `searchParameters.facets` echoes
 each filter, which catches an attribute the register has dropped: a filter it did not
 echo throws `LobbyError` (a reply without a `facets` array is not checked).
 

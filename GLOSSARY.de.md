@@ -77,12 +77,21 @@ einen Auftragnehmer – weit mehr Einträge, als das Merkmal
 `recentGovernmentFunctionPresent` tragen, das nur die Interessenvertretung selbst
 abdeckt), `revolvingdoorpersontypes`, `revolvingdoorareas`, `activelobbyist`,
 `fieldsofinterest` (`FOI_ENERGY`, Unterbereiche als `FOI_WORK|FOI_WORK_POLICY`),
-`activity`, `legalform`, `donationsreceived`. Werte desselben Attributs sind
-Alternativen, verschiedene Attribute müssen alle zutreffen. Die API ignoriert ein
-unbekanntes Attribut (und lieferte dann alles), deshalb nehmen CLI und Bibliothek nur die
-bekannten an (in der Bibliothek hebt `allowUnknownFilters` das auf); ein unbekannter Wert trifft nichts. Beide Teile werden von Leerraum befreit, das Attribut
-ohne Rücksicht auf Groß-/Kleinschreibung verglichen (und kleingeschrieben gesendet). CLI: `search`/`count --filter <attribute=value>`
-(wiederholbar); Bibliothek: `SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`.
+`activity`, `legalform`, `donationsreceived` (`DONATIONS_RECEIVED`,
+`DONATIONS_NOT_RECEIVED`, `DONATIONS_INFORMATION_MISSING_FISCAL_YEAR` – nicht `true`),
+`ftepresent` (`true` = eine VZÄ-Angabe liegt vor, auch bei Einträgen, die 0 VZÄ angegeben
+haben; nicht „hat Personal“). Werte desselben Attributs sind Alternativen, verschiedene
+Attribute müssen alle zutreffen. Die API ignoriert ein unbekanntes Attribut (und lieferte
+dann alles) und trifft mit einem unbekannten Wert nichts, deshalb nehmen CLI und
+Bibliothek nur die bekannten Attribute und Wertcodes an (`--allow-unknown-filters`, in der
+Bibliothek `allowUnknownFilters`, hebt das auf). Beide Teile werden von Leerraum befreit,
+das Attribut ohne Rücksicht auf Groß-/Kleinschreibung verglichen (und kleingeschrieben
+gesendet), der Wert ebenso verglichen und in der Schreibweise des Registers gesendet,
+und ein Unterbereichscode, wie er in den Einträgen steht (`FOI_EU_LAWS`), wird mit seinem
+Oberbereich gesendet (`FOI_EUROPEAN_UNION|FOI_EU_LAWS`): Nur in dieser Form trifft das
+Register einen Unterbereich, und der Oberbereich lässt sich am Code nicht ablesen. CLI:
+`search`/`count --filter <attribute=value>` (wiederholbar); Bibliothek:
+`SearchParams.filters`, `SEARCH_FILTER_ATTRIBUTES`, `SEARCH_FILTER_VALUES`.
 
 **`page` / `pageSize`.** Eine Seitennummer ab 1 und eine Seitengröße (beide ganze Zahlen
 ab 1; `page` braucht `pageSize`). Ein Live-Test (2026-06) hat gezeigt, dass `/sucheJson`

@@ -8,6 +8,7 @@ import {
   LobbyValidationError,
 } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
+import { SEARCH_FILTER_ATTRIBUTES, SEARCH_FILTER_VALUES } from "../src/client/filters.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>): LobbyregisterClient {
   return new LobbyregisterClient({ transport: mt.transport });
@@ -161,4 +162,17 @@ test("a negative, fractional or non-finite resultCount is a LobbyParseError", as
       body,
     );
   }
+});
+
+test("search rejects a key it doesn't take before any request (P10)", async () => {
+  for (const params of [{ filter: [] }, { revolvingdoordata: "true" }, JSON.parse('{"__proto__": {}}') as object]) {
+    const mt = makeMockTransport(() => jsonResponse({ resultCount: 0, results: [] }));
+    await assert.rejects(() => clientWith(mt).search(params as never), LobbyValidationError, JSON.stringify(params));
+    assert.equal(mt.calls.length, 0);
+  }
+});
+
+test("the filter catalogues are frozen", () => {
+  assert.throws(() => (SEARCH_FILTER_ATTRIBUTES as string[]).push("evil"), TypeError);
+  assert.throws(() => (SEARCH_FILTER_VALUES["donationsreceived"] as string[]).push("true"), TypeError);
 });

@@ -181,11 +181,25 @@ lobbyregister search Energie --filter revolvingdoordata=true \
 lobbyregister search --filter activelobbyist=false --filter fieldsofinterest=FOI_ENERGY
 ```
 
-`lobbyregister search --help` lists the attributes. An unknown attribute is a usage
-error (exit `2`) because the API would silently ignore it and return the whole set; an
-unknown **value** matches nothing (`resultCount: 0`). The value codes are the ones that
-appear in the website's search URL when you tick a box there (`FOI_ENERGY`, a sub-field
-as `FOI_WORK|FOI_WORK_POLICY`, `true`/`false` for yes/no facets). If a reply does not
+```bash
+# Entries that declared donations received (the code, not "true")
+lobbyregister count --filter donationsreceived=DONATIONS_RECEIVED
+
+# A field-of-interest code as it appears in the entries' fieldsOfInterest[].code
+lobbyregister count --filter fieldsofinterest=FOI_EU_LAWS
+# -> sent as fieldsofinterest=FOI_EUROPEAN_UNION|FOI_EU_LAWS, the form the register matches
+```
+
+`lobbyregister search --help` lists the attributes. The values are the register's codes
+(`true`/`false` for yes/no facets; `FOI_ENERGY`, `DONATIONS_RECEIVED`, `ACT_TRADE_ASSOC`
+and so on otherwise), matched case-insensitively; a sub-field is `FOI_WORK|FOI_WORK_POLICY`,
+and a bare sub-field code from the data (`FOI_WORK_POLICY`) is sent in that form. An
+unknown attribute is a usage error (exit `2`) because the API would silently ignore it
+and return the whole set; an unknown **value** is a usage error too, naming the valid
+codes, because the API would match nothing (`resultCount: 0`) and "nobody" would look
+like an answer. `--allow-unknown-filters` sends either anyway (for a code the register
+added after this release); a reply of 0 then prints a `Note:` on stderr. The library
+exports the codes as `SEARCH_FILTER_VALUES`. If a reply does not
 confirm a filter in `searchParameters.facets`, the CLI exits `1` rather than print an
 unfiltered set. The website's number ranges (spend, staff, members from/to) are not
 supported.

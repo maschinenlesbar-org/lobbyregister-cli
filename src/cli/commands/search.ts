@@ -4,12 +4,15 @@ import type { SearchResult } from "../../client/types.js";
 import type { SearchFilter } from "../../client/filters.js";
 import { describeFilter } from "../../client/filters.js";
 import {
+  ALLOW_UNKNOWN_FILTERS_HELP,
   FILTER_HELP,
   action,
   collectFilter,
+  once,
   parseBoundedInt,
   parseNonEmpty,
   renderJson,
+  unknownFilterNote,
 } from "../shared.js";
 
 /** The sort orders of the register's website search (2026-09-26), for --help. */
@@ -36,19 +39,20 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
     .option(
       "--page <n>",
       "1-based page number (1 or more; client-side paging)",
-      parseBoundedInt(1, Number.MAX_SAFE_INTEGER),
+      once("--page", parseBoundedInt(1, Number.MAX_SAFE_INTEGER)),
     )
     .option(
       "--page-size <n>",
       "results per page (1 or more; client-side paging)",
-      parseBoundedInt(1, Number.MAX_SAFE_INTEGER),
+      once("--page-size", parseBoundedInt(1, Number.MAX_SAFE_INTEGER)),
     )
-    .option("--sort <order>", 'e.g. RELEVANCE_DESC, REGISTRATION_DESC', parseNonEmpty)
+    .option("--sort <order>", 'e.g. RELEVANCE_DESC, REGISTRATION_DESC', once("--sort", parseNonEmpty))
     .option(
       "--filter <attribute=value>",
       "register facet filter, e.g. revolvingdoordata=true (repeatable)",
       collectFilter,
     )
+    .option("--allow-unknown-filters", ALLOW_UNKNOWN_FILTERS_HELP)
     .option("--results-only", "print just the results array (not the envelope)")
     .addHelpText(
       "after",
@@ -70,18 +74,22 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
             code: "lobbyregister.pageWithoutPageSize",
           });
         }
+        const filters = opts["filter"] as SearchFilter[] | undefined;
         const { sortIgnored, ...result } = await client.search({
           q: query,
           page,
           pageSize,
           sort: opts["sort"] as string | undefined,
-          filters: opts["filter"] as SearchFilter[] | undefined,
+          filters,
+          ...(opts["allowUnknownFilters"] === true ? { allowUnknownFilters: true } : {}),
         });
         // The client slices the page out of the full result set (the live
         // `/sucheJson` endpoint ignores paging and returns every match). The
         // envelope is printed as the API sent it; the client's `sortIgnored`
         // verdict becomes a stderr warning instead.
         renderJson(deps, global, opts["resultsOnly"] ? result.results : result);
+        const note = unknownFilterNote(filters, result.resultCount);
+        if (note !== undefined) deps.io.err(note);
         if (sortIgnored !== undefined) {
           deps.io.err(
             `Warning: the API did not apply --sort ${JSON.stringify(sortIgnored.requested)} and sorted by ` +
@@ -112,6 +120,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
       "register facet filter, e.g. revolvingdoordata=true (repeatable)",
       collectFilter,
     )
+    .option("--allow-unknown-filters", ALLOW_UNKNOWN_FILTERS_HELP)
     .addHelpText(
       "after",
       "\ncount takes an optional query, --filter and the global options. Paging/sorting " +
@@ -121,12 +130,18 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
     .action(
       action(deps, async ({ client, global, opts }, [query]) => {
         const filters = opts["filter"] as SearchFilter[] | undefined;
-        const resultCount = await client.count(query, filters);
+        const resultCount = await client.count(
+          query,
+          filters,
+          opts["allowUnknownFilters"] === true ? { allowUnknownFilters: true } : {},
+        );
         renderJson(deps, global, {
           query: query ?? null,
           ...(filters !== undefined ? { filters: filters.map(describeFilter) } : {}),
           resultCount,
         });
+        const note = unknownFilterNote(filters, resultCount);
+        if (note !== undefined) deps.io.err(note);
       }),
     );
 }

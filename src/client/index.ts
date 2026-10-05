@@ -17,9 +17,13 @@ export { buildQueryString } from "./query.js";
 export type { QueryParams, QueryValue } from "./query.js";
 export {
   SEARCH_FILTER_ATTRIBUTES,
+  SEARCH_FILTER_VALUES,
   FILTER_VALUE_PATTERN,
+  canonicalFilterValue,
   filterQuery,
+  isKnownFilter,
   knownFilterAttributeProblem,
+  knownFilterValueProblem,
   ignoredSort,
   normaliseFilter,
   parseFilter,

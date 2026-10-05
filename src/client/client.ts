@@ -58,9 +58,15 @@ function assertPageNumber(name: string, value: unknown): void {
   }
 }
 
+/** The keys `search()` takes. */
+const SEARCH_PARAM_KEYS: readonly string[] = ["q", "page", "pageSize", "sort", "filters", "allowUnknownFilters"];
+
 /**
  * Check the shape of `search()`'s parameters before anything else: an object (or
- * undefined), `filters` an array, `allowUnknownFilters` a boolean. A wrong type used to
+ * undefined) with only the keys `search()` takes, `filters` an array,
+ * `allowUnknownFilters` a boolean. An unknown key — a misspelled `filter`, a facet
+ * given as a key (`{ revolvingdoordata: "true" }`), `__proto__` from parsed JSON — used
+ * to be ignored, so the call downloaded the whole unfiltered register. A wrong type used to
  * fail as a raw TypeError (`filters.map is not a function`), or, for a truthy string
  * `allowUnknownFilters`, to be read as false without a word.
  */
@@ -73,6 +79,14 @@ function assertSearchParams(params: unknown): asserts params is SearchParams {
     );
   }
   const p = params as Record<string, unknown>;
+  const unknown = Object.keys(p).filter((key) => !SEARCH_PARAM_KEYS.includes(key));
+  if (unknown.length > 0) {
+    throw new LobbyValidationError(
+      `Invalid search parameters: unknown ${unknown.length === 1 ? "key" : "keys"} ` +
+        `${unknown.map((key) => JSON.stringify(key)).join(", ")}; search() takes ${SEARCH_PARAM_KEYS.join(", ")}. ` +
+        "An unknown key would be ignored and the result left unfiltered.",
+    );
+  }
   if (p["filters"] !== undefined && !Array.isArray(p["filters"])) {
     throw new LobbyValidationError(
       `Invalid filters: expected an array of { attribute, value } objects, got ${p["filters"] === null ? "null" : typeof p["filters"]}.`,
@@ -117,10 +131,15 @@ export class LobbyregisterClient {
    * as no query (the whole register) and a blank `sort` as the default order, so
    * `""` or whitespace rejects with `LobbyValidationError` before any request.
    *
-   * Each filter attribute must be one of `SEARCH_FILTER_ATTRIBUTES` (the register
-   * ignores any other and would return the whole unfiltered set), else
-   * `LobbyValidationError` before any request; `allowUnknownFilters: true` lifts
-   * the allowlist for an attribute the register added after this release.
+   * An unknown key in `params` is a `LobbyValidationError`. Each filter attribute
+   * must be one of `SEARCH_FILTER_ATTRIBUTES` (the register ignores any other and
+   * would return the whole unfiltered set), and each value one of
+   * `SEARCH_FILTER_VALUES` (the register matches nothing for any other: a reply of 0),
+   * else `LobbyValidationError` before any request. Values are matched
+   * case-insensitively and a bare sub-code from the data is sent with its parent
+   * (`FOI_EU_LAWS` → `FOI_EUROPEAN_UNION|FOI_EU_LAWS`; see `normaliseFilter`).
+   * `allowUnknownFilters: true` lifts both catalogues for an attribute or value the
+   * register added after this release.
    * With `filters`, the reply must also echo every filter in
    * `searchParameters.facets`; one the register ignored (it would return the
    * unfiltered set) throws `LobbyError`. A reply without a `facets` array cannot
@@ -167,10 +186,22 @@ export class LobbyregisterClient {
    * it ignores `pageSize` (both `0` and `1` return the full result set, e.g. all
    * 2351 entries for `q=Energie`, with the correct `resultCount`). So this
    * downloads every matching record, like `search`, and reads `resultCount`.
-   * A blank `q` rejects with `LobbyValidationError`, as in `search`.
+   * A blank `q` rejects with `LobbyValidationError`, as in `search`, and so do
+   * filters `search` would reject; `options.allowUnknownFilters` is `search`'s.
    */
-  async count(q?: string, filters?: readonly SearchFilter[]): Promise<number> {
-    const res = await this.search({ q, ...(filters !== undefined ? { filters } : {}) });
+  async count(
+    q?: string,
+    filters?: readonly SearchFilter[],
+    options: { allowUnknownFilters?: boolean } = {},
+  ): Promise<number> {
+    if (typeof options !== "object" || options === null || Array.isArray(options)) {
+      throw new LobbyValidationError("Invalid count options: expected an object such as { allowUnknownFilters: true }.");
+    }
+    const res = await this.search({
+      q,
+      ...(filters !== undefined ? { filters } : {}),
+      ...(options.allowUnknownFilters !== undefined ? { allowUnknownFilters: options.allowUnknownFilters } : {}),
+    });
     return res.resultCount;
   }
 }

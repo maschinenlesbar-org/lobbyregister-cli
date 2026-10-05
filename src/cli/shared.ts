@@ -6,7 +6,7 @@ import { InvalidArgumentError } from "commander";
 import type { CliDeps } from "./io.js";
 import { baseUrlProblem, type EngineOptions } from "../client/engine.js";
 import { headerValueProblem, intInRangeProblem, nonEmptyProblem } from "../client/validate.js";
-import { SEARCH_FILTER_ATTRIBUTES, parseFilter, type SearchFilter } from "../client/filters.js";
+import { SEARCH_FILTER_ATTRIBUTES, isKnownFilter, parseFilter, describeFilter, type SearchFilter } from "../client/filters.js";
 import { LobbyError } from "../client/errors.js";
 
 /**
@@ -57,12 +57,32 @@ export function parseHeaderValue(value: string): string {
 }
 
 /**
+ * Wrap a commander value-parser so its option may be given only once. Commander keeps
+ * the last of a repeated single-value option silently: `--sort NAME_ASC --sort
+ * NAME_DESC` sorted by name descending without a word. A repetition is a usage error
+ * instead. The program is built anew for every run, so the flag starts fresh each
+ * time.
+ */
+export function once<T>(flag: string, parser: (value: string) => T): (value: string) => T {
+  let seen = false;
+  return (value: string) => {
+    if (seen) throw new InvalidArgumentError(`${flag} may be given only once.`);
+    seen = true;
+    return parser(value);
+  };
+}
+
+/**
  * commander value-parser for the repeatable `--filter <attribute=value>`: parses
  * one facet filter with the library's parseFilter — trimmed, the attribute
- * compared case-insensitively and sent in lower case, and one of
- * `SEARCH_FILTER_ATTRIBUTES`, because the register ignores an unknown attribute
- * and would return the whole unfiltered set — and appends it to the ones given
- * before. Only the guard against a swallowed option is CLI-specific.
+ * compared case-insensitively and sent in lower case, the value in the register's
+ * spelling (`foi_energy` → `FOI_ENERGY`, `FOI_EU_LAWS` →
+ * `FOI_EUROPEAN_UNION|FOI_EU_LAWS`) — and appends it to the ones given before.
+ * Whether the attribute and value are ones the register knows is checked by the
+ * client when the command runs, so that `--allow-unknown-filters` can lift that
+ * check wherever it stands on the command line; the rejection is a usage error
+ * (exit 2) all the same, before any request. Only the guard against a swallowed
+ * option is CLI-specific.
  */
 export function collectFilter(value: string, previous: SearchFilter[] | undefined): SearchFilter[] {
   if (value.startsWith("--")) {
@@ -71,7 +91,7 @@ export function collectFilter(value: string, previous: SearchFilter[] | undefine
     );
   }
   try {
-    return [...(previous ?? []), parseFilter(value)];
+    return [...(previous ?? []), parseFilter(value, { allowUnknown: true })];
   } catch (err) {
     if (err instanceof LobbyError) throw new InvalidArgumentError(err.message);
     throw err;
@@ -82,10 +102,34 @@ export function collectFilter(value: string, previous: SearchFilter[] | undefine
 export const FILTER_HELP =
   "\nFilters (--filter attribute=value, repeatable) are the facets of the register's " +
   "website search, e.g. revolvingdoordata=true, activelobbyist=false, " +
-  "fieldsofinterest=FOI_ENERGY. Values of one attribute are alternatives; different " +
-  "attributes must all match. An unknown value matches nothing. Attributes: " +
+  "fieldsofinterest=FOI_ENERGY, donationsreceived=DONATIONS_RECEIVED. Values of one attribute " +
+  "are alternatives; different attributes must all match. The values are the register's codes " +
+  "(matched case-insensitively); a field-of-interest code from the data such as FOI_EU_LAWS is " +
+  "sent with its parent (FOI_EUROPEAN_UNION|FOI_EU_LAWS). The register matches nothing for a " +
+  "value it doesn't know, so an unknown attribute or value is a usage error naming the valid ones; " +
+  "--allow-unknown-filters sends it anyway (for a code added after this release). Attributes: " +
   SEARCH_FILTER_ATTRIBUTES.join(", ") +
   ".";
+
+/** Help for `--allow-unknown-filters`. */
+export const ALLOW_UNKNOWN_FILTERS_HELP =
+  "send a --filter attribute or value this release doesn't know (the register may ignore it or match nothing)";
+
+/**
+ * The stderr note for a reply of 0 entries when a filter was sent that the catalogue
+ * doesn't know (only possible with `--allow-unknown-filters`): the register matches
+ * nothing for a value it doesn't know, so "none" may be a typo. Undefined otherwise.
+ */
+export function unknownFilterNote(filters: readonly SearchFilter[] | undefined, resultCount: number): string | undefined {
+  if (resultCount !== 0 || filters === undefined) return undefined;
+  const unknown = filters.filter((f) => !isKnownFilter(f));
+  if (unknown.length === 0) return undefined;
+  return (
+    `Note: no entry matched. ${unknown.map((f) => `--filter ${describeFilter(f)}`).join(", ")} ` +
+    `${unknown.length === 1 ? "is" : "are"} not in this release's list of codes, and the register ` +
+    "matches nothing for a value it doesn't know; check the spelling."
+  );
+}
 
 /**
  * Build a commander value-parser for a non-negative integer within [min, max]:

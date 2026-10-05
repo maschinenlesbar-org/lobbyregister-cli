@@ -9,7 +9,7 @@ import type { CliDeps } from "./io.js";
 import { defaultIO } from "./io.js";
 import { LobbyregisterClient } from "../client/client.js";
 import { MAX_TIMEOUT_MS } from "../client/http.js";
-import { parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg } from "./shared.js";
+import { once, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg } from "./shared.js";
 import { registerSearchCommands } from "./commands/search.js";
 
 /**
@@ -46,21 +46,26 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
         "(https://www.lobbyregister.bundestag.de/sucheJson)",
     )
     .version(VERSION)
-    .option("--base-url <url>", "API base URL", parseBaseUrl, "https://www.lobbyregister.bundestag.de")
+    .option("--base-url <url>", "API base URL", once("--base-url", parseBaseUrl), "https://www.lobbyregister.bundestag.de")
     .option(
       "--timeout <ms>",
       "time limit per request in milliseconds, whole response included",
-      parseBoundedInt(0, MAX_TIMEOUT_MS),
+      once("--timeout", parseBoundedInt(0, MAX_TIMEOUT_MS)),
       30_000,
     )
-    .option("--user-agent <ua>", "User-Agent header value", parseHeaderValue)
-    .option("--max-retries <n>", "retries for transient 429/503 responses and reset connections (each waits 200 ms × attempt, " +
-        "or the server's Retry-After when longer, up to 60 s)", parseIntArg, 2)
-    .option("--max-redirects <n>", "HTTP redirects to follow (0 = none)", parseIntArg, 5)
+    .option("--user-agent <ua>", "User-Agent header value", once("--user-agent", parseHeaderValue))
+    .option(
+      "--max-retries <n>",
+      "retries for transient 429/503 responses and reset connections (each waits 200 ms × attempt, " +
+        "or the server's Retry-After when longer, up to 60 s)",
+      once("--max-retries", parseIntArg),
+      2,
+    )
+    .option("--max-redirects <n>", "HTTP redirects to follow (0 = none)", once("--max-redirects", parseIntArg), 5)
     .option(
       "--max-response-bytes <n>",
       "cap response body size in bytes (0 = unlimited)",
-      parseIntArg,
+      once("--max-response-bytes", parseIntArg),
       100 * 1024 * 1024,
     )
     .option("--compact", "print JSON on a single line instead of pretty-printed")
