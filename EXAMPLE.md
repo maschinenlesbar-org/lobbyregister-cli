@@ -16,39 +16,46 @@ Skills: [lobbyregister-legislative-engagement](#lobbyregister-legislative-engage
 
 > Who is most active in shaping health-insurance legislation? Rank the lobbyists by the statements they filed.
 
+Re-run on 6 October 2026 with `lobbyregister` 0.3.0.
+
 ```bash
-lobbyregister search Krankenversicherung --results-only --compact > le.json   # 816 entries, one call
+lobbyregister search Krankenversicherung --results-only --compact > le.json   # 824 entries, one call
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  le.json > le.json.tmp && mv le.json.tmp le.json                           # still 824
 ```
 
-The counts belong to each entry as a whole, not to the topic. The keyword matches any entry
-that lists Krankenversicherung among its interests (Bitkom lists 90), so broad associations lead
-the table. The skill also picked out the health insurers' own associations for comparison.
+Keeping the newest version per `registerNumber` changed nothing: no entry came back twice. The
+counts belong to each entry as a whole, not to the topic, so the skill showed the number of
+declared fields of interest (`areas`) next to them: broad associations such as Bitkom (90 areas)
+lead the table. It also picked out the health insurers' own associations for comparison.
 
 ```
-Most legislatively active entries matching "Krankenversicherung" — ranked by statements filed
-776 active entries (40 inactive dropped); 444 have filed at least one statement
+Entries matching "Krankenversicherung", ranked by statements filed on all topics (active entries, 2026-10-06)
+786 active entries (38 inactive dropped); 454 have filed at least one statement
 
-  #  stmts  projects  contracts  who
-  1   200     222        0       Bitkom e.V.                                    industry assoc.   R000672
-  2   191     117        0       Verbraucherzentrale Bundesverband e.V.         NGO               R001211
-  3   185     185        0       Deutscher Anwaltverein e.V.                    prof. assoc.      R000952
-  4   180     162        0       Bundesverband der Deutschen Industrie e.V.     industry assoc.   R000534
-  5   178     171        0       Zentralverband des Deutschen Handwerks (ZDH)   industry assoc.   R002265
-  6   137     127        0       VDMA e.V.                                      industry assoc.   R000802
-  7   120      46        0       Verband Forschender Arzneimittelhersteller e.V. (vfa)            R000762
-  8   106     187        0       Vereinigung der Bayerischen Wirtschaft e. V.   industry assoc.   R000989
-  9   102      45        0       Pharma Deutschland e.V.                        industry assoc.   R000739
- 10   100      70        0       Bundesärztekammer                              chambers          R002002
-  … 766 more; 92 active entries score 0 on all three
+  #  stmts  projects  contracts  areas  who
+  1   200     222        0        90    Bitkom e.V.                                          R000672
+  2   199     183        0        76    Bundesverband der Deutschen Industrie e.V.           R000534
+  3   196     187        0         1    Zentralverband des Deutschen Handwerks (ZDH)         R002265
+  4   193     119        0        50    Verbraucherzentrale Bundesverband e.V.               R001211
+  5   185     185        0        28    Deutscher Anwaltverein e.V.                          R000952
+  6   155     128        0        71    VDMA e.V.                                            R000802
+  7   126      73        0        35    Bundesärztekammer                                    R002002
+  8   120      46        0         9    Verband Forschender Arzneimittelhersteller e.V. (vfa) R000762
+  9   117     100        0        54    Bundesverband Großhandel, Außenhandel, Dienstleistungen e.V. (BGA)  R001756
+ 10   107     187        0       100    Vereinigung der Bayerischen Wirtschaft e. V.         R000989
+  … 776 more; 93 active entries score 0 on all three
 
-Health insurers' associations: Verband der Privaten Krankenversicherung e.V. 46 / 39 / 0 (R000815),
-Verband der Ersatzkassen e.V. (vdek) 34 / 13 / 0, BKK Dachverband e.V. 20 / 10 / 0,
-AOK-Bundesverband 9 / 11 / 0.
-Top by contracts (agencies lobbying for clients): von Beust & Coll. (46), Christ & Company (46),
-Rud Pedersen Public Affairs Germany (42), EUTOP Europe (33), Fuchs & Cie. (33).
+Health insurers' associations (stmts / projects / contracts, areas):
+Verband der Privaten Krankenversicherung e.V. 46 / 39 / 0, 8 areas (R000815);
+Verband der Ersatzkassen e.V. (vdek) 36 / 13 / 0, 17; BKK Dachverband e.V. 20 / 10 / 0, 17;
+AOK-Bundesverband 9 / 11 / 0, 10.
+Top by contracts (agencies lobbying for clients): von Beust & Coll. (45), Christ & Company (44),
+Rud Pedersen Public Affairs Germany (43), Fuchs & Cie. (35), EUTOP Europe (32).
 
-Counts show how much each entry engages across its whole register record, not just on
-health insurance. They carry no statement texts, bill titles or client names.
+Counts = each entry's total engagement across all its topics, not activity on health
+insurance, and not its content: the register reports how many statements / projects /
+contracts, not their text or which laws. areas = declared fields of interest.
 Details: https://www.lobbyregister.bundestag.de/suche/R000815/85634
 ```
 
@@ -102,39 +109,45 @@ No code-of-conduct violations or recent government functions among the top 15.
 
 > Which companies and lobbyists newly registered on arms and defence (Rüstung) this year, and who dropped out?
 
+Re-run on 6 October 2026 with `lobbyregister` 0.3.0.
+
 ```bash
-lobbyregister search Rüstung --sort REGISTRATION_DESC --results-only --compact > ne.json   # 473 entries
+lobbyregister search Rüstung --sort REGISTRATION_DESC --results-only --compact > ne.json   # 480 entries
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  ne.json > ne.json.tmp && mv ne.json.tmp ne.json                                         # still 480
 ```
 
-440 of the 473 entries have a `validFromDate` in 2026, but only 56 first registered this year.
+453 of the 480 entries have a `validFromDate` in 2026, but only 64 first registered this year.
 Keying on `firstPublicationDate`, as the skill insists, is what keeps edits out of the list.
 
 ```
 Lobbyregister movement on "Rüstung" since 2026-01-01
-+56 newly registered · −18 went inactive · net +38
++64 newly registered · −19 went inactive · net +45
 
-Newly registered (56: 37 companies, 12 consultancies, 3 law firms, 4 other):
-• ICEYE Intelligence GmbH — registered 2026-09-15 · company · Sonstiges im Bereich "Innere Sicherheit" · R008226
-• Dr. Hans-Peter Friedrich — registered 2026-09-14 · law firm / sole lawyer · Innere Sicherheit, Verkehrsinfrastruktur · R008222
+Newly registered (64: 43 companies, 14 consultancies, 3 law firms, 4 other):
+• HOCHTIEF Infrastructure GmbH — registered 2026-10-05 · company · Energienetze, Verkehrsinfrastruktur · R008259
+• Materna Information & Communications — 2026-09-29 · company · Energienetze, Verkehrsinfrastruktur · R008251
+• CS Group - Germany GmbH — 2026-09-23 · company · Wissenschaft, Forschung und Technologie, Rüstungsangelegenheiten · R008242
+• VRM Advisory Ltd. — 2026-09-21 · consultancy · Industriepolitik, Verteidigungspolitik · R008237
+• HD Advanced Technologies GmbH — 2026-09-17 · company · Rüstungsangelegenheiten · R008232
+• ICEYE Intelligence GmbH — 2026-09-15 · company · Sonstiges im Bereich "Innere Sicherheit" · R008226
+• Dr. Hans-Peter Friedrich — 2026-09-14 · law firm / sole lawyer · Sonstiges im Bereich "Innere Sicherheit", Verkehrsinfrastruktur · R008222
 • Rift Dynamics AS — 2026-09-11 · company · Rüstungsangelegenheiten, Außenwirtschaft · R008215
 • Senop Oy — 2026-09-03 · company · Rüstungsangelegenheiten, Bundeswehrangelegenheiten · R008202
-• Cambridge Aerospace Deutschland GmbH — 2026-08-21 · company · Industriepolitik, Verteidigungspolitik · R008179
-• Shield AI — 2026-08-07 · company · Außenpolitik, Verteidigungspolitik · R008159
-• Hanwha Defence Deutschland GmbH — 2026-07-30 · company · Industriepolitik, Verteidigungspolitik · R008143
+• Shield AI — 2026-08-07 · company · Sonstiges im Bereich "Innere Sicherheit", Luft- und Raumfahrt · R008159
 • Anduril Industries UK Ltd — 2026-06-01 · company · Rüstungsangelegenheiten · R008039
-• DEUTZ Defense Systems GmbH — 2026-02-09 · company · Verteidigungspolitik, Rüstungsangelegenheiten · R007831
-  … 47 more; busiest months July (11) and August (9)
+  … 53 more; busiest months September (12) and July (11)
   Four newcomers are flagged as former office-holders: Friedrich, Karsten Klein (R008114),
   Oliver Grundmann (R007878), Till Mansmann (R007834) → see lobbyregister-revolving-door
 
-Went inactive (18):
-• Tancredis GmbH — inactive since 2026-08-11 (consultancy, registered 2025-08-01) · R007520
+Went inactive (19):
+• hiALtitude Consulting — inactive since 2026-09-18 (consultancy, registered 2025-12-30) · R007761
+• Tancredis GmbH — 2026-08-11 (consultancy, registered 2025-08-01) · R007520
 • Klausch AutoPublish GbR — 2026-07-08 (consultancy) · R007385
 • Wasserstoff-Leitprojekt TransHyDE — 2026-07-02 (platform / network) · R005704
-• Stéphane Beemelmans Beemelmans Consulting — 2026-04-09 (consultancy) · R007260
 • QinetiQ GmbH — 2026-04-03 (company) · R006346
 • Umlaut SE — 2026-02-24 (consultancy) · R002854
-  … 12 more, 8 of them on 2026-01-05
+  … 13 more, 8 of them on 2026-01-05
 ```
 
 ## lobbyregister-revolving-door
@@ -203,38 +216,42 @@ BDEW (R000888), BDI (R000534), e.g. https://www.lobbyregister.bundestag.de/suche
 
 > Who lobbies the Bundestag on artificial intelligence?
 
+Re-run on 6 October 2026 with `lobbyregister` 0.3.0.
+
 ```bash
-lobbyregister count "künstliche Intelligenz" --compact   # 216
-lobbyregister count KI --compact                          # 404
+lobbyregister count "künstliche Intelligenz" --compact   # 221
+lobbyregister count KI --compact                          # 414
 lobbyregister search "künstliche Intelligenz" --results-only --compact > sector.json
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  sector.json > sector.json.tmp && mv sector.json.tmp sector.json        # still 221
 ```
 
-The skill used the full German term rather than the two-letter `KI`. Only 16 of the 216 hits
+The skill used the full German term rather than the two-letter `KI`. Only 16 of the 221 hits
 mention künstliche Intelligenz, KI or AI anywhere in the JSON the search returns, so the match
 comes from register text the API doesn't hand back.
 
 ```
-Lobbying on "künstliche Intelligenz" — 216 registered (207 active)
-Actor mix: 89 companies · 26 non-profits · 21 industry assoc. · 18 consultancies · 13 private org.
-           · 13 research · 12 prof. assoc. · 8 NGOs · 7 other
+Lobbying on "künstliche Intelligenz" — 221 registered (212 active)
+Actor mix: 97 companies · 27 non-profits · 21 industry assoc. · 21 consultancies · 13 private org.
+           · 13 research · 12 prof. assoc. · 8 NGOs · 9 other
 
-Top declared lobbying spend (annual range, FY 2025 unless noted):
+Top declared lobbying spend (annual range for each entry's lobbying as a whole, FY 2025 unless noted):
  1. Bundesverband der Deutschen Industrie e.V.   €9.55M–€9.56M   industry assoc.  38.75 FTE  R000534
  2. Wirtschaftsrat der CDU e.V.                   €6.07M–€6.08M   prof. assoc.     24.21 FTE  R001795
  3. ZVEI e.V.                                     €5.66M–€5.67M   industry assoc.  23.19 FTE  R002101
  4. Bundesverband deutscher Banken e.V.           €5.19M–€5.20M   industry assoc.  18.63 FTE  R001458
  5. VDMA e.V.                                     €4.24M–€4.25M   industry assoc.  15.35 FTE  R000802
- 6. Bundesärztekammer                             €3.92M–€3.93M   chambers (FY to 2025-06-30)  R002002
+ 6. Bundesärztekammer                             €3.92M–€3.93M   chambers (FY 2024-07-01 – 2025-06-30)  R002002
  7. BASF SE                                       €3.60M–€3.61M   company           6.08 FTE  R002326
  8. Deutsche Akademie der Naturforscher Leopoldina e.V.  €3.32M–€3.33M  research  22.16 FTE  R004939
  9. Rud Pedersen Public Affairs Germany GmbH      €3.00M–€3.01M   consultancy      17.25 FTE  R001413
 10. Deutscher Sparkassen- und Giroverband e.V.    €2.89M–€2.90M   private org.      9.7 FTE   R002090
  …
-Most common interest tags: Digitalisierung (135), Wissenschaft, Forschung und Technologie (132),
-EU-Gesetzgebung (118), Datenschutz und Informationssicherheit (108), Kommunikations- und Informationstechnik (98)
+Most common interest tags: Digitalisierung (145), Wissenschaft, Forschung und Technologie (140),
+EU-Gesetzgebung (128), Datenschutz und Informationssicherheit (117), Kommunikations- und Informationstechnik (104)
 
 Flags: 0 code-of-conduct violations · 0 former office-holders · 9 inactive entries excluded;
-22 active entries declared €0–0 and 5 declared no spend.
+of the 212 active, 23 declared €0 and 5 have no figure yet (first fiscal year not completed).
 ```
 
-Next steps offered: the same brief for `KI` (404 entries), or filtering to companies only.
+Next steps offered: the same brief for `KI` (414 entries), or filtering to companies only.

@@ -16,40 +16,48 @@ Skills: [lobbyregister-legislative-engagement](#lobbyregister-legislative-engage
 
 > Wer bringt sich am stärksten in die Gesetzgebung zur Krankenversicherung ein? Bitte die Lobbyisten nach eingereichten Stellungnahmen ranken.
 
+Neu ausgeführt am 6. Oktober 2026 mit `lobbyregister` 0.3.0.
+
 ```bash
-lobbyregister search Krankenversicherung --results-only --compact > le.json   # 816 Einträge, ein Aufruf
+lobbyregister search Krankenversicherung --results-only --compact > le.json   # 824 Einträge, ein Aufruf
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  le.json > le.json.tmp && mv le.json.tmp le.json                           # weiterhin 824
 ```
 
-Die Zählwerte gehören zum ganzen Eintrag, nicht zum Thema. Das Stichwort trifft jeden Eintrag, der
-Krankenversicherung unter seinen Interessen führt (Bitkom nennt 90), deshalb stehen breit
-aufgestellte Verbände oben. Der Skill hat zum Vergleich die Verbände der Krankenversicherer
+Nur die neueste Fassung je `registerNumber` zu behalten, hat nichts geändert: Kein Eintrag kam
+doppelt. Die Zählwerte gehören zum ganzen Eintrag, nicht zum Thema, deshalb hat der Skill die Zahl
+der angegebenen Interessenbereiche (`Bereiche`) danebengestellt: Breit aufgestellte Verbände wie
+Bitkom (90 Bereiche) stehen oben. Zum Vergleich hat er die Verbände der Krankenversicherer
 herausgesucht.
 
 ```
-Gesetzgeberisch aktivste Einträge zu „Krankenversicherung" – sortiert nach Stellungnahmen
-776 aktive Einträge (40 inaktive ausgeblendet); 444 haben mindestens eine Stellungnahme eingereicht
+Einträge zu „Krankenversicherung", sortiert nach Stellungnahmen zu allen Themen (aktive Einträge, 2026-10-06)
+786 aktive Einträge (38 inaktive ausgeblendet); 454 haben mindestens eine Stellungnahme eingereicht
 
-  #  Stellgn.  Vorhaben  Aufträge  Wer
-  1   200       222        0      Bitkom e.V.                                    Wirtschaftsverband  R000672
-  2   191       117        0      Verbraucherzentrale Bundesverband e.V.         NGO                 R001211
-  3   185       185        0      Deutscher Anwaltverein e.V.                    Berufsverband       R000952
-  4   180       162        0      Bundesverband der Deutschen Industrie e.V.     Wirtschaftsverband  R000534
-  5   178       171        0      Zentralverband des Deutschen Handwerks (ZDH)   Wirtschaftsverband  R002265
-  6   137       127        0      VDMA e.V.                                      Wirtschaftsverband  R000802
-  7   120        46        0      Verband Forschender Arzneimittelhersteller e.V. (vfa)              R000762
-  8   106       187        0      Vereinigung der Bayerischen Wirtschaft e. V.   Wirtschaftsverband  R000989
-  9   102        45        0      Pharma Deutschland e.V.                        Wirtschaftsverband  R000739
- 10   100        70        0      Bundesärztekammer                              Kammern             R002002
-  … 766 weitere; 92 aktive Einträge haben bei allen drei Werten 0
+  #  Stellgn.  Vorhaben  Aufträge  Bereiche  Wer
+  1   200       222        0        90     Bitkom e.V.                                          R000672
+  2   199       183        0        76     Bundesverband der Deutschen Industrie e.V.           R000534
+  3   196       187        0         1     Zentralverband des Deutschen Handwerks (ZDH)         R002265
+  4   193       119        0        50     Verbraucherzentrale Bundesverband e.V.               R001211
+  5   185       185        0        28     Deutscher Anwaltverein e.V.                          R000952
+  6   155       128        0        71     VDMA e.V.                                            R000802
+  7   126        73        0        35     Bundesärztekammer                                    R002002
+  8   120        46        0         9     Verband Forschender Arzneimittelhersteller e.V. (vfa) R000762
+  9   117       100        0        54     Bundesverband Großhandel, Außenhandel, Dienstleistungen e.V. (BGA)  R001756
+ 10   107       187        0       100     Vereinigung der Bayerischen Wirtschaft e. V.         R000989
+  … 776 weitere; 93 aktive Einträge haben bei allen drei Werten 0
 
-Verbände der Krankenversicherer: Verband der Privaten Krankenversicherung e.V. 46 / 39 / 0 (R000815),
-Verband der Ersatzkassen e.V. (vdek) 34 / 13 / 0, BKK Dachverband e.V. 20 / 10 / 0,
-AOK-Bundesverband 9 / 11 / 0.
-Meiste Aufträge (Agenturen für Auftraggeber): von Beust & Coll. (46), Christ & Company (46),
-Rud Pedersen Public Affairs Germany (42), EUTOP Europe (33), Fuchs & Cie. (33).
+Verbände der Krankenversicherer (Stellungnahmen / Vorhaben / Aufträge, Bereiche):
+Verband der Privaten Krankenversicherung e.V. 46 / 39 / 0, 8 Bereiche (R000815);
+Verband der Ersatzkassen e.V. (vdek) 36 / 13 / 0, 17; BKK Dachverband e.V. 20 / 10 / 0, 17;
+AOK-Bundesverband 9 / 11 / 0, 10.
+Meiste Aufträge (Agenturen für Auftraggeber): von Beust & Coll. (45), Christ & Company (44),
+Rud Pedersen Public Affairs Germany (43), Fuchs & Cie. (35), EUTOP Europe (32).
 
-Die Werte zeigen, wie viel ein Eintrag insgesamt im Register tut – nicht nur zur
-Krankenversicherung. Texte der Stellungnahmen, Gesetzestitel oder Auftraggeber enthalten sie nicht.
+Die Werte zeigen, wie viel ein Eintrag insgesamt zu allen seinen Themen tut – nicht nur zur
+Krankenversicherung – und nicht, was er inhaltlich vertritt: Das Register nennt die Anzahl der
+Stellungnahmen, Vorhaben und Aufträge, nicht ihre Texte oder die Gesetze. Bereiche = angegebene
+Interessenbereiche.
 Details: https://www.lobbyregister.bundestag.de/suche/R000815/85634
 ```
 
@@ -104,40 +112,46 @@ Unter den Top 15 keine Verstöße gegen den Verhaltenskodex und keine früheren 
 
 > Welche Unternehmen und Lobbyisten haben sich dieses Jahr neu zum Thema Rüstung registriert, und wer ist ausgeschieden?
 
+Neu ausgeführt am 6. Oktober 2026 mit `lobbyregister` 0.3.0.
+
 ```bash
-lobbyregister search Rüstung --sort REGISTRATION_DESC --results-only --compact > ne.json   # 473 Einträge
+lobbyregister search Rüstung --sort REGISTRATION_DESC --results-only --compact > ne.json   # 480 Einträge
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  ne.json > ne.json.tmp && mv ne.json.tmp ne.json                                         # weiterhin 480
 ```
 
-440 der 473 Einträge haben ein `validFromDate` aus 2026, aber nur 56 wurden in diesem Jahr
+453 der 480 Einträge haben ein `validFromDate` aus 2026, aber nur 64 wurden in diesem Jahr
 erstmals registriert. Erst der Bezug auf `firstPublicationDate`, auf dem der Skill besteht, hält
 bloße Änderungen aus der Liste heraus.
 
 ```
 Bewegung im Lobbyregister zu „Rüstung" seit 2026-01-01
-+56 neu registriert · −18 inaktiv geworden · netto +38
++64 neu registriert · −19 inaktiv geworden · netto +45
 
-Neu registriert (56: 37 Unternehmen, 12 Beratungen, 3 Kanzleien, 4 sonstige):
-• ICEYE Intelligence GmbH – registriert 2026-09-15 · Unternehmen · Sonstiges im Bereich "Innere Sicherheit" · R008226
-• Dr. Hans-Peter Friedrich – registriert 2026-09-14 · Kanzlei / Einzelanwalt · Innere Sicherheit, Verkehrsinfrastruktur · R008222
+Neu registriert (64: 43 Unternehmen, 14 Beratungen, 3 Kanzleien, 4 sonstige):
+• HOCHTIEF Infrastructure GmbH – registriert 2026-10-05 · Unternehmen · Energienetze, Verkehrsinfrastruktur · R008259
+• Materna Information & Communications – 2026-09-29 · Unternehmen · Energienetze, Verkehrsinfrastruktur · R008251
+• CS Group - Germany GmbH – 2026-09-23 · Unternehmen · Wissenschaft, Forschung und Technologie, Rüstungsangelegenheiten · R008242
+• VRM Advisory Ltd. – 2026-09-21 · Beratung · Industriepolitik, Verteidigungspolitik · R008237
+• HD Advanced Technologies GmbH – 2026-09-17 · Unternehmen · Rüstungsangelegenheiten · R008232
+• ICEYE Intelligence GmbH – 2026-09-15 · Unternehmen · Sonstiges im Bereich "Innere Sicherheit" · R008226
+• Dr. Hans-Peter Friedrich – 2026-09-14 · Kanzlei / Einzelanwalt · Sonstiges im Bereich "Innere Sicherheit", Verkehrsinfrastruktur · R008222
 • Rift Dynamics AS – 2026-09-11 · Unternehmen · Rüstungsangelegenheiten, Außenwirtschaft · R008215
 • Senop Oy – 2026-09-03 · Unternehmen · Rüstungsangelegenheiten, Bundeswehrangelegenheiten · R008202
-• Cambridge Aerospace Deutschland GmbH – 2026-08-21 · Unternehmen · Industriepolitik, Verteidigungspolitik · R008179
-• Shield AI – 2026-08-07 · Unternehmen · Außenpolitik, Verteidigungspolitik · R008159
-• Hanwha Defence Deutschland GmbH – 2026-07-30 · Unternehmen · Industriepolitik, Verteidigungspolitik · R008143
+• Shield AI – 2026-08-07 · Unternehmen · Sonstiges im Bereich "Innere Sicherheit", Luft- und Raumfahrt · R008159
 • Anduril Industries UK Ltd – 2026-06-01 · Unternehmen · Rüstungsangelegenheiten · R008039
-• DEUTZ Defense Systems GmbH – 2026-02-09 · Unternehmen · Verteidigungspolitik, Rüstungsangelegenheiten · R007831
-  … 47 weitere; die meisten im Juli (11) und August (9)
+  … 53 weitere; die meisten im September (12) und Juli (11)
   Vier Neuzugänge sind als frühere Amtsträger markiert: Friedrich, Karsten Klein (R008114),
   Oliver Grundmann (R007878), Till Mansmann (R007834) → siehe lobbyregister-revolving-door
 
-Inaktiv geworden (18):
-• Tancredis GmbH – inaktiv seit 2026-08-11 (Beratung, registriert 2025-08-01) · R007520
+Inaktiv geworden (19):
+• hiALtitude Consulting – inaktiv seit 2026-09-18 (Beratung, registriert 2025-12-30) · R007761
+• Tancredis GmbH – 2026-08-11 (Beratung, registriert 2025-08-01) · R007520
 • Klausch AutoPublish GbR – 2026-07-08 (Beratung) · R007385
 • Wasserstoff-Leitprojekt TransHyDE – 2026-07-02 (Plattform / Netzwerk) · R005704
-• Stéphane Beemelmans Beemelmans Consulting – 2026-04-09 (Beratung) · R007260
 • QinetiQ GmbH – 2026-04-03 (Unternehmen) · R006346
 • Umlaut SE – 2026-02-24 (Beratung) · R002854
-  … 12 weitere, 8 davon am 2026-01-05
+  … 13 weitere, 8 davon am 2026-01-05
 ```
 
 ## lobbyregister-revolving-door
@@ -206,38 +220,43 @@ BDEW (R000888), BDI (R000534), z. B. https://www.lobbyregister.bundestag.de/such
 
 > Wer betreibt beim Bundestag Lobbyarbeit zum Thema künstliche Intelligenz?
 
+Neu ausgeführt am 6. Oktober 2026 mit `lobbyregister` 0.3.0.
+
 ```bash
-lobbyregister count "künstliche Intelligenz" --compact   # 216
-lobbyregister count KI --compact                          # 404
+lobbyregister count "künstliche Intelligenz" --compact   # 221
+lobbyregister count KI --compact                          # 414
 lobbyregister search "künstliche Intelligenz" --results-only --compact > sector.json
+jq -c 'group_by(.registerNumber) | map(max_by(.registerEntryDetails.validFromDate))' \
+  sector.json > sector.json.tmp && mv sector.json.tmp sector.json        # weiterhin 221
 ```
 
-Der Skill hat den vollen Begriff statt des Kürzels `KI` verwendet. Nur 16 der 216 Treffer erwähnen
+Der Skill hat den vollen Begriff statt des Kürzels `KI` verwendet. Nur 16 der 221 Treffer erwähnen
 künstliche Intelligenz, KI oder AI überhaupt im JSON, das die Suche liefert – der Treffer muss also
 aus Registertext stammen, den die API nicht mitliefert.
 
 ```
-Lobbyarbeit zu „künstliche Intelligenz" – 216 registriert (207 aktiv)
-Akteure: 89 Unternehmen · 26 gemeinnützig · 21 Wirtschaftsverbände · 18 Beratungen · 13 priv. Organisationen
-         · 13 Forschung · 12 Berufsverbände · 8 NGOs · 7 sonstige
+Lobbyarbeit zu „künstliche Intelligenz" – 221 registriert (212 aktiv)
+Akteure: 97 Unternehmen · 27 gemeinnützig · 21 Wirtschaftsverbände · 21 Beratungen · 13 priv. Organisationen
+         · 13 Forschung · 12 Berufsverbände · 8 NGOs · 9 sonstige
 
-Höchste angegebene Lobbyausgaben (Jahresspanne, Geschäftsjahr 2025, sofern nicht anders angegeben):
+Höchste angegebene Lobbyausgaben (Jahresspanne für die Lobbyarbeit des ganzen Eintrags, Geschäftsjahr 2025,
+sofern nicht anders angegeben):
  1. Bundesverband der Deutschen Industrie e.V.   9,55–9,56 Mio. €   Wirtschaftsverband  38,75 VZÄ  R000534
  2. Wirtschaftsrat der CDU e.V.                   6,07–6,08 Mio. €   Berufsverband       24,21 VZÄ  R001795
  3. ZVEI e.V.                                     5,66–5,67 Mio. €   Wirtschaftsverband  23,19 VZÄ  R002101
  4. Bundesverband deutscher Banken e.V.           5,19–5,20 Mio. €   Wirtschaftsverband  18,63 VZÄ  R001458
  5. VDMA e.V.                                     4,24–4,25 Mio. €   Wirtschaftsverband  15,35 VZÄ  R000802
- 6. Bundesärztekammer                             3,92–3,93 Mio. €   Kammern (GJ bis 2025-06-30)    R002002
+ 6. Bundesärztekammer                             3,92–3,93 Mio. €   Kammern (GJ 2024-07-01 – 2025-06-30)  R002002
  7. BASF SE                                       3,60–3,61 Mio. €   Unternehmen          6,08 VZÄ  R002326
  8. Deutsche Akademie der Naturforscher Leopoldina e.V.  3,32–3,33 Mio. €  Forschung  22,16 VZÄ  R004939
  9. Rud Pedersen Public Affairs Germany GmbH      3,00–3,01 Mio. €   Beratung            17,25 VZÄ  R001413
 10. Deutscher Sparkassen- und Giroverband e.V.    2,89–2,90 Mio. €   priv. Organisation   9,7 VZÄ   R002090
  …
-Häufigste Interessenbereiche: Digitalisierung (135), Wissenschaft, Forschung und Technologie (132),
-EU-Gesetzgebung (118), Datenschutz und Informationssicherheit (108), Kommunikations- und Informationstechnik (98)
+Häufigste Interessenbereiche: Digitalisierung (145), Wissenschaft, Forschung und Technologie (140),
+EU-Gesetzgebung (128), Datenschutz und Informationssicherheit (117), Kommunikations- und Informationstechnik (104)
 
 Hinweise: 0 Verstöße gegen den Verhaltenskodex · 0 frühere Amtsträger · 9 inaktive Einträge ausgeblendet;
-22 aktive Einträge gaben 0–0 € an, 5 machten keine Angabe.
+von den 212 aktiven gaben 23 0 € an, 5 haben noch keine Angabe (erstes Geschäftsjahr nicht abgeschlossen).
 ```
 
-Als Nächstes angeboten: dieselbe Übersicht für `KI` (404 Einträge) oder nur Unternehmen.
+Als Nächstes angeboten: dieselbe Übersicht für `KI` (414 Einträge) oder nur Unternehmen.
