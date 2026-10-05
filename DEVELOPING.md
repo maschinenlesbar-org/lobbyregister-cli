@@ -198,7 +198,8 @@ subprocess.
   (extracted from the body's `detail`/`message`), `url`, `method` and `body`.
   `isRetryable` is true for `429`/`503`.
 - **`LobbyNetworkError`** — a transport-level failure (DNS, connection reset,
-  timeout, a redirect hop to a non-http(s) scheme). A bad configured `baseUrl` is a
+  timeout — whatever a custom transport throws —, an invalid transport response, a
+  body over `maxResponseBytes`). A bad configured `baseUrl` is a
   `LobbyValidationError` instead.
 - **`LobbyParseError`** — the body could not be parsed as the expected JSON, or
   had an unexpected content type.
@@ -219,12 +220,33 @@ retried automatically. A server-provided `Retry-After` header is honoured (both
 the delta-seconds and the IMF-fixdate HTTP-date forms, clamped to a 60 s ceiling);
 without one, or with an invalid one (`-1`, `1.5`, other date formats), the client
 falls back to linear backoff (`retryDelayMs * attempt`). Count via
-`--max-retries` / `maxRetries` (default `2`). `LobbyApiError` exposes
-`isRetryable`.
+`--max-retries` / `maxRetries` (default `2`). A reset connection is retried the same
+way, with the linear backoff (`isTransientNetworkError`: `ECONNRESET`/`EPIPE`/
+`ECONNABORTED` or undici's `UND_ERR_SOCKET` anywhere in the error's `cause` chain;
+`GET`/`HEAD` only); a refused connection, a DNS failure and a timeout are not retried.
+`LobbyApiError` exposes `isRetryable`.
 
 **maxResponseBytes.** A hard cap on response body size (default 100 MiB; `0` =
 unlimited) guarding against memory exhaustion from a hostile or buggy endpoint.
-CLI: `--max-response-bytes`.
+CLI: `--max-response-bytes`. The default transport aborts as soon as the cap is
+passed; the engine also checks the body any transport returns, so the cap holds for
+custom transports too. The message names both the option and the flag.
+
+**timeoutMs.** A deadline for the whole request, response body included (default
+30 s; `0` disables). The engine enforces it itself, for every transport: the
+transport gets an `AbortSignal` (`HttpRequest.signal`) that fires at the deadline, and
+the call rejects then with a `LobbyNetworkError` whether the transport stops or not,
+so a `fetch` or `node:http` transport can't hang a caller. A timed-out request is not
+retried.
+
+**Custom transports.** A transport may return the body as a Buffer, any `ArrayBuffer`
+view (fetch's `Uint8Array`, from any realm) or an `ArrayBuffer`, and the headers as a
+plain record in any letter case, a `Headers` object or a `Map` (`Retry-After`,
+`Location` and `Content-Type` are found in all of them). Whatever it throws, and a
+response without a usable `status` (100–599), `headers` or `body`, becomes a
+`LobbyNetworkError` whose message names the request (`GET <url> failed: socket hang
+up`), with the original as `cause`. A redirect to anything but `http:`/`https:`
+(`file:`, `data:`, `javascript:`, `ftp:`) is refused before the transport is called.
 
 **Redirects & cross-origin credential stripping.** The engine follows up to
 `maxRedirects` (default `5`) HTTP redirects (`301/302/303/307/308`).
@@ -234,7 +256,7 @@ including a same-host `https:` -> `http:` downgrade — every header passed in
 `X-Auth-Token`, any other); only the engine's own `Accept` and `User-Agent` go
 along, so no credential leaks to an arbitrary host named in a `Location` header, nor
 crosses the wire in cleartext. Same-origin redirects keep the headers. A 3xx without a `Location`, or with one that
-is not a valid URL, is not followed: it surfaces as a `LobbyApiError` whose `location`
+is not a valid http(s) URL, is not followed: it surfaces as a `LobbyApiError` whose `location`
 field and message name the target (`HTTP 302 for GET …: redirect to http://[::1 not
 followed`, or `redirect not followed (no Location header)`).
 

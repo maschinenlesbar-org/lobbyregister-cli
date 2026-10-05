@@ -7,6 +7,7 @@ export {
   assertHeaderValue,
   baseUrlProblem,
   intOption,
+  isTransientNetworkError,
   validateBaseUrl,
 } from "./engine.js";
 export type { EngineOptions, RawResponse } from "./engine.js";

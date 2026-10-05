@@ -54,7 +54,7 @@ export function buildProgram(deps: CliDeps = defaultDeps): Command {
       30_000,
     )
     .option("--user-agent <ua>", "User-Agent header value", parseHeaderValue)
-    .option("--max-retries <n>", "retries for transient 429/503 responses", parseIntArg, 2)
+    .option("--max-retries <n>", "retries for transient 429/503 responses and reset connections", parseIntArg, 2)
     .option("--max-redirects <n>", "HTTP redirects to follow (0 = none)", parseIntArg, 5)
     .option(
       "--max-response-bytes <n>",

@@ -382,3 +382,37 @@ test("a non-http(s) base URL is rejected at construction, before any request", (
   }
   assert.equal(mt.calls.length, 0);
 });
+
+test("a redirect to a non-http(s) scheme is refused before the transport is called (04#2)", async () => {
+  for (const target of ["file:///etc/passwd", "javascript:alert(1)", "data:text/plain,x", "ftp://x/y"]) {
+    const mt = makeMockTransport(() => redirectResponse(target));
+    const e = new RequestEngine({ baseUrl: "https://example.test", transport: mt.transport });
+    await assert.rejects(
+      () => e.getJson("/x"),
+      (err: unknown) => err instanceof LobbyApiError && err.status === 302 && /not followed/.test(err.message),
+    );
+    assert.equal(mt.calls.length, 1, `${target} reached the transport`);
+  }
+});
+
+test("Location and Content-Type are read from a Headers object and any header case (04#1)", async () => {
+  for (const headers of [new Headers({ Location: "/next" }), { Location: "/next" }, { LOCATION: "/next" }]) {
+    let n = 0;
+    const urls: string[] = [];
+    const transport = async (req: { url: string }) => {
+      urls.push(req.url);
+      return n++ === 0
+        ? { status: 302, headers: headers as unknown as Record<string, string>, body: Buffer.alloc(0) }
+        : jsonResponse({ ok: true });
+    };
+    const e = new RequestEngine({ baseUrl: "https://example.test", transport });
+    assert.deepEqual(await e.getJson("/x"), { ok: true });
+    assert.equal(urls[1], "https://example.test/next");
+  }
+  const html = async () => ({
+    status: 200,
+    headers: new Headers({ "Content-Type": "text/html" }) as unknown as Record<string, string>,
+    body: Buffer.from("{}"),
+  });
+  await assert.rejects(() => new RequestEngine({ transport: html }).getJson("/x"), LobbyParseError);
+});
