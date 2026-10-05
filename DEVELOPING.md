@@ -326,6 +326,14 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`validate.test.ts`** — `assertValid`, the `LobbyValidationError` -> exit `2` mapping, and the `parity()` helper (`test/helpers.ts`), which sends one input through `run()` and through the library on one recording mock transport.
 - **`parity.test.ts`** — CLI <-> library parity: each input runs through the CLI and the library on one mock transport, and both must reject before any request or send the identical request.
 - **`cli.test.ts`** — command parsing, `--page`/`--sort`/`--results-only` passthrough, `count`, and exit codes (404, 400-with-hint, network and parse errors) — mocked client.
+- **`conformance-p*.test.ts`** — the shared checks of the 2026-10-05 fix patterns, the same
+  files in every maschinenlesbar.org CLI with only the adapter block at the top changed:
+  P1 (no credential from a base URL in any output line), P2 (none in a logged client or
+  error), P3 (credential headers stay on their origin across redirects; this client never
+  sends userinfo), P5 (`timeoutMs`, `maxResponseBytes`, header and body shapes for any
+  transport), P6 (retries never faster than the backoff), P7 (closed pipes, run as a child
+  process), P8/P9/P13 (charset, envelope shape, wrong-typed input) and P10 (filter keys,
+  attributes, values and repeated flags).
 
 ## Continuous integration
 
