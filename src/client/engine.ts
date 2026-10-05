@@ -11,7 +11,15 @@ import {
   type Transport,
 } from "./http.js";
 import { buildQueryString, type QueryParams } from "./query.js";
-import { LobbyApiError, LobbyError, LobbyNetworkError, LobbyParseError, redactUrl } from "./errors.js";
+import {
+  LobbyApiError,
+  LobbyError,
+  LobbyNetworkError,
+  LobbyParseError,
+  credentialsIn,
+  redactCredentials,
+  redactUrl,
+} from "./errors.js";
 import { assertValid, headerNameProblem, headerValueProblem, intInRangeProblem, type Problem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://www.lobbyregister.bundestag.de";
@@ -290,10 +298,15 @@ export function isTransientNetworkError(err: unknown): boolean {
 }
 
 export class RequestEngine {
-  private readonly baseUrl: string;
+  // Real private fields (not TypeScript's `private`): util.inspect, console.log and
+  // JSON.stringify of an engine or client never show them, so a password in the base
+  // URL, or an Authorization header a caller added, can't be logged by accident.
+  readonly #baseUrl: string;
+  /** The base URL's userinfo, raw and percent-decoded, for scrubbing server and transport text. */
+  readonly #credentials: string[];
+  readonly #extraHeaders: Record<string, string>;
   private readonly transport: Transport;
   private readonly userAgent: string;
-  private readonly extraHeaders: Record<string, string>;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly retryDelayMs: number;
@@ -305,14 +318,21 @@ export class RequestEngine {
     // Check the base URL here, not only its scheme in the default transport: a
     // library consumer that injects a custom transport would otherwise get no
     // gating at all, and could be steered to a non-http(s) scheme.
-    this.baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
+    this.#baseUrl = validateBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL);
+    this.#credentials = credentialsIn(this.#baseUrl).flatMap((raw) => {
+      try {
+        return [raw, decodeURIComponent(raw)];
+      } catch {
+        return [raw];
+      }
+    });
     this.transport = options.transport ?? nodeHttpTransport;
     // Only an omitted userAgent selects the default: a blank one is an error, not
     // a silent replacement, and a malformed one fails here rather than at request
     // time (or, with a custom transport, not at all).
     this.userAgent =
       options.userAgent === undefined ? DEFAULT_USER_AGENT : assertHeaderValue("userAgent", options.userAgent);
-    this.extraHeaders = headerOption(options.headers);
+    this.#extraHeaders = headerOption(options.headers);
     // Range-check the numeric options before any request (see intOption).
     const anyInt = Number.MAX_SAFE_INTEGER;
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 30_000);
@@ -333,14 +353,42 @@ export class RequestEngine {
     // and query, discarding any stray query/fragment on the base URL.
     let base: URL;
     try {
-      base = new URL(this.baseUrl);
+      base = new URL(this.#baseUrl);
     } catch {
-      throw new LobbyNetworkError(`Invalid base URL: ${this.baseUrl}`);
+      throw new LobbyNetworkError(`Invalid base URL: ${redactUrl(this.#baseUrl)}`);
     }
     const basePath = base.pathname.replace(/\/+$/, "");
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const qs = query ? buildQueryString(query) : "";
     return `${base.protocol}//${base.host}${basePath}${normalizedPath}${qs ? `?${qs}` : ""}`;
+  }
+
+  /**
+   * `text` without the base URL's credentials: server text (an error body that echoes
+   * the request URL) and transport text (fetch's "Failed to fetch <url>") can carry them.
+   */
+  private scrub(text: string): string {
+    return this.#credentials.length === 0 ? text : redactCredentials(text, this.#credentials);
+  }
+
+  /**
+   * A transport failure as the `cause` of the error the engine raises: the original
+   * when its text carries no credentials, otherwise a copy with them scrubbed (message,
+   * `code` and the cause chain kept), so logging the error with its causes can't reveal
+   * the base URL's password.
+   */
+  private scrubCause(cause: unknown, depth = 0): unknown {
+    if (this.#credentials.length === 0 || depth > 5) return cause;
+    if (typeof cause === "string") return this.scrub(cause);
+    if (!(cause instanceof Error)) return cause;
+    const inner = this.scrubCause(cause.cause, depth + 1);
+    const message = this.scrub(cause.message);
+    if (message === cause.message && inner === cause.cause && !this.scrub(cause.stack ?? "").includes("***@")) return cause;
+    const copy = new Error(message, inner === undefined ? undefined : { cause: inner });
+    copy.name = cause.name;
+    const code = (cause as { code?: unknown }).code;
+    if (code !== undefined) Object.assign(copy, { code });
+    return copy;
   }
 
   /**
@@ -378,7 +426,7 @@ export class RequestEngine {
   ): Promise<RawResponse> {
     let url = this.buildUrl(path, options.query);
     let headers: Record<string, string> = {
-      ...this.extraHeaders,
+      ...this.#extraHeaders,
       Accept: options.accept,
       "User-Agent": this.userAgent,
     };
@@ -417,9 +465,10 @@ export class RequestEngine {
         if (cause instanceof LobbyError && !(cause instanceof LobbyNetworkError)) throw cause;
         const reason = cause instanceof Error ? cause.message : String(cause);
         const retried = attempt > 0 ? ` (after ${attempt} ${attempt === 1 ? "retry" : "retries"})` : "";
-        throw new LobbyNetworkError(`${method} ${redactUrl(url)} failed: ${sanitizeServerText(reason)}${retried}`, {
-          cause,
-        });
+        throw new LobbyNetworkError(
+          `${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}${retried}`,
+          { cause: this.scrubCause(cause) },
+        );
       }
 
       // An injected transport may resolve with anything; a malformed HttpResponse would
@@ -460,7 +509,7 @@ export class RequestEngine {
           // normally implies an *unfollowed* redirect and is confusing here).
           if (redirects >= this.maxRedirects) {
             throw new LobbyNetworkError(
-              `Exceeded the maximum of ${this.maxRedirects} redirects (last from ${url}).`,
+              `Exceeded the maximum of ${this.maxRedirects} redirects (last from ${redactUrl(url)}).`,
             );
           }
           // Credential-strip guard: if the redirect target is a different origin,
@@ -520,7 +569,7 @@ export class RequestEngine {
     body: Buffer,
     locationHeader?: string,
   ): LobbyApiError {
-    const text = body.toString("utf8");
+    const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
     try {
       const parsed = JSON.parse(text) as { detail?: unknown; message?: unknown };
@@ -536,7 +585,7 @@ export class RequestEngine {
     let location: string | undefined;
     if (status >= 300 && status < 400 && locationHeader) {
       const resolved = resolveLocation(locationHeader, url);
-      location = sanitizeServerText(resolved ? resolved.href : locationHeader).trim() || undefined;
+      location = sanitizeServerText(redactUrl(resolved ? resolved.href : locationHeader)).trim() || undefined;
     }
     return new LobbyApiError({ status, url, method, body: text, detail, location });
   }

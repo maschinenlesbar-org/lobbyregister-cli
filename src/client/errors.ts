@@ -124,9 +124,12 @@ export class LobbyApiError extends LobbyError {
     // Cap the URL in the human-readable message so a pathologically long URL
     // (e.g. a huge query that triggers an HTTP 414) doesn't dump multiple KB to
     // stderr. The full URL remains available on `this.url` for programmatic use.
-    super(`HTTP ${args.status} for ${args.method} ${truncateUrl(args.url)}${detailPart}`);
+    // The URL is shown without userinfo: a credential in a base URL or a redirect
+    // target must not leak.
+    const url = redactUrl(args.url);
+    super(`HTTP ${args.status} for ${args.method} ${truncateUrl(url)}${detailPart}`);
     this.status = args.status;
-    this.url = args.url;
+    this.url = url;
     this.method = args.method;
     this.body = args.body;
     this.detail = args.detail;

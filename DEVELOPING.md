@@ -88,6 +88,14 @@ password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary o
 `redactUrl` (exported) masks the userinfo of a URL and falls back to the same
 text-based cut (`redactCredentials`, exported) for a value that doesn't parse.
 
+The library keeps them out of what a caller logs, too. The client's engine, the base
+URL and the `headers` option live in real `#private` fields, so `console.log(client)`,
+`util.inspect` and `JSON.stringify` show none of them. The engine never sends the base
+URL's userinfo (request URLs are built from its scheme, host and path), and it scrubs
+that userinfo, raw and percent-decoded, from error bodies and details, transport error
+text and the `cause` chain it attaches; `LobbyApiError.url`, its `location` and every
+message show URLs through `redactUrl`.
+
 `userAgent` and every value in `headers` must be a non-blank string of Latin-1
 characters without control characters (tab is allowed), and every header name an HTTP
 token; otherwise the constructor throws `LobbyValidationError` (`headerValueProblem`,

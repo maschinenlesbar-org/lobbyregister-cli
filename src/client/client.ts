@@ -61,10 +61,12 @@ function slicePage(result: SearchResult, page: number | undefined, pageSize: num
 }
 
 export class LobbyregisterClient {
-  private readonly engine: RequestEngine;
+  // A real private field: util.inspect, console.log and JSON.stringify of a client
+  // never show the engine, and so never the base URL or a header a caller added.
+  readonly #engine: RequestEngine;
 
   constructor(options: EngineOptions = {}) {
-    this.engine = new RequestEngine(options);
+    this.#engine = new RequestEngine(options);
   }
 
   /**
@@ -106,7 +108,7 @@ export class LobbyregisterClient {
     const query: QueryParams = filterQuery(filters, { allowUnknown: params.allowUnknownFilters });
     if (params.q !== undefined) query["q"] = params.q;
     if (params.sort !== undefined) query["sort"] = params.sort;
-    const result = await this.engine.getJson<unknown>(PATH, query);
+    const result = await this.#engine.getJson<unknown>(PATH, query);
     assertSearchResult(result);
     const ignored = ignoredFilters(filters, result.searchParameters);
     if (ignored !== undefined && ignored.length > 0) {
