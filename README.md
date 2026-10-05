@@ -180,6 +180,10 @@ do the same thing.
 | `4` | entry not found (`404`) |
 | `1` | any other error (network, parse, or non-404 HTTP status) |
 
+A reader that stops early (`lobbyregister search | head -c 100`) ends the run quietly
+with exit `0`. A failed run keeps its exit code even when the reader of its stderr has
+gone away (`2>&1 | head -1`).
+
 ## Troubleshooting
 
 - **`command not found: lobbyregister`** — the global npm bin directory isn't on
