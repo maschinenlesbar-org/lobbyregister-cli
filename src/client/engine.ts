@@ -62,10 +62,15 @@ export interface EngineOptions {
    * Number of automatic retries for transient (429/503) responses and reset
    * connections (ECONNRESET, EPIPE, ECONNABORTED, undici's UND_ERR_SOCKET, anywhere in
    * the error's `cause` chain; GET and HEAD only), a non-negative integer. Defaults
-   * to 2. Timeouts are not retried.
+   * to 2. Timeouts are not retried. Each retry waits `retryDelayMs * attempt`, or the
+   * response's `Retry-After` when that is longer (capped at 60 s).
    */
   maxRetries?: number;
-  /** Base backoff between retries in milliseconds (grows linearly), a non-negative integer. Defaults to 200. */
+  /**
+   * Base backoff between retries in milliseconds (grows linearly), an integer from 0
+   * to 60 000 (the Retry-After cap). Defaults to 200. A `Retry-After` can make a wait
+   * longer, never shorter.
+   */
   retryDelayMs?: number;
   /**
    * Number of HTTP redirects (301/302/303/307/308) to follow, a non-negative
@@ -337,7 +342,9 @@ export class RequestEngine {
     const anyInt = Number.MAX_SAFE_INTEGER;
     this.timeoutMs = intOption("timeoutMs", options.timeoutMs, MAX_TIMEOUT_MS, 30_000);
     this.maxRetries = intOption("maxRetries", options.maxRetries, anyInt, 2);
-    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, anyInt, 200);
+    // Bounded like a Retry-After: a larger value (above 2^31 - 1 ms) overflowed Node's
+    // timers, which fire after 1 ms instead, so the retries went out back to back.
+    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, MAX_RETRY_AFTER_MS, 200);
     this.maxRedirects = intOption("maxRedirects", options.maxRedirects, anyInt, 5);
     this.maxResponseBytes = intOption("maxResponseBytes", options.maxResponseBytes, anyInt, DEFAULT_MAX_RESPONSE_BYTES);
     this.sleep = options.sleep ?? realSleep;
@@ -491,11 +498,13 @@ export class RequestEngine {
       const retryable = status === 429 || status === 503;
       if (retryable && attempt < this.maxRetries) {
         attempt += 1;
-        // Honour a server-provided Retry-After if present (delta-seconds or an
-        // HTTP-date), otherwise fall back to linear backoff. A `Retry-After: 0`
-        // is respected as an immediate retry (?? only falls through on absent).
+        // Back off linearly from retryDelayMs. A Retry-After header (delta-seconds or an
+        // HTTP-date, clamped to MAX_RETRY_AFTER_MS) can ask for longer, never for less:
+        // `Retry-After: 0` or a date in the past turned the retries into a zero-delay
+        // burst against a server that had just asked for less load.
+        const backoff = this.retryDelayMs * attempt;
         const retryAfterMs = parseRetryAfter(headerValue(responseHeaders["retry-after"]));
-        await this.sleep(retryAfterMs ?? this.retryDelayMs * attempt);
+        await this.sleep(retryAfterMs === undefined ? backoff : Math.min(Math.max(retryAfterMs, backoff), MAX_RETRY_AFTER_MS));
         continue;
       }
 
