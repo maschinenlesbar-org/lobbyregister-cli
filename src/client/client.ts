@@ -6,7 +6,7 @@
 //   client.count("Energie")
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { LobbyError, LobbyParseError } from "./errors.js";
+import { LobbyError, LobbyParseError, LobbyValidationError } from "./errors.js";
 import { describeFilter, filterQuery, ignoredFilters, ignoredSort, type SearchFilter } from "./filters.js";
 import type { QueryParams } from "./query.js";
 import type { SearchResult, SearchParams } from "./types.js";
@@ -50,10 +50,38 @@ function assertSearchResult(value: unknown): asserts value is SearchResult {
   }
 }
 
-/** Throw unless `value` is undefined or an integer from 1 to MAX_SAFE_INTEGER. */
-function assertPageNumber(name: string, value: number | undefined): void {
-  if (value !== undefined && !(Number.isSafeInteger(value) && value >= 1)) {
-    throw new LobbyError(`Invalid ${name}: expected an integer >= 1, got ${String(value)}.`);
+/** Throw `LobbyValidationError` unless `value` is undefined or an integer from 1 to MAX_SAFE_INTEGER. */
+function assertPageNumber(name: string, value: unknown): void {
+  if (value !== undefined && !(typeof value === "number" && Number.isSafeInteger(value) && value >= 1)) {
+    const got = typeof value === "number" ? String(value) : value === null ? "null" : typeof value;
+    throw new LobbyValidationError(`Invalid ${name}: expected an integer >= 1, got ${got}.`);
+  }
+}
+
+/**
+ * Check the shape of `search()`'s parameters before anything else: an object (or
+ * undefined), `filters` an array, `allowUnknownFilters` a boolean. A wrong type used to
+ * fail as a raw TypeError (`filters.map is not a function`), or, for a truthy string
+ * `allowUnknownFilters`, to be read as false without a word.
+ */
+function assertSearchParams(params: unknown): asserts params is SearchParams {
+  if (typeof params !== "object" || params === null || Array.isArray(params)) {
+    const got = params === null ? "null" : Array.isArray(params) ? "an array" : typeof params;
+    throw new LobbyValidationError(
+      `Invalid search parameters: expected an object such as { q: "Energie" }, got ${got}.` +
+        (typeof params === "string" ? " (count() takes the query string itself: count(\"Energie\").)" : ""),
+    );
+  }
+  const p = params as Record<string, unknown>;
+  if (p["filters"] !== undefined && !Array.isArray(p["filters"])) {
+    throw new LobbyValidationError(
+      `Invalid filters: expected an array of { attribute, value } objects, got ${p["filters"] === null ? "null" : typeof p["filters"]}.`,
+    );
+  }
+  if (p["allowUnknownFilters"] !== undefined && typeof p["allowUnknownFilters"] !== "boolean") {
+    throw new LobbyValidationError(
+      `Invalid allowUnknownFilters: expected true or false, got ${typeof p["allowUnknownFilters"]}.`,
+    );
   }
 }
 
@@ -83,7 +111,7 @@ export class LobbyregisterClient {
    * are not sent: the client downloads the whole set and slices `results` itself
    * (`pageSize` entries, 1-based `page`, default 1). `resultCount` stays the true
    * total. Both must be integers >= 1, and `page` needs `pageSize`; otherwise
-   * `LobbyError` is thrown before any request.
+   * `LobbyValidationError` is thrown before any request.
    *
    * `q` and `sort` may be omitted, but not blank: the register reads a blank `q`
    * as no query (the whole register) and a blank `sort` as the default order, so
@@ -104,12 +132,15 @@ export class LobbyregisterClient {
    * `ignoredSort`); the data is still returned.
    */
   async search(params: SearchParams = {}): Promise<SearchResult> {
+    assertSearchParams(params);
     if (params.q !== undefined) assertValid("q", params.q, nonEmptyProblem);
     if (params.sort !== undefined) assertValid("sort", params.sort, nonEmptyProblem);
     assertPageNumber("page", params.page);
     assertPageNumber("pageSize", params.pageSize);
     if (params.page !== undefined && params.pageSize === undefined) {
-      throw new LobbyError("Invalid page: page needs pageSize (the client slices the full result set into pages).");
+      throw new LobbyValidationError(
+        "Invalid page: page needs pageSize (the client slices the full result set into pages).",
+      );
     }
     const filters = params.filters ?? [];
     const query: QueryParams = filterQuery(filters, { allowUnknown: params.allowUnknownFilters });

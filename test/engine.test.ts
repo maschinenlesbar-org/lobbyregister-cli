@@ -429,3 +429,14 @@ test("getJson decodes the body by its declared charset, drops a BOM and rejects 
   const unknown = makeMockTransport(() => rawResponse("{}", "application/json; charset=x-klingon"));
   await assert.rejects(() => new RequestEngine({ transport: unknown.transport }).getJson("/x"), LobbyParseError);
 });
+
+test("a long server detail is cut at 500 characters in the message; the body keeps it", async () => {
+  const long = "x".repeat(200_000);
+  const mt = makeMockTransport(() => jsonResponse({ detail: long }, 500));
+  const e = new RequestEngine({ transport: mt.transport, maxRetries: 0 });
+  await assert.rejects(
+    () => e.getJson("/x"),
+    (err: unknown) =>
+      err instanceof LobbyApiError && err.message.length < 1000 && err.detail?.length === 501 && err.body.length > 200_000,
+  );
+});

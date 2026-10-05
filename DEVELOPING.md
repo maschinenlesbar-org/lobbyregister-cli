@@ -110,7 +110,7 @@ envelope. `client.count(q?, filters?)` returns just the integer match count.
 `/sucheJson` ignores paging and always returns every match, so `page`/`pageSize` are not
 sent: the client downloads the whole set and slices `results` (1-based `page`, default 1;
 `resultCount` stays the total). Both must be integers >= 1 and `page` needs `pageSize`,
-else `LobbyError` before any request. `q` and `sort` may be omitted but not blank: the
+else `LobbyValidationError` before any request. `q` and `sort` may be omitted but not blank: the
 register reads a blank `q` as no query (the whole register) and a blank `sort` as the
 default order, so `""` or whitespace rejects with `LobbyValidationError` before any
 request (`count` too). Omit `q` to match everything. `count` downloads the whole set
@@ -221,7 +221,12 @@ a request may contain lives in the library as a pure, exported function: a
 `Problem` (`(value) => string | undefined`) returns the reason a value is invalid,
 and `assertValid(name, value, problem)` throws `LobbyValidationError` with it. The
 CLI's option parsers call the same functions and turn the reason into a usage error,
-so the CLI and a library caller accept and reject the same inputs.
+so the CLI and a library caller accept and reject the same inputs. The rules check the
+type first: a wrong-typed input — `search({ q: 123 })`, `filters` that is not an array,
+`count({ q: "Energie" })`, a string `transport`, a numeric `sleep`, `page: "2"` — is a
+`LobbyValidationError` too, never a raw `TypeError`; `null` client options mean none.
+Server text in a message (an error `detail`, a transport's error text, a redirect
+target) is cut at 500 characters; `LobbyApiError.body` keeps it all.
 
 **Retry / backoff.** Transient `429` (rate-limited) and `503` responses are
 retried automatically, with a linear backoff (`retryDelayMs * attempt`). A

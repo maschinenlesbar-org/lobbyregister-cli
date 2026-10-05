@@ -39,8 +39,39 @@ const malformedBodies: unknown[] = [
   { resultCount: 1, results: [null] },
   { resultCount: 1, results: ["R000001"] },
 ];
-/** Library calls with wrong-typed or out-of-range input (filled in by P13). */
-const badCalls: Array<[string, () => unknown]> = [];
+/** Library calls with wrong-typed or out-of-range input. */
+const never = async (): Promise<HttpResponse> => {
+  throw new Error("no request may go out");
+};
+const c = (): Client => new Client({ transport: never });
+const badCalls: Array<[string, () => unknown]> = [
+  ["search({ q: 123 })", () => c().search({ q: 123 as unknown as string })],
+  ["search({ q: null })", () => c().search({ q: null as unknown as string })],
+  ["search({ sort: null })", () => c().search({ sort: null as unknown as string })],
+  ["search({ sort: ['NAME_ASC'] })", () => c().search({ sort: ["NAME_ASC"] as unknown as string })],
+  ["search({ filters: {…} })", () => c().search({ filters: { attribute: "revolvingdoordata", value: "true" } as never })],
+  ["search({ filters: 'x' })", () => c().search({ filters: "revolvingdoordata=true" as never })],
+  ["search({ filters: new Set() })", () => c().search({ filters: new Set() as never })],
+  ["search({ filters: [null] })", () => c().search({ filters: [null] as never })],
+  ["search({ filters: [{ value: true }] })", () => c().search({ filters: [{ attribute: "revolvingdoordata", value: true }] as never })],
+  ["search({ allowUnknownFilters: 'yes' })", () => c().search({ allowUnknownFilters: "yes" as unknown as boolean })],
+  ["search({ page: '2', pageSize: 2 })", () => c().search({ page: "2" as unknown as number, pageSize: 2 })],
+  ["search({ page: 2 })", () => c().search({ page: 2 })],
+  ["search({ pageSize: 0 })", () => c().search({ pageSize: 0 })],
+  ["search('Energie')", () => c().search("Energie" as never)],
+  ["count({ q: 'Energie' })", () => c().count({ q: "Energie" } as unknown as string)],
+  ["count(undefined, 'x')", () => c().count(undefined, "revolvingdoordata=true" as never)],
+  ["timeoutMs: 'x'", () => new Client({ timeoutMs: "x" as unknown as number })],
+  ["timeoutMs: -1", () => new Client({ timeoutMs: -1 })],
+  ["maxRetries: 1.5", () => new Client({ maxRetries: 1.5 })],
+  ["retryDelayMs: 1e9", () => new Client({ retryDelayMs: 1e9 })],
+  ["baseUrl: 5", () => new Client({ baseUrl: 5 as unknown as string })],
+  ["userAgent: {}", () => new Client({ userAgent: {} as unknown as string })],
+  ["transport: 'x'", () => new Client({ transport: "x" as unknown as never })],
+  ["sleep: 5", () => new Client({ sleep: 5 as unknown as never })],
+  ["headers: []", () => new Client({ headers: [] as unknown as Record<string, string> })],
+  ["headers: { X: 5 }", () => new Client({ headers: { X: 5 } as unknown as Record<string, string> })],
+];
 // --------------------------------------------------------------------------------------
 
 const respond = (body: Buffer, contentType: string) => async (): Promise<HttpResponse> => ({

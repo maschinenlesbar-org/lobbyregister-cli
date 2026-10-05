@@ -36,8 +36,12 @@ export function isBlank(value: string): boolean {
  * `q` as no query and returns the whole register, and a blank `sort` as the
  * default order — often the result of an unset variable or an empty form field.
  */
-export const nonEmptyProblem: Problem<string> = (value) =>
-  isBlank(value) ? "Expected a non-empty value." : undefined;
+export const nonEmptyProblem: Problem<unknown> = (value) =>
+  typeof value !== "string"
+    ? `Expected a string, got ${value === null ? "null" : Array.isArray(value) ? "an array" : typeof value}.`
+    : isBlank(value)
+      ? "Expected a non-empty value."
+      : undefined;
 
 /**
  * A rule for an integer option: valid when `value` is a safe integer in

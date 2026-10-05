@@ -17,6 +17,7 @@ import {
   LobbyError,
   LobbyNetworkError,
   LobbyParseError,
+  LobbyValidationError,
   credentialsIn,
   redactCredentials,
   redactUrl,
@@ -126,13 +127,41 @@ function sanitizeServerText(text: string): string {
 }
 
 /**
+ * Longest server text (in characters) kept for an error message: an error `detail`, a
+ * transport's error text or a redirect target. A longer one is cut and ends in "…", so a
+ * hostile or buggy body cannot flood stderr or a CI log with one huge line.
+ * `LobbyApiError.body` keeps the full text.
+ */
+const MAX_DETAIL_LENGTH = 500;
+
+/** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters. */
+function cleanDetail(text: string): string {
+  const clean = sanitizeServerText(text);
+  return clean.length > MAX_DETAIL_LENGTH ? `${clean.slice(0, MAX_DETAIL_LENGTH)}…` : clean;
+}
+
+/**
+ * Read a function option: `undefined` gives the default; anything else that is not a
+ * function throws a `LobbyValidationError`. A string `transport` used to fail at the
+ * first request as a raw TypeError, and a bad `sleep` on the first retry.
+ */
+function functionOption<F extends (...args: never[]) => unknown>(name: string, value: F | undefined, fallback: F): F {
+  if (value === undefined) return fallback;
+  if (typeof value !== "function") {
+    throw new LobbyValidationError(`Invalid ${name}: Expected a function, got ${value === null ? "null" : typeof value}.`);
+  }
+  return value;
+}
+
+/**
  * A base URL must be an absolute http(s) URL. The default transport already gates
  * the scheme per hop, but the engine is exported as a library and may be handed a
  * custom transport that does no such check, so the configured base URL is checked
  * up front too (a `file:`/`ftp:` base URL fails fast). The reasons match the CLI's
  * `--base-url` parser, which calls this rule.
  */
-export const baseUrlProblem: Problem<string> = (value) => {
+export const baseUrlProblem: Problem<unknown> = (value) => {
+  if (typeof value !== "string") return "Expected an absolute http(s) URL.";
   let url: URL;
   try {
     url = new URL(value);
@@ -321,6 +350,8 @@ export class RequestEngine {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(options: EngineOptions = {}) {
+    // A JavaScript caller may pass null for "no options"; treat it like undefined.
+    options = options ?? {};
     // Check the base URL here, not only its scheme in the default transport: a
     // library consumer that injects a custom transport would otherwise get no
     // gating at all, and could be steered to a non-http(s) scheme.
@@ -332,7 +363,7 @@ export class RequestEngine {
         return [raw];
       }
     });
-    this.transport = options.transport ?? nodeHttpTransport;
+    this.transport = functionOption("transport", options.transport, nodeHttpTransport);
     // Only an omitted userAgent selects the default: a blank one is an error, not
     // a silent replacement, and a malformed one fails here rather than at request
     // time (or, with a custom transport, not at all).
@@ -348,7 +379,7 @@ export class RequestEngine {
     this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, MAX_RETRY_AFTER_MS, 200);
     this.maxRedirects = intOption("maxRedirects", options.maxRedirects, anyInt, 5);
     this.maxResponseBytes = intOption("maxResponseBytes", options.maxResponseBytes, anyInt, DEFAULT_MAX_RESPONSE_BYTES);
-    this.sleep = options.sleep ?? realSleep;
+    this.sleep = functionOption("sleep", options.sleep, realSleep);
   }
 
   /** Build a fully-qualified URL from a path and optional query parameters. */
@@ -474,7 +505,7 @@ export class RequestEngine {
         const reason = cause instanceof Error ? cause.message : String(cause);
         const retried = attempt > 0 ? ` (after ${attempt} ${attempt === 1 ? "retry" : "retries"})` : "";
         throw new LobbyNetworkError(
-          `${method} ${redactUrl(url)} failed: ${sanitizeServerText(this.scrub(reason))}${retried}`,
+          `${method} ${redactUrl(url)} failed: ${cleanDetail(this.scrub(reason))}${retried}`,
           { cause: this.scrubCause(cause) },
         );
       }
@@ -561,7 +592,7 @@ export class RequestEngine {
     const mediaType = (res.contentType.split(";", 1)[0] ?? "").trim().toLowerCase();
     if (mediaType && mediaType !== "application/json" && !mediaType.endsWith("+json")) {
       throw new LobbyParseError(
-        `Unexpected content type "${sanitizeServerText(res.contentType)}" from ${path} (expected JSON).`,
+        `Unexpected content type "${cleanDetail(res.contentType)}" from ${path} (expected JSON).`,
       );
     }
     const text = decodeBody(res.data, res.contentType, path);
@@ -590,12 +621,13 @@ export class RequestEngine {
     }
     // `detail` came from the response body; strip control characters so a hostile
     // endpoint cannot inject terminal escape sequences via the stderr error message.
-    if (detail !== undefined) detail = sanitizeServerText(detail);
+    // It is cut at MAX_DETAIL_LENGTH too (the body keeps it all).
+    if (detail !== undefined) detail = cleanDetail(detail);
     // Name the target of a redirect that was not followed (server text: sanitised).
     let location: string | undefined;
     if (status >= 300 && status < 400 && locationHeader) {
       const resolved = resolveLocation(locationHeader, url);
-      location = sanitizeServerText(redactUrl(resolved ? resolved.href : locationHeader)).trim() || undefined;
+      location = cleanDetail(redactUrl(resolved ? resolved.href : locationHeader)).trim() || undefined;
     }
     return new LobbyApiError({ status, url, method, body: text, detail, location });
   }
@@ -614,7 +646,7 @@ function decodeBody(body: Buffer, contentType: string, path: string): string {
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new LobbyParseError(`Unsupported response charset "${sanitizeServerText(charset)}" from ${path}.`);
+    throw new LobbyParseError(`Unsupported response charset "${cleanDetail(charset)}" from ${path}.`);
   }
   return decoder.decode(body);
 }
