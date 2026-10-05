@@ -21,7 +21,8 @@ const PATH = "/sucheJson";
  * shape), so reject anything missing a numeric `resultCount` or an array
  * `results` rather than silently reporting a bogus count or crashing later.
  * The count must be a non-negative safe integer: `-5` or `1e400` (Infinity,
- * which JSON output prints as `null`) is no count.
+ * which JSON output prints as `null`) is no count. Every entry in `results` must be
+ * a JSON object: a `null` or a string there would be printed as a register entry.
  */
 function assertSearchResult(value: unknown): asserts value is SearchResult {
   if (
@@ -39,6 +40,12 @@ function assertSearchResult(value: unknown): asserts value is SearchResult {
   if (!Number.isSafeInteger(count) || count < 0) {
     throw new LobbyParseError(
       `Unexpected response shape from ${PATH}: expected a non-negative integer resultCount.`,
+    );
+  }
+  const results = (value as { results: unknown[] }).results;
+  if (results.some((entry) => typeof entry !== "object" || entry === null || Array.isArray(entry))) {
+    throw new LobbyParseError(
+      `Unexpected response shape from ${PATH}: expected every entry in results to be a JSON object.`,
     );
   }
 }

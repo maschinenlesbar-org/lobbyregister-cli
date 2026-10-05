@@ -280,6 +280,11 @@ wildcard-DNS host returning HTML.
 reads correctly instead of as `B\uFFFDndnis`, and a leading byte order mark is dropped.
 An unknown charset label is a `LobbyParseError`. The register itself sends UTF-8.
 
+**Envelope check.** A `2xx` JSON answer must be the documented envelope: an object
+with a non-negative integer `resultCount` and a `results` array whose entries are all
+objects. `null`, `{}`, an error object, a string count or a `null` entry is a
+`LobbyParseError` (CLI exit `1`), never data or "nothing found".
+
 ## Testing
 
 ```bash
