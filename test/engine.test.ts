@@ -416,3 +416,16 @@ test("Location and Content-Type are read from a Headers object and any header ca
   });
   await assert.rejects(() => new RequestEngine({ transport: html }).getJson("/x"), LobbyParseError);
 });
+
+test("getJson decodes the body by its declared charset, drops a BOM and rejects an unknown one (03#2)", async () => {
+  const latin1 = makeMockTransport(() =>
+    rawResponse(Buffer.from(JSON.stringify({ name: "Bündnis für Tabakfreien Genuss" }), "latin1"), "application/json; charset=iso-8859-1"),
+  );
+  assert.deepEqual(await new RequestEngine({ transport: latin1.transport }).getJson("/x"), {
+    name: "Bündnis für Tabakfreien Genuss",
+  });
+  const bom = makeMockTransport(() => rawResponse(Buffer.from('﻿{"ok":true}', "utf8"), "application/json"));
+  assert.deepEqual(await new RequestEngine({ transport: bom.transport }).getJson("/x"), { ok: true });
+  const unknown = makeMockTransport(() => rawResponse("{}", "application/json; charset=x-klingon"));
+  await assert.rejects(() => new RequestEngine({ transport: unknown.transport }).getJson("/x"), LobbyParseError);
+});

@@ -2,6 +2,7 @@
 // requests via a Transport, applies retry/backoff for transient statuses
 // (429, 503), and decodes responses.
 
+import { TextDecoder } from "node:util";
 import {
   MAX_TIMEOUT_MS,
   nodeHttpTransport,
@@ -563,7 +564,7 @@ export class RequestEngine {
         `Unexpected content type "${sanitizeServerText(res.contentType)}" from ${path} (expected JSON).`,
       );
     }
-    const text = res.data.toString("utf8");
+    const text = decodeBody(res.data, res.contentType, path);
     try {
       return JSON.parse(text) as T;
     } catch (cause) {
@@ -598,6 +599,24 @@ export class RequestEngine {
     }
     return new LobbyApiError({ status, url, method, body: text, detail, location });
   }
+}
+
+/**
+ * Decode a response body by the charset its Content-Type names (UTF-8 when it names
+ * none). A proxy or mirror that answers in ISO-8859-1 used to come out as
+ * "B\uFFFDndnis" with exit 0. TextDecoder also drops a leading byte order mark, which
+ * Buffer#toString keeps and JSON.parse then rejects. An unknown charset label is a
+ * LobbyParseError.
+ */
+function decodeBody(body: Buffer, contentType: string, path: string): string {
+  const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
+  let decoder: TextDecoder;
+  try {
+    decoder = new TextDecoder(charset);
+  } catch {
+    throw new LobbyParseError(`Unsupported response charset "${sanitizeServerText(charset)}" from ${path}.`);
+  }
+  return decoder.decode(body);
 }
 
 /**

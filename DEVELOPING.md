@@ -275,6 +275,11 @@ followed`, or `redirect not followed (no Location header)`).
 mis-reported as malformed JSON — defends against a captive portal or
 wildcard-DNS host returning HTML.
 
+**Charset.** A JSON body is decoded by the charset its `Content-Type` declares
+(`TextDecoder`; UTF-8 when it names none), so a mirror that answers in ISO-8859-1
+reads correctly instead of as `B\uFFFDndnis`, and a leading byte order mark is dropped.
+An unknown charset label is a `LobbyParseError`. The register itself sends UTF-8.
+
 ## Testing
 
 ```bash
