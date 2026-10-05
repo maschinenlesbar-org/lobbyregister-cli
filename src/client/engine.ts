@@ -95,6 +95,30 @@ const DEFAULT_MAX_RESPONSE_BYTES = 100 * 1024 * 1024;
 // only ones that follow a cross-origin redirect.
 const ENGINE_HEADERS = new Set(["Accept", "User-Agent"]);
 
+/** True when `a` and `b` parse and share scheme, host and port; false otherwise. */
+function sameOrigin(a: string, b: string): boolean {
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Why a 401/403 after a redirect to another origin may not be the credentials' fault:
+ * the engine did not send the caller's headers there. An http->https upgrade on the
+ * same host gets its own advice.
+ */
+function credentialsDroppedHint(from: URL, to: URL): string {
+  if (from.protocol === "http:" && to.protocol === "https:" && from.hostname === to.hostname) {
+    return "the server redirected http to https, so the credential headers were not sent there; use an https base URL";
+  }
+  return (
+    `the server redirected to another origin (${to.origin}), so the credential headers were not sent there; ` +
+    "use that origin as the base URL if it should get them"
+  );
+}
+
 /**
  * A copy of `headers` without any caller-supplied header (used on cross-origin
  * redirects). A list of known credential headers is never complete
@@ -476,6 +500,8 @@ export class RequestEngine {
     const idempotent = /^(GET|HEAD)$/i.test(method);
     let attempt = 0;
     let redirects = 0;
+    /** Where a redirect to another origin dropped the caller's headers, for the 401/403 hint. */
+    let droppedCredentialsAt: { from: URL; to: URL } | undefined;
     // attempts = initial try + maxRetries (redirects are counted separately)
     for (;;) {
       let response: HttpResponse;
@@ -484,6 +510,7 @@ export class RequestEngine {
           method,
           url,
           headers,
+          redirect: "manual",
           timeoutMs: this.timeoutMs,
           ...(this.maxResponseBytes > 0 ? { maxResponseBytes: this.maxResponseBytes } : {}),
         });
@@ -516,6 +543,17 @@ export class RequestEngine {
       if (invalid !== undefined) {
         throw new LobbyNetworkError(
           `${method} ${redactUrl(url)} failed: the transport returned an invalid response (${invalid}).`,
+        );
+      }
+      // Transports must not follow redirects (HttpRequest.redirect is "manual"); fetch does
+      // by default. One that reports a final URL on another origin has carried the
+      // request — and maybe a credential header fetch doesn't strip — somewhere the
+      // engine never vetted, so its answer is not trusted.
+      const finalUrl = (response as { url?: unknown }).url;
+      if (typeof finalUrl === "string" && finalUrl !== "" && !sameOrigin(finalUrl, url)) {
+        throw new LobbyNetworkError(
+          `${method} ${redactUrl(url)} failed: the transport followed a redirect to another origin ` +
+            `(${cleanDetail(redactUrl(finalUrl))}); a transport must not follow redirects (HttpRequest.redirect is "manual").`,
         );
       }
       const status = response.status;
@@ -559,9 +597,19 @@ export class RequestEngine {
           // is a public extension surface. Compare full origin (scheme + host +
           // port), not just host, so a same-host https->http *downgrade* also
           // strips — otherwise credentials would cross the wire in cleartext.
-          if (nextUrl.origin !== new URL(url).origin) {
-            headers = engineHeadersOnly(headers);
+          const current = new URL(url);
+          if (nextUrl.origin !== current.origin) {
+            const kept = engineHeadersOnly(headers);
+            if (Object.keys(kept).length < Object.keys(headers).length) {
+              droppedCredentialsAt = { from: current, to: nextUrl };
+            }
+            headers = kept;
           }
+          // The engine never sends userinfo — not the base URL's (request URLs are built
+          // from its host), and not one a Location names: the default transport would
+          // turn `http://mallory:pw@host/` into an Authorization header.
+          nextUrl.username = "";
+          nextUrl.password = "";
           url = nextUrl.toString();
           redirects += 1;
           continue;
@@ -574,7 +622,11 @@ export class RequestEngine {
 
       const contentType = String(headerValue(responseHeaders["content-type"]) ?? "");
       if (status < 200 || status >= 300) {
-        throw this.toApiError(method, url, status, body, location);
+        const hint =
+          (status === 401 || status === 403) && droppedCredentialsAt !== undefined
+            ? credentialsDroppedHint(droppedCredentialsAt.from, droppedCredentialsAt.to)
+            : undefined;
+        throw this.toApiError(method, url, status, body, location, hint);
       }
 
       return { data: body, contentType, status };
@@ -609,6 +661,7 @@ export class RequestEngine {
     status: number,
     body: Buffer,
     locationHeader?: string,
+    hint?: string,
   ): LobbyApiError {
     const text = this.scrub(body.toString("utf8"));
     let detail: string | undefined;
@@ -629,7 +682,7 @@ export class RequestEngine {
       const resolved = resolveLocation(locationHeader, url);
       location = cleanDetail(redactUrl(resolved ? resolved.href : locationHeader)).trim() || undefined;
     }
-    return new LobbyApiError({ status, url, method, body: text, detail, location });
+    return new LobbyApiError({ status, url, method, body: text, detail, location, ...(hint !== undefined ? { hint } : {}) });
   }
 }
 

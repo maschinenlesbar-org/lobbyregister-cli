@@ -282,7 +282,15 @@ including a same-host `https:` -> `http:` downgrade — every header passed in
 `headers` is dropped (`Authorization`, `Proxy-Authorization`, `Cookie`, `X-API-Key`,
 `X-Auth-Token`, any other); only the engine's own `Accept` and `User-Agent` go
 along, so no credential leaks to an arbitrary host named in a `Location` header, nor
-crosses the wire in cleartext. Same-origin redirects keep the headers. A 3xx without a `Location`, or with one that
+crosses the wire in cleartext. Same-origin redirects keep the headers, whether the
+`Location` is relative or absolute; a 401/403 that follows a redirect which dropped
+them says so (`the server redirected http to https, so the credential headers were not
+sent there; use an https base URL`). The engine never sends userinfo: not the base
+URL's (request URLs are built from its scheme, host and path, so `https://user:pw@…`
+reaches the register without them), and not one a `Location` names. Transports are told
+`redirect: "manual"` (`HttpRequest.redirect`) and must not follow redirects themselves;
+a response whose `url` (fetch's `Response.url`) lies on another origin than the request
+is rejected as a `LobbyNetworkError`. A 3xx without a `Location`, or with one that
 is not a valid http(s) URL, is not followed: it surfaces as a `LobbyApiError` whose `location`
 field and message name the target (`HTTP 302 for GET …: redirect to http://[::1 not
 followed`, or `redirect not followed (no Location header)`).

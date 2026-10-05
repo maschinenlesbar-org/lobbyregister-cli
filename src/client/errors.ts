@@ -110,6 +110,8 @@ export class LobbyApiError extends LobbyError {
     body: string;
     detail?: string;
     location?: string;
+    /** Advice appended to the message (e.g. that a redirect dropped the credential headers). */
+    hint?: string;
   }) {
     const parts: string[] = [];
     if (args.detail) parts.push(args.detail);
@@ -120,6 +122,7 @@ export class LobbyApiError extends LobbyError {
           : "redirect not followed (no Location header)",
       );
     }
+    if (args.hint) parts.push(args.hint);
     const detailPart = parts.length > 0 ? `: ${parts.join("; ")}` : "";
     // Cap the URL in the human-readable message so a pathologically long URL
     // (e.g. a huge query that triggers an HTTP 414) doesn't dump multiple KB to
