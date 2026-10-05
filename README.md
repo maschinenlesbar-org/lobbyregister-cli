@@ -26,7 +26,7 @@ pipe the results straight into [`jq`](https://jqlang.github.io/jq/).
 npm i -g @maschinenlesbar.org/lobbyregister-cli
 ```
 
-This installs the **`lobbyregister`** command. Requires **Node.js 20+**.
+This installs the **`lobbyregister`** command. Requires **Node.js 22.12+**.
 
 Check it works:
 
@@ -194,7 +194,8 @@ gone away (`2>&1 | head -1`).
 ## Troubleshooting
 
 - **`command not found: lobbyregister`** — the global npm bin directory isn't on
-  your `PATH`. Run `npm bin -g` to find it and add it, or run via
+  your `PATH`. Run `npm prefix -g` to find it (the commands are in its `bin`
+  subdirectory) and add that to your `PATH`, or run via
   `npx @maschinenlesbar.org/lobbyregister-cli …`.
 - **Exit `4` / "not found"** — a `404` from the API; this is uncommon on the
   search endpoint. Check that `--base-url` points at the right host.
