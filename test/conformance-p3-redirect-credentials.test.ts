@@ -12,7 +12,7 @@ import type { AddressInfo } from "node:net";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 
 // ---- adapter (per repo) -------------------------------------------------------------
-import { LobbyregisterClient as Client } from "../src/client/client.js";
+import { LobbyregisterClient } from "../src/client/client.js";
 import { LobbyApiError as ApiError, LobbyNetworkError as NetworkError } from "../src/client/errors.js";
 /** One call that makes a single GET and needs no arguments. */
 const call = (client: Client): Promise<unknown> => client.count();
@@ -27,6 +27,19 @@ const keyOptions = { headers: { "X-API-Key": "k3y-secret" } };
  * and the credential header carries the same-origin/cross-origin checks.
  */
 const USERINFO_SENT = false;
+/**
+ * Since 0.4.0 lobbyregister rejects a base URL with a user name or password (the API needs
+ * none; client.test.ts and cli.test.ts check the rejection). The shared cases put
+ * `alice:s3cret@` into the base URL to see where userinfo goes; here it can go nowhere, so
+ * this adapter's Client drops it before the constructor and the cases check the credential
+ * header (`keyOptions`) alone.
+ */
+class Client extends LobbyregisterClient {
+  constructor(options: ConstructorParameters<typeof LobbyregisterClient>[0] = {}) {
+    const base = options?.baseUrl;
+    super(base === undefined ? options : { ...options, baseUrl: base.replace(/^(https?:\/\/)[^/@]*@/, "$1") });
+  }
+}
 // --------------------------------------------------------------------------------------
 
 interface Seen { path: string; authorization?: string; apiKey?: string }

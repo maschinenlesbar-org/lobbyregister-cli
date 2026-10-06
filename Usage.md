@@ -223,7 +223,7 @@ name (e.g. both `lobbyregister --compact count Energie` and
 | Option | Description |
 | --- | --- |
 | `-V, --version` | Print the version and exit |
-| `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`); http(s) only, given once. A user name or password in it is not sent to the server, and is shown as `***` in messages. A plain `http:` URL to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) prints one `warning: requests to <host> are sent unencrypted (http:, not https:)` line on stderr before the first request; stdout and the exit code are unchanged |
+| `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`); http(s) only, given once. A user name or password in it is a usage error (exit `2`; the API needs no credentials, and the message never repeats them). A plain `http:` URL to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) prints one `warning: requests to <host> are sent unencrypted (http:, not https:)` line on stderr before the first request; stdout and the exit code are unchanged |
 | `--timeout <ms>` | Per-request timeout in milliseconds (default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value (default `lobbyregister-cli`; not blank, no control characters, Latin-1 only) |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (default `2`); each waits 200 ms × attempt, or the server's `Retry-After` when that is longer (up to 60 s). A timeout is not retried |

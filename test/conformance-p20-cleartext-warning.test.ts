@@ -21,6 +21,8 @@ const SECRET_ARGS: string[] | undefined = undefined; // an open API: no key, tok
 const SECRET_VALUE = "k3y-SECRET-value";
 /** Words the warning uses for that secret (matched case-insensitively), e.g. /API key/. */
 const SECRET_WORDS = /API key/i;
+/** Whether the CLI rejects a base URL with a user name or password (usage error) instead of using it. */
+const USERINFO_REJECTED = true; // lobbyregister since 0.4.0: the API needs no credentials
 /** A command that needs no arguments and makes one request. */
 const SIMPLE_COMMAND = ["count"];
 /** A successful answer to SIMPLE_COMMAND. */
@@ -65,7 +67,7 @@ test("P20: a remote http base URL warns once on stderr, naming the host; stdout 
   assert.deepEqual(r.out, plain.out);
 });
 
-test("P20: credentials in an http base URL are named, never printed", async () => {
+test("P20: credentials in an http base URL are named, never printed", { skip: USERINFO_REJECTED && "this CLI rejects a base URL with credentials (checked below)" }, async () => {
   const r = await cli(["--base-url", "http://alice:s3cret-pw@mirror.example", ...SIMPLE_COMMAND]);
   assert.equal(r.warnings.length, 1, r.err.join("\n"));
   assert.match(r.warnings[0]!, /credentials/i);
@@ -96,4 +98,14 @@ test("P20: the library exports the check", () => {
   const withUserinfo = cleartextProblem("http://alice:pw@mirror.example") ?? "";
   assert.match(withUserinfo, /credentials/i);
   assert.ok(!withUserinfo.includes("pw@"));
+});
+
+// lobbyregister-specific: a base URL with credentials never gets that far — a usage error, no warning.
+test("P20: an http base URL with credentials is a usage error here, with no warning and no password", async () => {
+  const r = await cli(["--base-url", "http://alice:s3cret-pw@mirror.example", ...SIMPLE_COMMAND]);
+  assert.equal(r.code, 2);
+  assert.deepEqual(r.warnings, []);
+  assert.deepEqual(r.out, []);
+  assert.ok(!r.err.join("\n").includes("s3cret-pw"));
+  assert.match(r.err.join("\n"), /user name or password in the base URL is not supported/);
 });

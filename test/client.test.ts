@@ -176,3 +176,19 @@ test("the filter catalogues are frozen", () => {
   assert.throws(() => (SEARCH_FILTER_ATTRIBUTES as string[]).push("evil"), TypeError);
   assert.throws(() => (SEARCH_FILTER_VALUES["donationsreceived"] as string[]).push("true"), TypeError);
 });
+
+test("a base URL with a user name or password is a LobbyValidationError that never repeats them (round 2026-10-06, Q1)", () => {
+  for (const baseUrl of ["https://alice:s3cret-pw@mirror.example", "https://alice@mirror.example", "http://:s3cret-pw@127.0.0.1:1"]) {
+    assert.throws(
+      () => new LobbyregisterClient({ baseUrl }),
+      (e: unknown) =>
+        e instanceof LobbyValidationError &&
+        /^Invalid baseUrl: A user name or password in the base URL is not supported/.test(e.message) &&
+        !e.message.includes("s3cret-pw") &&
+        !e.message.includes("alice"),
+      baseUrl,
+    );
+  }
+  // Without userinfo the same hosts are fine.
+  assert.doesNotThrow(() => new LobbyregisterClient({ baseUrl: "https://mirror.example" }));
+});

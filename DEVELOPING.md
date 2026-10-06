@@ -80,7 +80,10 @@ limit off. `0` keeps its meaning (no timeout, no retries, no redirects, no cap).
 CLI's `--timeout`, `--max-retries`, `--max-redirects` and `--max-response-bytes`
 parsers apply the same rule (`intInRangeProblem`).
 
-The validation reasons never repeat a base URL. The CLI also redacts on output:
+A base URL with a user name or password is rejected (`baseUrlProblem`, so the library's
+`LobbyValidationError` and the CLI's usage error, exit 2): the register needs no
+credentials, the engine never sent them, and accepting them only looked as if they were
+used. The validation reasons never repeat a base URL. The CLI also redacts on output:
 `run.ts` (`withRedactedOutput`) takes the exact userinfo of every argument
 (`credentialsIn`, exported) and replaces it with `***` in everything it prints —
 commander's usage errors, which echo rejected values, and its own messages — so a
@@ -285,9 +288,9 @@ along, so no credential leaks to an arbitrary host named in a `Location` header,
 crosses the wire in cleartext. Same-origin redirects keep the headers, whether the
 `Location` is relative or absolute; a 401/403 that follows a redirect which dropped
 them says so (`the server redirected http to https, so the credential headers were not
-sent there; use an https base URL`). The engine never sends userinfo: not the base
-URL's (request URLs are built from its scheme, host and path, so `https://user:pw@…`
-reaches the register without them), and not one a `Location` names. Transports are told
+sent there; use an https base URL`). The engine never sends userinfo: a base URL may not
+carry any (it is rejected, see above), request URLs are built from its scheme, host and
+path, and a `Location`'s own userinfo is dropped. Transports are told
 `redirect: "manual"` (`HttpRequest.redirect`) and must not follow redirects themselves;
 a response whose `url` (fetch's `Response.url`) lies on another origin than the request
 is rejected as a `LobbyNetworkError`. A same-origin redirect to the register's error
@@ -329,15 +332,18 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`conformance-p*.test.ts`** — the shared checks of the 2026-10-05 fix patterns, the same
   files in every maschinenlesbar.org CLI with only the adapter block at the top changed:
   P1 (no credential from a base URL in any output line), P2 (none in a logged client or
-  error), P3 (credential headers stay on their origin across redirects; this client never
-  sends userinfo), P5 (`timeoutMs`, `maxResponseBytes`, header and body shapes for any
+  error; since base URLs with credentials are rejected, the secret the adapter's client
+  holds is an `Authorization` header in `headers`), P3 (credential headers stay on their
+  origin across redirects; this client never sends userinfo, and its adapter drops the
+  `alice:s3cret@` the shared cases put into the base URL), P5 (`timeoutMs`, `maxResponseBytes`, header and body shapes for any
   transport), P6 (retries never faster than the backoff), P7 (closed pipes, run as a child
   process), P8/P9/P13 (charset, envelope shape, wrong-typed input) and P10 (filter keys,
   attributes, values and repeated flags). The follow-up round of 2026-10-06 added P20
   (`conformance-p20-cleartext-warning`: a remote plain `http:` base URL gets one `warning:`
   line on stderr from the library's `cleartextProblem`, printed by `action()` in `shared.ts`
   before the client is built; no base-URL variable and no secret here, so those two cases
-  are skipped) and P21 (`conformance-p21-readme-links`: every relative link in `README.md`
+  are skipped, and so is the credentials case, since a base URL with credentials is a usage
+  error here — a lobbyregister case at the end checks that instead) and P21 (`conformance-p21-readme-links`: every relative link in `README.md`
   points to a file `package.json` `files` ships, since npmjs.com shows the README; other
   documents are linked by their GitHub URL).
 

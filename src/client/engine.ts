@@ -194,8 +194,9 @@ function functionOption<F extends (...args: never[]) => unknown>(name: string, v
  * A base URL must be an absolute http(s) URL. The default transport already gates
  * the scheme per hop, but the engine is exported as a library and may be handed a
  * custom transport that does no such check, so the configured base URL is checked
- * up front too (a `file:`/`ftp:` base URL fails fast). The reasons match the CLI's
- * `--base-url` parser, which calls this rule.
+ * up front too (a `file:`/`ftp:` base URL fails fast). A user name or password in it
+ * is rejected as well (the API needs none; the reason never repeats them). The reasons
+ * match the CLI's `--base-url` parser, which calls this rule.
  */
 export const baseUrlProblem: Problem<unknown> = (value) => {
   if (typeof value !== "string") return "Expected an absolute http(s) URL.";
@@ -207,6 +208,11 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
+  }
+  // The register needs no credentials, and the engine never sends userinfo: a user name
+  // or password here would only look as if it were used. Named, never echoed.
+  if (url.username !== "" || url.password !== "") {
+    return "A user name or password in the base URL is not supported: the Lobbyregister API needs no credentials, and they would not be sent.";
   }
   return undefined;
 };

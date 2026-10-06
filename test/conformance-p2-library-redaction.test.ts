@@ -16,22 +16,27 @@ const call = (client: Client): Promise<unknown> => client.count();
 /** A 2xx body the call accepts. */
 const okBody = { resultCount: 0, results: [], searchParameters: {} };
 const PW = "s3cret-Pw";
-/** A client holding the secret, on the given transport. */
-const makeClient = (transport: (req: HttpRequest) => Promise<HttpResponse>, extra: Record<string, unknown> = {}): Client =>
-  new Client({ baseUrl: `https://alice:${PW}@mirror.example`, transport, ...extra });
 /**
- * What a server or transport that echoes the request would repeat. lobbyregister never
- * sends the base URL's userinfo (the request URL is built from the host alone), so an
- * echo of the request can't carry it; this echoes the password as a body that quotes
- * what it was configured with would.
+ * A client holding the secret, on the given transport. lobbyregister rejects a user name or
+ * password in the base URL (the API needs no credentials), so the only secret a client can
+ * hold is a credential header a library caller adds through `headers` — the keyed-repo shape.
  */
-const echo = (req: HttpRequest): string => `${req.url.replace("://", `://alice:${PW}@`)} ${JSON.stringify(req.headers)}`;
+const makeClient = (transport: (req: HttpRequest) => Promise<HttpResponse>, extra: Record<string, unknown> = {}): Client =>
+  new Client({ baseUrl: "https://mirror.example", headers: { Authorization: `Bearer ${PW}` }, transport, ...extra });
+/**
+ * What a server or transport that echoes the request would repeat: its URL. (The engine
+ * scrubs only the base URL's own credentials from such text, and lobbyregister rejects
+ * those; a server that echoes the request *headers* would repeat a caller's Authorization
+ * header — not covered here, an open question in the 2026-10-06 follow-up.)
+ */
+const echo = (req: HttpRequest): string => req.url;
 /**
  * Constructor options that are rejected and hold the secret. (A query or fragment in the
  * base URL is ignored here, not rejected: the engine builds every request URL from the
  * scheme, host and path alone.)
  */
 const rejectedOptions: Array<Record<string, unknown>> = [
+  { baseUrl: `https://alice:${PW}@mirror.example` }, // any user name or password (0.4.0)
   { baseUrl: `https://alice:${PW}@mirror.example:99999` },
   { baseUrl: `https://alice:pa#${PW}@mirror.example` },
   { baseUrl: `ftp://alice:${PW}@h` },

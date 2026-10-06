@@ -411,3 +411,15 @@ test("a blank or unsendable --user-agent is a usage error before any request", a
     assert.equal(cli.mt.last().headers?.["User-Agent"], ua);
   }
 });
+
+test("--base-url with a user name or password is a usage error (exit 2), no request, password never printed", async () => {
+  for (const base of ["https://alice:s3cret-pw@mirror.example", "https://alice@mirror.example"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["--base-url", base, "count"], cli.deps), 2, base);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.deepEqual(cli.out, []);
+    const err = cli.err.join("\n");
+    assert.match(err, /user name or password in the base URL is not supported/);
+    assert.ok(!err.includes("s3cret-pw"), err);
+  }
+});
