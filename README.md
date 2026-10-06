@@ -18,7 +18,7 @@ pipe the results straight into [`jq`](https://jqlang.github.io/jq/).
 - **Read-only, open data** — the public `/sucheJson` endpoint needs no credentials; nothing to configure or leak.
 
 > Want to use this as a TypeScript library or understand how it's built?
-> See **[DEVELOPING.md](DEVELOPING.md)**.
+> See **[DEVELOPING.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/DEVELOPING.md)**.
 
 ## Install
 
@@ -97,11 +97,11 @@ valid codes — `donationsreceived=true` names `DONATIONS_RECEIVED`.
 `--allow-unknown-filters` sends them anyway, for a code the register added after this
 release; a reply of 0 then gets a `Note:` on stderr.
 
-The **[Glossary](GLOSSARY.md)** explains every field and term in the response.
+The **[Glossary](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/GLOSSARY.md)** explains every field and term in the response.
 
 ## Common tasks
 
-A few recipes to get going — see **[Usage.md](Usage.md)** for the full,
+A few recipes to get going — see **[Usage.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/Usage.md)** for the full,
 use-case-driven set.
 
 ```bash
@@ -238,10 +238,10 @@ These apply to every command and may be given before *or* after it:
 
 ## Learn more
 
-- **[SKILLS.md](SKILLS.md)** — Claude Code Agent Skills that drive this CLI for sector briefings, spend rankings and revolving-door checks.
-- **[Usage.md](Usage.md)** — full use-case-driven cookbook.
-- **[GLOSSARY.md](GLOSSARY.md)** — every field, command and domain term explained.
-- **[DEVELOPING.md](DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
+- **[SKILLS.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/SKILLS.md)** — Claude Code Agent Skills that drive this CLI for sector briefings, spend rankings and revolving-door checks.
+- **[Usage.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/Usage.md)** — full use-case-driven cookbook.
+- **[GLOSSARY.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/GLOSSARY.md)** — every field, command and domain term explained.
+- **[DEVELOPING.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
 
 ## Data license
 
