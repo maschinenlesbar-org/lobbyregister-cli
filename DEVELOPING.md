@@ -333,7 +333,11 @@ npm test          # builds, then runs `node --test` over dist/test
   sends userinfo), P5 (`timeoutMs`, `maxResponseBytes`, header and body shapes for any
   transport), P6 (retries never faster than the backoff), P7 (closed pipes, run as a child
   process), P8/P9/P13 (charset, envelope shape, wrong-typed input) and P10 (filter keys,
-  attributes, values and repeated flags).
+  attributes, values and repeated flags). The follow-up round of 2026-10-06 added P20
+  (`conformance-p20-cleartext-warning`: a remote plain `http:` base URL gets one `warning:`
+  line on stderr from the library's `cleartextProblem`, printed by `action()` in `shared.ts`
+  before the client is built; no base-URL variable and no secret here, so those two cases
+  are skipped).
 
 ## Continuous integration
 

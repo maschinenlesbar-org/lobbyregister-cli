@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { RequestEngine, parseRetryAfter } from "../src/client/engine.js";
+import { RequestEngine, cleartextProblem, parseRetryAfter } from "../src/client/engine.js";
 import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError } from "../src/client/errors.js";
 import {
   makeMockTransport,
@@ -455,4 +455,21 @@ test("a redirect to the register's error page is reported as a rejected request,
     );
     assert.equal(mt.calls.length, 1, "the HTML error page is not fetched");
   }
+});
+
+test("cleartextProblem: exact wording, host with port, loopback range, never the secret", () => {
+  assert.equal(cleartextProblem("http://mirror.example:8080/api"), "requests to mirror.example:8080 are sent unencrypted (http:, not https:)");
+  assert.equal(
+    cleartextProblem("http://alice:pw@mirror.example"),
+    "the base URL's credentials are sent unencrypted to mirror.example (http:, not https:)",
+  );
+  assert.equal(
+    cleartextProblem("http://alice:pw@mirror.example", ["the API key"]),
+    "the API key and the base URL's credentials are sent unencrypted to mirror.example (http:, not https:)",
+  );
+  assert.equal(cleartextProblem("http://mirror.example", ["the login"]), "the login is sent unencrypted to mirror.example (http:, not https:)");
+  for (const url of ["https://alice:pw@mirror.example", "http://127.8.9.10", "http://localhost:1", "http://[::1]/", "not a url"]) {
+    assert.equal(cleartextProblem(url), undefined, url);
+  }
+  assert.notEqual(cleartextProblem("http://128.0.0.1"), undefined);
 });

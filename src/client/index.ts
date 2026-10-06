@@ -6,6 +6,7 @@ export {
   DEFAULT_BASE_URL,
   assertHeaderValue,
   baseUrlProblem,
+  cleartextProblem,
   intOption,
   isTransientNetworkError,
   validateBaseUrl,
