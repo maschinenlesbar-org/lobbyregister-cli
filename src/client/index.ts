@@ -1,6 +1,6 @@
 // Public entry point for the API client library.
 
-export { LobbyregisterClient } from "./client.js";
+export { LobbyregisterClient, resultCountMismatch } from "./client.js";
 export {
   RequestEngine,
   DEFAULT_BASE_URL,

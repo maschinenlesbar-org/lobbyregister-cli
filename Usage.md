@@ -44,7 +44,10 @@ Prints an envelope with the query and the API-reported total:
 sorting flags. It is not a cheaper request: the API has no count-only mode, so
 `count` downloads the same records as `search` (the whole register, about 18 MB,
 without a query or filter) and prints only `resultCount`. A loop over several topics
-(§7) downloads each topic's full set.
+(§7) downloads each topic's full set. Should `resultCount` ever disagree with the number of
+records downloaded, `count` still prints `resultCount` and says so on stderr:
+`warning: the register reports resultCount 2351 but returned 2350 results; the count shown
+is resultCount` (the exit code stays 0).
 
 ### 2. Search lobbyists by keyword
 

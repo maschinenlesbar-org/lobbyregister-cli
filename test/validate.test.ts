@@ -38,7 +38,8 @@ test("run() maps a LobbyValidationError from an action to exit 2 and 'Error: <me
     io: { out: (s) => out.push(s), err: (s) => err.push(s) },
     createClient: (opts) => {
       const client = new LobbyregisterClient({ ...opts, transport: mt.transport });
-      client.count = async () => {
+      // `count` runs client.search() (it keeps the envelope to compare resultCount).
+      client.search = async () => {
         throw new LobbyValidationError("Invalid q: Expected a non-empty value.");
       };
       return client;
@@ -56,8 +57,14 @@ test("run() keeps exit 1 for a plain LobbyError", async () => {
   const deps: CliDeps = {
     io: { out: () => {}, err: (s) => err.push(s) },
     createClient: (opts) => {
-      const client = new LobbyregisterClient(opts);
-      client.count = async () => {
+      // A transport that fails loudly: should the stub ever miss, no request goes out.
+      const client = new LobbyregisterClient({
+        ...opts,
+        transport: async () => {
+          throw new Error("no network in tests");
+        },
+      });
+      client.search = async () => {
         throw new LobbyError("boom");
       };
       return client;

@@ -3,6 +3,7 @@ import type { CliDeps } from "../io.js";
 import type { SearchResult } from "../../client/types.js";
 import type { SearchFilter } from "../../client/filters.js";
 import { describeFilter } from "../../client/filters.js";
+import { resultCountMismatch } from "../../client/client.js";
 import {
   ALLOW_UNKNOWN_FILTERS_HELP,
   FILTER_HELP,
@@ -130,16 +131,21 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
     .action(
       action(deps, async ({ client, global, opts }, [query]) => {
         const filters = opts["filter"] as SearchFilter[] | undefined;
-        const resultCount = await client.count(
-          query,
-          filters,
-          opts["allowUnknownFilters"] === true ? { allowUnknownFilters: true } : {},
-        );
+        // What client.count() does (the same request, the same checks), keeping the
+        // envelope so a resultCount that disagrees with the results can be named.
+        const result = await client.search({
+          ...(query !== undefined ? { q: query } : {}),
+          ...(filters !== undefined ? { filters } : {}),
+          ...(opts["allowUnknownFilters"] === true ? { allowUnknownFilters: true } : {}),
+        });
+        const resultCount = result.resultCount;
         renderJson(deps, global, {
           query: query ?? null,
           ...(filters !== undefined ? { filters: filters.map(describeFilter) } : {}),
           resultCount,
         });
+        const mismatch = resultCountMismatch(result);
+        if (mismatch !== undefined) deps.io.err(`warning: ${mismatch}`);
         const note = unknownFilterNote(filters, resultCount);
         if (note !== undefined) deps.io.err(note);
       }),

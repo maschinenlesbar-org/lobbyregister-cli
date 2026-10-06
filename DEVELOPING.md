@@ -314,7 +314,11 @@ An unknown charset label is a `LobbyParseError`. The register itself sends UTF-8
 **Envelope check.** A `2xx` JSON answer must be the documented envelope: an object
 with a non-negative integer `resultCount` and a `results` array whose entries are all
 objects. `null`, `{}`, an error object, a string count or a `null` entry is a
-`LobbyParseError` (CLI exit `1`), never data or "nothing found".
+`LobbyParseError` (CLI exit `1`), never data or "nothing found". A `resultCount` that
+disagrees with the number of `results` (the endpoint returns every match, so they should
+be equal) is not an error: `count()` trusts `resultCount`, `resultCountMismatch(result)`
+(exported) names both numbers, and the CLI's `count` — which calls `search()` to keep the
+envelope — prints that as a `warning:` line on stderr.
 
 ## Testing
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LobbyregisterClient } from "../src/client/client.js";
+import { LobbyregisterClient, resultCountMismatch } from "../src/client/client.js";
 import {
   LobbyApiError,
   LobbyError,
@@ -191,4 +191,18 @@ test("a base URL with a user name or password is a LobbyValidationError that nev
   }
   // Without userinfo the same hosts are fine.
   assert.doesNotThrow(() => new LobbyregisterClient({ baseUrl: "https://mirror.example" }));
+});
+
+test("resultCountMismatch names both numbers when resultCount and results disagree; count() trusts resultCount", async () => {
+  assert.equal(resultCountMismatch({ resultCount: 2, results: [{}, {}] }), undefined);
+  assert.equal(
+    resultCountMismatch({ resultCount: 3, results: [{}] }),
+    "the register reports resultCount 3 but returned 1 result; the count shown is resultCount",
+  );
+  assert.equal(
+    resultCountMismatch({ resultCount: 0, results: [{}, {}] }),
+    "the register reports resultCount 0 but returned 2 results; the count shown is resultCount",
+  );
+  const mt = makeMockTransport(() => jsonResponse({ resultCount: 5, results: [{ id: "a" }] }));
+  assert.equal(await clientWith(mt).count("Energie"), 5);
 });

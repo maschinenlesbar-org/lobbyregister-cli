@@ -423,3 +423,14 @@ test("--base-url with a user name or password is a usage error (exit 2), no requ
     assert.ok(!err.includes("s3cret-pw"), err);
   }
 });
+
+test("count prints resultCount and warns on stderr when the results disagree with it", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 7, results: [{ id: "a" }, { id: "b" }] }));
+  assert.equal(await run(["--compact", "count", "Energie"], cli.deps), 0);
+  assert.deepEqual(JSON.parse(cli.out.join("\n")), { query: "Energie", resultCount: 7 });
+  assert.deepEqual(cli.err, ["warning: the register reports resultCount 7 but returned 2 results; the count shown is resultCount"]);
+  // Agreeing numbers: no warning.
+  const ok = makeCli(() => jsonResponse({ resultCount: 2, results: [{ id: "a" }, { id: "b" }] }));
+  assert.equal(await run(["--compact", "count", "Energie"], ok.deps), 0);
+  assert.deepEqual(ok.err, []);
+});

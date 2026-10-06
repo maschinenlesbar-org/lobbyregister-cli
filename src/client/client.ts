@@ -50,6 +50,23 @@ function assertSearchResult(value: unknown): asserts value is SearchResult {
   }
 }
 
+/**
+ * Why a search envelope's `resultCount` and its `results` disagree, as one sentence for a
+ * `warning: ` line, or `undefined` when they agree. `/sucheJson` returns every match
+ * (it ignores paging), so the two should always be equal; `count()` trusts
+ * `resultCount` either way, and the CLI's `count` prints this on stderr. Pass the envelope
+ * as the register sent it — a page `search()` sliced with `pageSize` has fewer results by
+ * design.
+ */
+export function resultCountMismatch(result: Pick<SearchResult, "resultCount" | "results">): string | undefined {
+  const returned = result.results.length;
+  if (returned === result.resultCount) return undefined;
+  return (
+    `the register reports resultCount ${result.resultCount} but returned ${returned} ` +
+    `result${returned === 1 ? "" : "s"}; the count shown is resultCount`
+  );
+}
+
 /** Throw `LobbyValidationError` unless `value` is undefined or an integer from 1 to MAX_SAFE_INTEGER. */
 function assertPageNumber(name: string, value: unknown): void {
   if (value !== undefined && !(typeof value === "number" && Number.isSafeInteger(value) && value >= 1)) {
@@ -188,6 +205,8 @@ export class LobbyregisterClient {
    * downloads every matching record, like `search`, and reads `resultCount`.
    * A blank `q` rejects with `LobbyValidationError`, as in `search`, and so do
    * filters `search` would reject; `options.allowUnknownFilters` is `search`'s.
+   * When `resultCount` and the number of downloaded results disagree, `resultCount`
+   * is returned all the same (see {@link resultCountMismatch}).
    */
   async count(
     q?: string,
