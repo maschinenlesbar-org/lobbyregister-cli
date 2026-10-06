@@ -217,6 +217,28 @@ lobbyregister search -- -Energie
 
 This searches for the literal term `-Energie`.
 
+### 12. What the query understands (observed, not documented)
+
+The register publishes no query syntax. What follows is what its search answered on
+2026-10-05 (live, `search`/`count`, register of 6 996 entries); it is observed behaviour,
+not a promise, and may change without notice. Check a surprising count before relying on it.
+
+| Query | Observed | Reading |
+|---|---|---|
+| `Tabak` | 66 | one word: the plain search |
+| `R000534`, `r000534` | that entry | a register number, either case |
+| `R000534 R002822` | 0 (each alone: 1) | words separated by spaces must **all** match |
+| `Tabak AND Wasserstoff` | 3 | `AND` (capitals) — all terms |
+| `Tabak OR Wasserstoff` | 480 | `OR` (capitals) — any term |
+| `'"Deutscher Bauernverband"'` | 75 | a phrase in double quotes is accepted (not compared with the unquoted words) |
+| `*` | 6 996 | the whole register |
+| `Taba*` | 3 | **not** a prefix search: fewer than `Tabak` alone — don't rely on `*` inside a word |
+| `-Tabak` (after `--`) | 66, same as `Tabak` | a leading `-` is **not** NOT |
+| `Tabak:` | 66, same as `Tabak` | a trailing colon is ignored |
+| `"Tabak`, `Tabak (`, ~2 000 characters | exit 1 | rejected by the register (redirect to its `/fehler` page; see the README's troubleshooting) |
+
+Quote the whole query for the shell, as above: `lobbyregister count 'Tabak OR Wasserstoff'`.
+
 ## Global options
 
 These apply to every command and may be given **before or after** the command
