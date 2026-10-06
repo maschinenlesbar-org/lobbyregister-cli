@@ -364,6 +364,16 @@ GitHub Actions workflows under `.github/workflows/`:
   needs the TypeScript 6 compiler API, which TypeScript 7 no longer ships; locally,
   run `npm ci --prefix tools/docs` once before `npm run docs`.
 
+## Skills
+
+The five skills in `skills/` share a verbatim `## Tooling` stanza: it runs
+`lobbyregister --version`, stops when the CLI is missing, and stops when it is older than
+the minimum version the skills are written for (0.4.0; also in each skill's `compatibility`
+and in `SKILLS.md`), asking the user to install or upgrade — a skill never installs or
+upgrades anything. When a release changes behaviour the skills rely on, raise that minimum
+in all five skills, `SKILLS.md` and this paragraph together, and bump `version` in
+`.claude-plugin/plugin.json`.
+
 ## Website
 
 The project website — <https://maschinenlesbar-org.github.io/lobbyregister-cli/> in English and

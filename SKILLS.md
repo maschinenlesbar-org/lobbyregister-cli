@@ -29,10 +29,12 @@ nesting of the revolving-door field).
 
 - **[Claude Code](https://code.claude.com/docs/en/overview)** (or any harness that loads
   Agent Skills).
-- **The `lobbyregister` CLI** installed globally:
+- **The `lobbyregister` CLI**, 0.4.0 or newer, installed globally:
   ```bash
   npm i -g @maschinenlesbar.org/lobbyregister-cli   # installs the `lobbyregister` bin
   ```
+  Each skill runs `lobbyregister --version` first and stops — asking you to install or
+  upgrade, never doing it itself — when the CLI is missing or older than 0.4.0.
   No API key is required — the Lobbyregister search API is free, open, and read-only.
 
 ## Installation

@@ -9,7 +9,7 @@ description: >
   into a ranked, deduplicated briefing — top spenders, headcount, activity-type
   mix and field-of-interest tags — instead of raw register JSON.
 compatibility: >
-  Requires the `lobbyregister` CLI (npm package
+  Requires the `lobbyregister` CLI 0.4.0 or newer (npm package
   @maschinenlesbar.org/lobbyregister-cli) on PATH, installed by the user; the
   skill never installs it. Uses jq for JSON filtering. Network access to
   www.lobbyregister.bundestag.de.
@@ -25,7 +25,7 @@ the aggregation, ranking and summarisation it deliberately doesn't do.
 
 ## Tooling
 
-This skill drives the `lobbyregister` command. **Before anything else, validate it is available** — run `command -v lobbyregister` (or `lobbyregister --version`). If it is not on your PATH, STOP and inform the user that the `lobbyregister` CLI (`@maschinenlesbar.org/lobbyregister-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build.
+This skill drives the `lobbyregister` command. **Before anything else, validate it is available and recent enough** — run `lobbyregister --version`. If the command is not found, STOP and inform the user that the `lobbyregister` CLI (`@maschinenlesbar.org/lobbyregister-cli`) is not installed — installing it is their responsibility; never install it yourself, and do not fall back to `npx` or a local `node dist/...` build. If it prints a version below **0.4.0** (compare major, then minor, then patch: `0.3.9` is older, `0.4.0` and `0.10.1` are not), STOP and inform the user that this skill needs `@maschinenlesbar.org/lobbyregister-cli` 0.4.0 or newer and that they should upgrade it — upgrading is their responsibility too; never upgrade or install anything yourself.
 
 This skill also filters JSON with `jq`. **Validate it too** — run `command -v jq`. If it is missing, inform the user that `jq` is not installed — installing it is their responsibility; never install it yourself — and carry on without it: filter the CLI output with `node -e` instead (Node is already on your PATH, since the CLI runs on it).
 
