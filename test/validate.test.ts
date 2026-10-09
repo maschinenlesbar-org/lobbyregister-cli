@@ -6,7 +6,7 @@ import * as lib from "../src/index.js";
 import { LobbyregisterClient } from "../src/client/client.js";
 import { run } from "../src/cli/run.js";
 import type { CliDeps } from "../src/cli/io.js";
-import { makeMockTransport, jsonResponse, parity, EMPTY_SEARCH } from "./helpers.js";
+import { makeMockTransport, jsonResponse, parity, EMPTY_SEARCH, untimed } from "./helpers.js";
 
 const notBlank: Problem<string> = (v) => (v.trim() === "" ? "Expected a non-empty value." : undefined);
 
@@ -30,7 +30,7 @@ test("the library root exports LobbyValidationError and assertValid", () => {
   assert.equal(lib.assertValid, assertValid);
 });
 
-test("run() maps a LobbyValidationError from an action to exit 2 and 'Error: <message>'", async () => {
+test("run() maps a LobbyValidationError from an action to exit 2 and an ERROR record", async () => {
   const out: string[] = [];
   const err: string[] = [];
   const mt = makeMockTransport(() => jsonResponse(EMPTY_SEARCH));
@@ -47,7 +47,7 @@ test("run() maps a LobbyValidationError from an action to exit 2 and 'Error: <me
   };
   const code = await run(["count", "Energie"], deps);
   assert.equal(code, 2);
-  assert.deepEqual(err, ["Error: Invalid q: Expected a non-empty value."]);
+  assert.deepEqual(err.map(untimed), ["ERROR [lobbyregister.cli] Invalid q: Expected a non-empty value."]);
   assert.deepEqual(out, []);
   assert.equal(mt.calls.length, 0);
 });
@@ -71,7 +71,7 @@ test("run() keeps exit 1 for a plain LobbyError", async () => {
     },
   };
   assert.equal(await run(["count"], deps), 1);
-  assert.deepEqual(err, ["Error: boom"]);
+  assert.deepEqual(err.map(untimed), ["ERROR [lobbyregister.cli] boom"]);
 });
 
 test("parity() sends the same input through the CLI and the library on one transport", async () => {

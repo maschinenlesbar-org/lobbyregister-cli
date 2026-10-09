@@ -45,8 +45,8 @@ sorting flags. It is not a cheaper request: the API has no count-only mode, so
 `count` downloads the same records as `search` (the whole register, about 18 MB,
 without a query or filter) and prints only `resultCount`. A loop over several topics
 (§7) downloads each topic's full set. Should `resultCount` ever disagree with the number of
-records downloaded, `count` still prints `resultCount` and says so on stderr:
-`warning: the register reports resultCount 2351 but returned 2350 results; the count shown
+records downloaded, `count` still prints `resultCount` and says so on stderr, in a `WARN` record:
+`the register reports resultCount 2351 but returned 2350 results; the count shown
 is resultCount` (the exit code stays 0).
 
 ### 2. Search lobbyists by keyword
@@ -89,7 +89,7 @@ lobbyregister search Pharma --sort REGISTRATION_DESC
 The value is passed through verbatim and is case-sensitive. The API ignores an
 unrecognised value (HTTP `200`, default ordering), so a bad sort never raises a
 `400`; the CLI compares the order the API reports (`searchParameters.sortOrder`)
-with the one you asked for and prints a `Warning:` on stderr when they differ
+with the one you asked for and logs a `WARN` record on stderr when they differ
 (exit `0`).
 
 ```bash
@@ -120,8 +120,8 @@ Each run downloads the set again, and the register's relevance order
 two identical searches return the entries in a different order, so page 1 and
 page 2 from separate runs can overlap or skip entries. Page with a date sort
 (`REGISTRATION_DESC`, stable in our checks), or fetch the whole set once and
-slice it yourself. When it pages a relevance-ordered set, the CLI prints a
-`Note:` on stderr (exit `0`).
+slice it yourself. When it pages a relevance-ordered set, the CLI logs an
+`INFO` record on stderr (exit `0`).
 
 ### 6. Extract just the names of matching organisations with jq
 
@@ -201,7 +201,7 @@ unknown attribute is a usage error (exit `2`) because the API would silently ign
 and return the whole set; an unknown **value** is a usage error too, naming the valid
 codes, because the API would match nothing (`resultCount: 0`) and "nobody" would look
 like an answer. `--allow-unknown-filters` sends either anyway (for a code the register
-added after this release); a reply of 0 then prints a `Note:` on stderr. The library
+added after this release); a reply of 0 then logs an `INFO` record on stderr. The library
 exports the codes as `SEARCH_FILTER_VALUES`. If a reply does not
 confirm a filter in `searchParameters.facets`, the CLI exits `1` rather than print an
 unfiltered set. The website's number ranges (spend, staff, members from/to) are not
@@ -248,13 +248,14 @@ name (e.g. both `lobbyregister --compact count Energie` and
 | Option | Description |
 | --- | --- |
 | `-V, --version` | Print the version and exit |
-| `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`); http(s) only, given once. A user name or password in it is a usage error (exit `2`; the API needs no credentials, and the message never repeats them). A plain `http:` URL to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) prints one `warning: requests to <host> are sent unencrypted (http:, not https:)` line on stderr before the first request; stdout and the exit code are unchanged |
+| `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`); http(s) only, given once. A user name or password in it is a usage error (exit `2`; the API needs no credentials, and the message never repeats them). A plain `http:` URL to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) logs one `WARN` record of `lobbyregister.http` (`requests to <host> are sent unencrypted (http:, not https:)`) on stderr before the first request; stdout and the exit code are unchanged |
 | `--timeout <ms>` | Per-request timeout in milliseconds (default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value (default `lobbyregister-cli`; not blank, no control characters, Latin-1 only) |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (default `2`); each waits 200 ms × attempt, or the server's `Retry-After` when that is longer (up to 60 s). A timeout is not retried |
 | `--max-redirects <n>` | HTTP redirects to follow (`0` = none; default `5`) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default ~100 MiB) |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
+| `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [lobbyregister.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
 | `-h, --help` | Show help for the program or a command |
 
 Exit codes: `0` success, `2` usage error, `4` on a `404` from the API, `1` for

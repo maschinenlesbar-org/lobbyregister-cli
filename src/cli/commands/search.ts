@@ -1,5 +1,5 @@
 import type { Command } from "commander";
-import type { CliDeps } from "../io.js";
+import { logOf, type CliDeps } from "../io.js";
 import type { SearchResult } from "../../client/types.js";
 import type { SearchFilter } from "../../client/filters.js";
 import { describeFilter } from "../../client/filters.js";
@@ -90,10 +90,11 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         // verdict becomes a stderr warning instead.
         renderJson(deps, global, opts["resultsOnly"] ? result.results : result);
         const note = unknownFilterNote(filters, result.resultCount);
-        if (note !== undefined) deps.io.err(note);
+        if (note !== undefined) logOf(deps).info("api", note);
         if (sortIgnored !== undefined) {
-          deps.io.err(
-            `Warning: the API did not apply --sort ${JSON.stringify(sortIgnored.requested)} and sorted by ` +
+          logOf(deps).warn(
+            "api",
+            `the API did not apply --sort ${JSON.stringify(sortIgnored.requested)} and sorted by ` +
               `${sortIgnored.applied} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
               "(see search --help).",
           );
@@ -101,8 +102,9 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         if (pageSize !== undefined) {
           const order = sortOrderOf(result) ?? (opts["sort"] as string | undefined);
           if (order === undefined || order.startsWith("RELEVANCE")) {
-            deps.io.err(
-              `Note: the results are in relevance order (${order ?? "the default"}), which the ` +
+            logOf(deps).info(
+              "api",
+              `the results are in relevance order (${order ?? "the default"}), which the ` +
                 "register does not keep stable between requests, so pages from separate runs can " +
                 "repeat or miss entries. To page across runs, sort by date (--sort " +
                 "REGISTRATION_DESC), or fetch once and slice.",
@@ -145,9 +147,9 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
           resultCount,
         });
         const mismatch = resultCountMismatch(result);
-        if (mismatch !== undefined) deps.io.err(`warning: ${mismatch}`);
+        if (mismatch !== undefined) logOf(deps).warn("api", mismatch);
         const note = unknownFilterNote(filters, resultCount);
-        if (note !== undefined) deps.io.err(note);
+        if (note !== undefined) logOf(deps).info("api", note);
       }),
     );
 }

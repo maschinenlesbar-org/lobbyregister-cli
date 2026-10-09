@@ -4,10 +4,12 @@
 
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
-import type { CliDeps } from "./io.js";
+import { logOf, type CliDeps } from "./io.js";
+import { createLogger, logFormatFromArgv } from "./log.js";
 import {
   LobbyApiError,
   LobbyError,
+  LobbyNetworkError,
   LobbyValidationError,
   credentialsIn,
   redactCredentials,
@@ -25,7 +27,15 @@ function configureTree(command: Command, deps: CliDeps): void {
   command.exitOverride();
   command.configureOutput({
     writeOut: (str) => deps.io.out(str.replace(/\n$/, "")),
-    writeErr: (str) => deps.io.err(str.replace(/\n$/, "")),
+    // commander's own messages are log records too: its "error: …" an ERROR, the help it
+    // shows after one an INFO.
+    writeErr: (str) => {
+      const text = str.replace(/\n$/, "");
+      // The blank line commander writes between an error and the help it shows after.
+      if (text === "") return;
+      if (text.startsWith("error: ")) logOf(deps).error("cli", text.slice("error: ".length));
+      else logOf(deps).info("cli", text);
+    },
   });
   for (const child of command.commands) configureTree(child, deps);
 }
@@ -61,6 +71,13 @@ export function withRedactedOutput(deps: CliDeps, argv: readonly string[]): CliD
 
 export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<number> {
   deps = withRedactedOutput(deps, argv);
+  // Every record goes through the redacted `io.err`, so a secret is kept out of the
+  // log in either format.
+  const redacted = deps;
+  deps = {
+    ...deps,
+    log: createLogger({ format: logFormatFromArgv(argv), write: (line) => redacted.io.err(line), ...(deps.now === undefined ? {} : { now: deps.now }) }),
+  };
   const program = buildProgram(deps);
   configureTree(program, deps);
 
@@ -68,6 +85,7 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
     await program.parseAsync(argv, { from: "user" });
     return 0;
   } catch (err) {
+    const log = logOf(deps);
     if (err instanceof CommanderError) {
       // An explicitly requested help/version is a successful, intentional output:
       // exit 0. This covers `--help`/`-h` (commander.helpDisplayed), `--version`
@@ -93,13 +111,14 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
     if (err instanceof LobbyApiError) {
       // err.message already includes any human-readable `detail` the API
       // returned (see LobbyApiError); surface it as-is.
-      deps.io.err(`Error: ${err.message}`);
+      log.error("api", err.message);
       // For a 400 with no detail from the API, the request was rejected as
       // malformed — most often an unrecognised parameter value such as an
       // invalid --sort. Add a hint so the user gets more than a URL dump.
       if (err.status === 400 && !err.detail) {
-        deps.io.err(
-          "Hint: the API rejected a request parameter. Check --sort " +
+        log.info(
+          "api",
+          "the API rejected a request parameter. Check --sort " +
             "(e.g. RELEVANCE_DESC, REGISTRATION_DESC) and other option values.",
         );
       }
@@ -110,14 +129,14 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
     if (err instanceof LobbyValidationError) {
       // An input the library rejected before any request (a library rule the
       // commander parsers did not already catch): a usage error, like commander's.
-      deps.io.err(`Error: ${err.message}`);
+      log.error("cli", err.message);
       return USAGE_ERROR_EXIT_CODE;
     }
     if (err instanceof LobbyError) {
-      deps.io.err(`Error: ${err.message}`);
+      log.error(err instanceof LobbyNetworkError ? "http" : "cli", err.message);
       return 1;
     }
-    deps.io.err(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
+    log.error("cli", `Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
     return 1;
   }
 }

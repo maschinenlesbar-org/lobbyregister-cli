@@ -5,7 +5,7 @@ import { LobbyregisterClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
 import { LobbyNetworkError } from "../src/client/errors.js";
-import { makeMockTransport, jsonResponse, rawResponse } from "./helpers.js";
+import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
 
 function makeCli(responder: (req: HttpRequest) => HttpResponse) {
   const out: string[] = [];
@@ -307,7 +307,7 @@ test("--allow-unknown-filters sends an unknown code, and a reply of 0 then gets 
     const cli = makeCli(empty);
     assert.equal(await run(argv, cli.deps), 0, cli.err.join("\n"));
     assert.equal(new URL(cli.mt.last().url).searchParams.get("filter[fieldsofinterest][FOI_NEW_CODE]"), "true");
-    assert.match(cli.err.join("\n"), /Note: no entry matched\. --filter fieldsofinterest=FOI_NEW_CODE is not in this release's list/);
+    assert.match(untimed(cli.err.join("\n")), /^INFO  \[lobbyregister\.api\] no entry matched\. --filter fieldsofinterest=FOI_NEW_CODE is not in this release's list/);
   }
   // A known code that matches nothing is a real "none": no note.
   const known = makeCli(empty);
@@ -343,7 +343,7 @@ test("paging in relevance order warns on stderr that pages across runs are unsta
     jsonResponse({ resultCount: 20, results, searchParameters: { sortOrder: "RELEVANCE_DESC" } }),
   );
   assert.equal(await run(["search", "x", "--page-size", "5", "--page", "2"], relevance.deps), 0);
-  assert.match(relevance.err.join("\n"), /^Note: the results are in relevance order \(RELEVANCE_DESC\).*--sort REGISTRATION_DESC/);
+  assert.match(untimed(relevance.err.join("\n")), /^INFO  \[lobbyregister\.api\] the results are in relevance order \(RELEVANCE_DESC\).*--sort REGISTRATION_DESC/);
 
   const byDate = makeCli(() =>
     jsonResponse({ resultCount: 20, results, searchParameters: { sortOrder: "REGISTRATION_DESC" } }),
@@ -362,8 +362,8 @@ test("a --sort the API did not apply gets a stderr warning (exit 0)", async () =
   );
   assert.equal(await run(["search", "R002822", "--sort", "registration_desc"], ignored.deps), 0);
   assert.equal(
-    ignored.err.join("\n"),
-    'Warning: the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead. ' +
+    untimed(ignored.err.join("\n")),
+    'WARN  [lobbyregister.api] the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead. ' +
       "Sort orders are upper case, e.g. REGISTRATION_DESC (see search --help).",
   );
 
@@ -428,7 +428,7 @@ test("count prints resultCount and warns on stderr when the results disagree wit
   const cli = makeCli(() => jsonResponse({ resultCount: 7, results: [{ id: "a" }, { id: "b" }] }));
   assert.equal(await run(["--compact", "count", "Energie"], cli.deps), 0);
   assert.deepEqual(JSON.parse(cli.out.join("\n")), { query: "Energie", resultCount: 7 });
-  assert.deepEqual(cli.err, ["warning: the register reports resultCount 7 but returned 2 results; the count shown is resultCount"]);
+  assert.deepEqual(cli.err.map(untimed), ["WARN  [lobbyregister.api] the register reports resultCount 7 but returned 2 results; the count shown is resultCount"]);
   // Agreeing numbers: no warning.
   const ok = makeCli(() => jsonResponse({ resultCount: 2, results: [{ id: "a" }, { id: "b" }] }));
   assert.equal(await run(["--compact", "count", "Energie"], ok.deps), 0);

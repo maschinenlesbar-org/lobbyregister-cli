@@ -151,7 +151,7 @@ echo throws `LobbyError` (a reply without a `facets` array is not checked).
 `200`) and falls back to its default order, so when `searchParameters.sortOrder`
 names another order the result carries `sortIgnored: { requested, applied }`
 (`ignoredSort` in `filters.ts`); the data is still returned. The CLI prints the
-envelope without that field and turns it into its stderr `Warning:`.
+envelope without that field and turns it into a `WARN` record of `lobbyregister.api` on stderr.
 
 ## Architecture
 
@@ -167,7 +167,8 @@ src/
     validate.ts  # Problem type + assertValid: the input rules the library and CLI share
     client.ts    # LobbyregisterClient — search + count over the engine
   cli/
-    io.ts        # injectable I/O seam (stdout/stderr)
+    io.ts        # injectable I/O seam (stdout/stderr), the logger and the clock
+    log.ts       # the stderr log: records with ts, level, topic; --log-format text|jsonl
     shared.ts    # option parsers, global-option resolver, JSON renderer
     commands/    # search / count
     program.ts   # assembles the commander program from injectable deps
@@ -318,7 +319,7 @@ objects. `null`, `{}`, an error object, a string count or a `null` entry is a
 disagrees with the number of `results` (the endpoint returns every match, so they should
 be equal) is not an error: `count()` trusts `resultCount`, `resultCountMismatch(result)`
 (exported) names both numbers, and the CLI's `count` — which calls `search()` to keep the
-envelope — prints that as a `warning:` line on stderr.
+envelope — logs that as a `WARN` record of `lobbyregister.api` on stderr.
 
 ## Testing
 
@@ -343,13 +344,14 @@ npm test          # builds, then runs `node --test` over dist/test
   transport), P6 (retries never faster than the backoff), P7 (closed pipes, run as a child
   process), P8/P9/P13 (charset, envelope shape, wrong-typed input) and P10 (filter keys,
   attributes, values and repeated flags). The follow-up round of 2026-10-06 added P20
-  (`conformance-p20-cleartext-warning`: a remote plain `http:` base URL gets one `warning:`
-  line on stderr from the library's `cleartextProblem`, printed by `action()` in `shared.ts`
+  (`conformance-p20-cleartext-warning`: a remote plain `http:` base URL gets one `WARN`
+  record of `lobbyregister.http` on stderr from the library's `cleartextProblem`, printed by `action()` in `shared.ts`
   before the client is built; no base-URL variable and no secret here, so those two cases
   are skipped, and so is the credentials case, since a base URL with credentials is a usage
   error here — a lobbyregister case at the end checks that instead) and P21 (`conformance-p21-readme-links`: every relative link in `README.md`
   points to a file `package.json` `files` ships, since npmjs.com shows the README; other
-  documents are linked by their GitHub URL).
+  documents are linked by their GitHub URL). P23 (`conformance-p23-log-format`, 2026-10-09)
+  checks that every stderr line is a log record and `--log-format text|jsonl`.
 
 ## Continuous integration
 
@@ -399,3 +401,16 @@ npm run serve                        # http://127.0.0.1:4000/lobbyregister-cli/
 Dual-licensed under **[AGPL-3.0-or-later](LICENSE)** or a commercial license — see
 **[LICENSING.md](LICENSING.md)**. This project does **not** accept external code
 contributions; see **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
+## The log on stderr
+
+Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic, `lobbyregister.<area>`. `--log-format text` (the default)
+writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
+`--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
+and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter) and `http` (the connection, the cleartext warning). The `Output error:` line `handleOutputErrors` writes when stdout itself fails stays plain. Code logs through `logOf(deps)` and never writes diagnostics
+with `io.err` directly. `run()` builds the logger from argv before commander parses it,
+so commander's own usage errors are records too, and on top of the redacted `io.err`, so
+a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
+testable. stdout carries data only. Conformance test P23 checks all of this, and its
+body is shared across the *-cli repos.

@@ -95,7 +95,7 @@ an unknown attribute (and would return everything) and matches nothing for an un
 value (`resultCount: 0`), so both are a usage error (exit `2`) whose message names the
 valid codes — `donationsreceived=true` names `DONATIONS_RECEIVED`.
 `--allow-unknown-filters` sends them anyway, for a code the register added after this
-release; a reply of 0 then gets a `Note:` on stderr.
+release; a reply of 0 then gets an `INFO` record on stderr.
 
 The **[Glossary](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/GLOSSARY.md)** explains every field and term in the response.
 
@@ -135,6 +135,21 @@ done
 Every command prints **pretty JSON to stdout**. Errors and diagnostics go to
 stderr, so piping stdout into `jq` stays clean.
 
+Each line on stderr is a **log record**: a timestamp (UTC), a level (`ERROR`, `WARN`,
+`INFO`) and a topic, the program and the area it comes from (`lobbyregister.cli` for usage
+errors, `lobbyregister.api` for the API's answers and the notes on them, `lobbyregister.http`
+for the connection). By default it is written log4j style; `--log-format jsonl` writes one
+JSON object per line instead:
+
+```text
+2026-10-09T14:03:12.481Z WARN  [lobbyregister.http] requests to mirror.test are sent unencrypted (http:, not https:)
+2026-10-09T14:03:12.902Z WARN  [lobbyregister.api] the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead. Sort orders are upper case, e.g. REGISTRATION_DESC (see search --help).
+```
+
+```bash
+lobbyregister --log-format jsonl search Klimaschutz --sort registration_desc 2>log.jsonl   # {"ts":"…","level":"WARN","topic":"lobbyregister.api","msg":"the API did not apply --sort …"}
+```
+
 ```bash
 # Extract organisation names from a result set
 lobbyregister search Klimaschutz --results-only \
@@ -165,7 +180,7 @@ do the same thing.
 > `NUMBEROFMEMBERSHIPS_DESC` — each also in the other direction (`_ASC` / `_DESC`).
 > The value is passed through verbatim and is case-sensitive. The live API
 > ignores an unrecognised value (HTTP `200`) and falls back to its default order;
-> the CLI then prints a `Warning:` on stderr naming the order the API used
+> the CLI then logs a `WARN` record on stderr naming the order the API used
 > (`searchParameters.sortOrder`), and still exits `0`.
 
 > **Note on `--page` / `--page-size`** — the live endpoint ignores paging and
@@ -175,7 +190,7 @@ do the same thing.
 > (`RELEVANCE_DESC`, the default with a query) differs between two identical
 > requests, so pages from separate runs can repeat or miss entries. Page with a
 > date sort such as `--sort REGISTRATION_DESC` (stable in our checks), or fetch
-> once and slice the file. The CLI prints a `Note:` on stderr when it pages a
+> once and slice the file. The CLI logs an `INFO` record on stderr when it pages a
 > relevance-ordered set.
 
 **Exit codes** make the CLI easy to use in scripts:
@@ -229,7 +244,8 @@ These apply to every command and may be given before *or* after it:
 | `-V, --version` | Print the version number |
 | `-h, --help` | Show help for the program or a command |
 | `--compact` | Print JSON on a single line instead of pretty-printed |
-| `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`); http(s) only, given once. A user name or password in it is a usage error (exit `2`; the API needs no credentials, and the message never repeats them). A plain `http:` URL to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) prints one `warning: requests to <host> are sent unencrypted (http:, not https:)` line on stderr before the first request; stdout and the exit code are unchanged |
+| `--log-format <format>` | How errors, warnings and notes are written to stderr: `text` (default; log4j style, `2026-10-09T14:03:12.481Z WARN  [lobbyregister.http] …`) or `jsonl` (one JSON object per line: `ts`, `level`, `topic`, `msg`). stdout is not affected |
+| `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`); http(s) only, given once. A user name or password in it is a usage error (exit `2`; the API needs no credentials, and the message never repeats them). A plain `http:` URL to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) logs one `WARN` record of `lobbyregister.http` (`requests to <host> are sent unencrypted (http:, not https:)`) on stderr before the first request; stdout and the exit code are unchanged |
 | `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value (default `lobbyregister-cli`; not blank, no control characters, Latin-1 only) |
 | `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (default `2`); each waits 200 ms × attempt, or the server's `Retry-After` when that is longer (up to 60 s). A timeout is not retried |

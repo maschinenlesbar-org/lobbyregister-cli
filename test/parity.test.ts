@@ -146,7 +146,7 @@ test("parity: a sort the register ignored is reported by both sides, with the sa
   const { sortIgnored, ...envelope } = r.lib.value as { sortIgnored?: unknown };
   assert.deepEqual(sortIgnored, { requested: "registration_desc", applied: "RELEVANCE_DESC" });
   assert.deepEqual(JSON.parse(r.cli.out), envelope);
-  assert.match(r.cli.err, /^Warning: the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead\./);
+  assert.match(r.cli.err, /^WARN  \[lobbyregister\.api\] the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead\./);
 
   const applied = await parity(["--compact", "search", "x", "--sort", "RELEVANCE_DESC"], (t) =>
     client(t).search({ q: "x", sort: "RELEVANCE_DESC" }), reply);
