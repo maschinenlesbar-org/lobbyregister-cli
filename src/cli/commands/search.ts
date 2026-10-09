@@ -72,9 +72,11 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         const pageSize = opts["pageSize"] as number | undefined;
         // `--page` alone has no meaning: paging is a client-side slice, and an
         // offset cannot be computed without a page size. Reject it as a usage
-        // error instead of silently returning the whole result set.
+        // error instead of silently returning the whole result set. commander's own
+        // usage errors start with "error: " (command.error() writes the message as
+        // given), and that prefix is what makes it the ERROR record of `cli`.
         if (page !== undefined && pageSize === undefined) {
-          command.error("--page requires --page-size.", {
+          command.error("error: --page requires --page-size.", {
             exitCode: 2,
             code: "lobbyregister.pageWithoutPageSize",
           });

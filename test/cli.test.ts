@@ -78,6 +78,21 @@ test("--page without --page-size is a usage error (exit 2)", async () => {
   assert.match(cli.err.join("\n"), /--page requires --page-size/);
 });
 
+test("--page without --page-size is an ERROR record of lobbyregister.cli, then the help (B02-1)", async () => {
+  for (const format of ["text", "jsonl"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 20, results: [] }));
+    assert.equal(await run(["--log-format", format, "search", "x", "--page", "2"], cli.deps), 2);
+    const first = untimed(cli.err[0] ?? "");
+    if (format === "text") assert.equal(first, "ERROR [lobbyregister.cli] --page requires --page-size.");
+    else assert.deepEqual(
+      (({ level, topic, msg }) => ({ level, topic, msg }))(JSON.parse(cli.err[0] ?? "{}") as Record<string, unknown>),
+      { level: "ERROR", topic: "lobbyregister.cli", msg: "--page requires --page-size." },
+    );
+    assert.ok(cli.err.slice(1).some((line) => line.includes("Usage: lobbyregister search")), cli.err.join("\n"));
+    assert.equal(cli.mt.calls.length, 0);
+  }
+});
+
 test("--page-size alone slices the first page client-side", async () => {
   const results = Array.from({ length: 20 }, (_, i) => ({ n: i }));
   const cli = makeCli(() => jsonResponse({ resultCount: 20, results }));
