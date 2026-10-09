@@ -51,10 +51,11 @@ function assertSearchResult(value: unknown): asserts value is SearchResult {
 }
 
 /**
- * Why a search envelope's `resultCount` and its `results` disagree, as one sentence for a
- * `warning: ` line, or `undefined` when they agree. `/sucheJson` returns every match
+ * Why a search envelope's `resultCount` and its `results` disagree, as one sentence, or
+ * `undefined` when they agree. `/sucheJson` returns every match
  * (it ignores paging), so the two should always be equal; `count()` trusts
- * `resultCount` either way, and the CLI's `count` prints this on stderr. Pass the envelope
+ * `resultCount` either way, and the CLI's `count` logs this as a `WARN` record of
+ * `lobbyregister.api` on stderr. Pass the envelope
  * as the register sent it — a page `search()` sliced with `pageSize` has fewer results by
  * design.
  */
