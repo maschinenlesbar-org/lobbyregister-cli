@@ -84,8 +84,11 @@ A base URL with a user name or password is rejected (`baseUrlProblem`, so the li
 `LobbyValidationError` and the CLI's usage error, exit 2): the register needs no
 credentials, the engine never sent them, and accepting them only looked as if they were
 used. The validation reasons never repeat a base URL. The CLI also redacts on output:
-`run.ts` (`redactionFor`, `withRedactedOutput`) takes the exact userinfo of every argument
-(`credentialsIn`, exported) and replaces it with `***` in everything it prints —
+`run.ts` (`redactionFor`, `withRedactedOutput`) takes the exact userinfo of every URL
+argument (`credentialsIn`, exported; only a value that starts with a scheme counts, since a
+bare `a:b@c` is a search text or a User-Agent as often as a credential, except as the
+`--base-url` value, which is read as if it had one) and replaces it with `***` in
+everything it prints —
 commander's usage errors, which echo rejected values, and its own messages — so a
 password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one. The
 log replaces them in each record's *message*, before the record is cut and escaped, and

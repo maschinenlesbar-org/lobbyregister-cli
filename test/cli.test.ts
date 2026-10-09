@@ -4,7 +4,7 @@ import { run } from "../src/cli/run.js";
 import { LobbyregisterClient } from "../src/client/client.js";
 import type { CliDeps } from "../src/cli/io.js";
 import type { HttpRequest, HttpResponse } from "../src/client/http.js";
-import { LobbyNetworkError } from "../src/client/errors.js";
+import { LobbyNetworkError, credentialsIn } from "../src/client/errors.js";
 import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
 
 function makeCli(responder: (req: HttpRequest) => HttpResponse) {
@@ -472,4 +472,18 @@ test("credentials typed in a search term are replaced where a server echoes them
   const ok = makeCli(() => jsonResponse({ resultCount: 1, results: [{ note: "bob:hunter22 and hunter22" }] }));
   assert.equal(await run(["--compact", "search", "https://bob:hunter22@example.org"], ok.deps), 0);
   assert.match(ok.out.join("\n"), /"\*\*\* and hunter22"/);
+});
+
+test("an a:b@c argument (a search term, a User-Agent, a rejected value) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
+  const body = { resultCount: 1, results: [{ name: "run:2026-10-09@x" }] };
+  for (const argv of [["search", "run:2026-10-09@x"], ["--user-agent", "run:2026-10-09@x", "search", "Energie"]]) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["--compact", ...argv], cli.deps), 0);
+    assert.match(cli.out.join("\n"), /"name":"run:2026-10-09@x"/, argv.join(" "));
+  }
+  const typed = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["--timeout", "run:2026-10-09@x", "count"], typed.deps), 2);
+  assert.match(typed.err.join("\n"), /run:2026-10-09@x/);
+  assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
+  assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });
