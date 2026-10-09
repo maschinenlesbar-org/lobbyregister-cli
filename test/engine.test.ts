@@ -490,3 +490,10 @@ test("cleartextProblem: exact wording, host with port, loopback range, never the
   }
   assert.notEqual(cleartextProblem("http://128.0.0.1"), undefined);
 });
+
+test("a redirect target is quoted at most 200 characters long (L3)", async () => {
+  const long = "x".repeat(5000);
+  // A Location that is no valid URL is not followed; the error names it.
+  const e = new RequestEngine({ transport: async () => ({ status: 302, headers: { location: `http://[${long}` }, body: Buffer.alloc(0) }) });
+  await assert.rejects(e.getJson("/sucheJson"), (err: Error) => err.message.length < 400 && /redirect to http:\/\/\[x+… not followed/.test(err.message));
+});

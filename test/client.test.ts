@@ -206,3 +206,21 @@ test("resultCountMismatch names both numbers when resultCount and results disagr
   const mt = makeMockTransport(() => jsonResponse({ resultCount: 5, results: [{ id: "a" }] }));
   assert.equal(await clientWith(mt).count("Energie"), 5);
 });
+
+test("own messages quote a user's or the server's value at most 200 characters long (L3)", async () => {
+  const long = "x".repeat(5000);
+  const mt = constantJson({ resultCount: 0, results: [], searchParameters: { facets: [] } });
+  const client = clientWith(mt);
+  const bounded = (pattern: RegExp) => (err: unknown) =>
+    err instanceof LobbyError && err.message.length < 1200 && pattern.test(err.message);
+  await assert.rejects(client.search({ filters: [{ attribute: long, value: "true" }] }), bounded(/Unknown filter "x+…"/));
+  await assert.rejects(client.search({ filters: [{ attribute: "revolvingdoordata", value: `V${long}` }] }), bounded(/Unknown value "Vx+…"/));
+  await assert.rejects(client.search({ filters: [{ attribute: "revolvingdoordata", value: `${long}-` }] }), bounded(/got "x+…"/));
+  await assert.rejects(client.search({ [`k${long}`]: 1 } as never), bounded(/unknown key "kx+…"/));
+  // A filter the reply does not echo, sent with allowUnknownFilters.
+  await assert.rejects(
+    client.search({ filters: [{ attribute: "revolvingdoordata", value: `V${long}` }], allowUnknownFilters: true }),
+    bounded(/ignored the filter "revolvingdoordata=Vx+…"/),
+  );
+  assert.equal(mt.calls.length, 1, "only the last call reaches the transport");
+});

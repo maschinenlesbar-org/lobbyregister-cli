@@ -89,6 +89,20 @@ export function cutText(text: string, max: number): string {
   return text.slice(0, end);
 }
 
+/**
+ * The longest value (in characters) an own message quotes from a server answer or from
+ * the user's input: a redirect target, a filter, a parameter key, a sort order. A longer
+ * one is cut (`cutText`) and ends in "…", so a library caller's `err.message` stays
+ * bounded too.
+ */
+export const MAX_QUOTED_LENGTH = 200;
+
+/** `text` cut to `max` characters (default `MAX_QUOTED_LENGTH`), a cut marked with "…". */
+export function cutForMessage(text: string, max = MAX_QUOTED_LENGTH): string {
+  const cut = cutText(text, max);
+  return cut.length < text.length ? `${cut}…` : text;
+}
+
 function isHighSurrogate(c: number): boolean {
   return c >= 0xd800 && c <= 0xdbff;
 }
@@ -142,7 +156,7 @@ export class LobbyApiError extends LobbyError {
     if (args.status >= 300 && args.status < 400) {
       parts.push(
         args.location
-          ? `redirect to ${args.location} not followed`
+          ? `redirect to ${cutForMessage(args.location)} not followed`
           : "redirect not followed (no Location header)",
       );
     }

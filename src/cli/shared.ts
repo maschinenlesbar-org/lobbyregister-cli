@@ -7,7 +7,7 @@ import { logOf, type CliDeps } from "./io.js";
 import { DEFAULT_BASE_URL, baseUrlProblem, cleartextProblem, type EngineOptions } from "../client/engine.js";
 import { headerValueProblem, intInRangeProblem, nonEmptyProblem } from "../client/validate.js";
 import { SEARCH_FILTER_ATTRIBUTES, isKnownFilter, parseFilter, describeFilter, type SearchFilter } from "../client/filters.js";
-import { LobbyError } from "../client/errors.js";
+import { LobbyError, cutForMessage } from "../client/errors.js";
 
 /**
  * commander value-parser: a non-negative decimal integer.
@@ -125,7 +125,7 @@ export function unknownFilterNote(filters: readonly SearchFilter[] | undefined, 
   const unknown = filters.filter((f) => !isKnownFilter(f));
   if (unknown.length === 0) return undefined;
   return (
-    `no entry matched. ${unknown.map((f) => `--filter ${describeFilter(f)}`).join(", ")} ` +
+    `no entry matched. ${unknown.map((f) => `--filter ${cutForMessage(describeFilter(f))}`).join(", ")} ` +
     `${unknown.length === 1 ? "is" : "are"} not in this release's list of codes, and the register ` +
     "matches nothing for a value it doesn't know; check the spelling."
   );

@@ -6,7 +6,7 @@
 //   client.count("Energie")
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
-import { LobbyError, LobbyParseError, LobbyValidationError } from "./errors.js";
+import { LobbyError, LobbyParseError, LobbyValidationError, cutForMessage } from "./errors.js";
 import { describeFilter, filterQuery, ignoredFilters, ignoredSort, type SearchFilter } from "./filters.js";
 import type { QueryParams } from "./query.js";
 import type { SearchResult, SearchParams } from "./types.js";
@@ -101,7 +101,7 @@ function assertSearchParams(params: unknown): asserts params is SearchParams {
   if (unknown.length > 0) {
     throw new LobbyValidationError(
       `Invalid search parameters: unknown ${unknown.length === 1 ? "key" : "keys"} ` +
-        `${unknown.map((key) => JSON.stringify(key)).join(", ")}; search() takes ${SEARCH_PARAM_KEYS.join(", ")}. ` +
+        `${unknown.map((key) => JSON.stringify(cutForMessage(key))).join(", ")}; search() takes ${SEARCH_PARAM_KEYS.join(", ")}. ` +
         "An unknown key would be ignored and the result left unfiltered.",
     );
   }
@@ -188,7 +188,7 @@ export class LobbyregisterClient {
     const ignored = ignoredFilters(filters, result.searchParameters);
     if (ignored !== undefined && ignored.length > 0) {
       throw new LobbyError(
-        `The register ignored the filter ${ignored.map((f) => `"${describeFilter(f)}"`).join(", ")} ` +
+        `The register ignored the filter ${ignored.map((f) => `"${cutForMessage(describeFilter(f))}"`).join(", ")} ` +
           "(missing from searchParameters.facets in the reply), so the result would not be filtered.",
       );
     }

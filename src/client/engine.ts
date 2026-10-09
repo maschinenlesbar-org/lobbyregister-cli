@@ -19,7 +19,7 @@ import {
   LobbyParseError,
   LobbyValidationError,
   credentialsIn,
-  cutText,
+  cutForMessage,
   redactCredentials,
   redactUrl,
 } from "./errors.js";
@@ -175,7 +175,7 @@ const MAX_DETAIL_LENGTH = 500;
 /** sanitizeServerText, then cut at MAX_DETAIL_LENGTH characters (never inside a surrogate pair). */
 function cleanDetail(text: string): string {
   const clean = sanitizeServerText(text);
-  return clean.length > MAX_DETAIL_LENGTH ? `${cutText(clean, MAX_DETAIL_LENGTH)}…` : clean;
+  return cutForMessage(clean, MAX_DETAIL_LENGTH);
 }
 
 /**

@@ -4,6 +4,7 @@ import type { SearchResult } from "../../client/types.js";
 import type { SearchFilter } from "../../client/filters.js";
 import { describeFilter } from "../../client/filters.js";
 import { resultCountMismatch } from "../../client/client.js";
+import { cutForMessage } from "../../client/errors.js";
 import {
   ALLOW_UNKNOWN_FILTERS_HELP,
   FILTER_HELP,
@@ -94,7 +95,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         if (sortIgnored !== undefined) {
           logOf(deps).warn(
             "api",
-            `the API did not apply --sort ${JSON.stringify(sortIgnored.requested)} and sorted by ` +
+            `the API did not apply --sort ${JSON.stringify(cutForMessage(sortIgnored.requested))} and sorted by ` +
               `${sortIgnored.applied} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
               "(see search --help).",
           );
