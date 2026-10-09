@@ -215,15 +215,20 @@ export interface ActionContext {
   command: Command;
 }
 
+/** What a command's `check` sees: its options and the commander command. */
+export type CheckContext = Pick<ActionContext, "opts" | "command">;
+
 /**
  * Wrap an async command action with consistent global-option resolution and
  * client construction. The callback receives a context (client + resolved global
  * options + this command's options) and the command's positional arguments.
  *
- * Before the client is built (so before the first request) it logs one
+ * `check`, when given, runs first: the command's own usage checks and the library's
+ * check of what it is about to send (`searchQuery`), which throw before any request.
+ * Only then, before the client is built (so before the first request), it logs one
  * warning (`lobbyregister.http`) when the base URL is plain `http:` to a host
- * other than loopback (cleartextProblem). Help, version and usage errors never reach
- * an action, so they never warn.
+ * other than loopback (cleartextProblem). Help, version and usage errors — commander's
+ * and those `check` finds — never get that far, so they never warn.
  *
  * Commander invokes actions as (arg1, ..., argN, options, command); we slice off
  * the trailing options object and command instance to recover the positionals.
@@ -231,11 +236,13 @@ export interface ActionContext {
 export function action(
   deps: CliDeps,
   fn: (ctx: ActionContext, positionals: string[]) => Promise<void>,
+  check?: (ctx: CheckContext, positionals: string[]) => void,
 ): (...args: unknown[]) => Promise<void> {
   return async (...args: unknown[]) => {
     const command = args[args.length - 1] as Command;
     const positionals = args.slice(0, Math.max(0, args.length - 2)) as string[];
     const global = command.optsWithGlobals() as GlobalOptions;
+    check?.({ opts: command.opts(), command }, positionals);
     const cleartext = cleartextProblem(global.baseUrl ?? DEFAULT_BASE_URL);
     if (cleartext !== undefined) logOf(deps).warn("http", cleartext);
     const client = deps.createClient(toEngineOptions(global));

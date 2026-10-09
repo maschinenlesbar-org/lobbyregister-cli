@@ -1,14 +1,15 @@
 import type { Command } from "commander";
 import { logOf, type CliDeps } from "../io.js";
-import type { SearchResult } from "../../client/types.js";
+import type { SearchParams, SearchResult } from "../../client/types.js";
 import type { SearchFilter } from "../../client/filters.js";
 import { describeFilter, sortOrderForMessage } from "../../client/filters.js";
-import { resultCountMismatch } from "../../client/client.js";
+import { resultCountMismatch, searchQuery } from "../../client/client.js";
 import { cutForMessage } from "../../client/errors.js";
 import {
   ALLOW_UNKNOWN_FILTERS_HELP,
   FILTER_HELP,
   action,
+  type CheckContext,
   collectFilter,
   once,
   parseBoundedInt,
@@ -34,6 +35,47 @@ const SORT_HELP =
 function sortOrderOf(result: SearchResult): string | undefined {
   const order = result.searchParameters?.["sortOrder"];
   return typeof order === "string" ? order : undefined;
+}
+
+/** What `search` asks the client for: its options as `SearchParams`. */
+function searchParamsOf(opts: Record<string, unknown>, query: string | undefined): SearchParams {
+  return {
+    q: query,
+    page: opts["page"] as number | undefined,
+    pageSize: opts["pageSize"] as number | undefined,
+    sort: opts["sort"] as string | undefined,
+    filters: opts["filter"] as SearchFilter[] | undefined,
+    ...(opts["allowUnknownFilters"] === true ? { allowUnknownFilters: true } : {}),
+  };
+}
+
+/** What `count` asks the client for: the query and its filters as `SearchParams`. */
+function countParamsOf(opts: Record<string, unknown>, query: string | undefined): SearchParams {
+  const filters = opts["filter"] as SearchFilter[] | undefined;
+  return {
+    ...(query !== undefined ? { q: query } : {}),
+    ...(filters !== undefined ? { filters } : {}),
+    ...(opts["allowUnknownFilters"] === true ? { allowUnknownFilters: true } : {}),
+  };
+}
+
+/**
+ * `search`'s checks before any request (and so before the cleartext warning): `--page`
+ * needs `--page-size`, then the library's check of what it would send (`searchQuery`).
+ */
+function checkSearch({ opts, command }: CheckContext, [query]: string[]): void {
+  // `--page` alone has no meaning: paging is a client-side slice, and an
+  // offset cannot be computed without a page size. Reject it as a usage
+  // error instead of silently returning the whole result set. commander's own
+  // usage errors start with "error: " (command.error() writes the message as
+  // given), and that prefix is what makes it the ERROR record of `cli`.
+  if (opts["page"] !== undefined && opts["pageSize"] === undefined) {
+    command.error("error: --page requires --page-size.", {
+      exitCode: 2,
+      code: "lobbyregister.pageWithoutPageSize",
+    });
+  }
+  searchQuery(searchParamsOf(opts, query));
 }
 
 export function registerSearchCommands(program: Command, deps: CliDeps): void {
@@ -67,29 +109,10 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         FILTER_HELP,
     )
     .action(
-      action(deps, async ({ client, global, opts, command }, [query]) => {
-        const page = opts["page"] as number | undefined;
+      action(deps, async ({ client, global, opts }, [query]) => {
         const pageSize = opts["pageSize"] as number | undefined;
-        // `--page` alone has no meaning: paging is a client-side slice, and an
-        // offset cannot be computed without a page size. Reject it as a usage
-        // error instead of silently returning the whole result set. commander's own
-        // usage errors start with "error: " (command.error() writes the message as
-        // given), and that prefix is what makes it the ERROR record of `cli`.
-        if (page !== undefined && pageSize === undefined) {
-          command.error("error: --page requires --page-size.", {
-            exitCode: 2,
-            code: "lobbyregister.pageWithoutPageSize",
-          });
-        }
         const filters = opts["filter"] as SearchFilter[] | undefined;
-        const { sortIgnored, ...result } = await client.search({
-          q: query,
-          page,
-          pageSize,
-          sort: opts["sort"] as string | undefined,
-          filters,
-          ...(opts["allowUnknownFilters"] === true ? { allowUnknownFilters: true } : {}),
-        });
+        const { sortIgnored, ...result } = await client.search(searchParamsOf(opts, query));
         // The client slices the page out of the full result set (the live
         // `/sucheJson` endpoint ignores paging and returns every match). The
         // envelope is printed as the API sent it; the client's `sortIgnored`
@@ -117,7 +140,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
             );
           }
         }
-      }),
+      }, checkSearch),
     );
 
   program
@@ -141,11 +164,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         const filters = opts["filter"] as SearchFilter[] | undefined;
         // What client.count() does (the same request, the same checks), keeping the
         // envelope so a resultCount that disagrees with the results can be named.
-        const result = await client.search({
-          ...(query !== undefined ? { q: query } : {}),
-          ...(filters !== undefined ? { filters } : {}),
-          ...(opts["allowUnknownFilters"] === true ? { allowUnknownFilters: true } : {}),
-        });
+        const result = await client.search(countParamsOf(opts, query));
         const resultCount = result.resultCount;
         renderJson(deps, global, {
           query: query ?? null,
@@ -156,6 +175,9 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         if (mismatch !== undefined) logOf(deps).warn("api", mismatch);
         const note = unknownFilterNote(filters, resultCount);
         if (note !== undefined) logOf(deps).info("api", note);
+      }, ({ opts }, [query]) => {
+        // The library's check of what count would send, before any request.
+        searchQuery(countParamsOf(opts, query));
       }),
     );
 }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LobbyregisterClient, resultCountMismatch } from "../src/client/client.js";
+import { LobbyregisterClient, resultCountMismatch, searchQuery } from "../src/client/client.js";
 import {
   LobbyApiError,
   LobbyError,
@@ -223,4 +223,19 @@ test("own messages quote a user's or the server's value at most 200 characters l
     bounded(/ignored the filter "revolvingdoordata=Vx+…"/),
   );
   assert.equal(mt.calls.length, 1, "only the last call reaches the transport");
+});
+
+test("searchQuery checks params as search() does and gives the query it sends, without a request (B02-2)", async () => {
+  assert.deepEqual(searchQuery({ q: "Energie", sort: "NAME_ASC", filters: [{ attribute: " RevolvingDoorData ", value: "TRUE" }] }), {
+    "filter[revolvingdoordata][true]": "true",
+    q: "Energie",
+    sort: "NAME_ASC",
+  });
+  assert.deepEqual(searchQuery(), {});
+  for (const bad of [{ q: " " }, { page: 2 }, { filters: [{ attribute: "revolvingdoordata", value: "maybe" }] }, { bogus: 1 }]) {
+    assert.throws(() => searchQuery(bad as never), LobbyValidationError, JSON.stringify(bad));
+  }
+  const mt = constantJson({ resultCount: 0, results: [] });
+  await clientWith(mt).search({ q: "Energie", sort: "NAME_ASC" });
+  assert.deepEqual(Object.fromEntries(new URL(mt.last().url).searchParams), searchQuery({ q: "Energie", sort: "NAME_ASC" }));
 });

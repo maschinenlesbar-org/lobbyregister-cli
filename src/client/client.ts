@@ -127,6 +127,31 @@ function slicePage(result: SearchResult, page: number | undefined, pageSize: num
   return { ...result, results: result.results.slice(start, start + pageSize) };
 }
 
+/**
+ * The query `search()` sends for `params`, checked exactly as `search()` checks them:
+ * throws `LobbyValidationError` for anything `search()` would reject before a request
+ * (an unknown key, a blank `q` or `sort`, a bad `page`/`pageSize`, an unknown or
+ * malformed filter unless `allowUnknownFilters`). It makes no request, so a caller can
+ * check its input first; the CLI does, so a usage error is never preceded by the
+ * cleartext warning it logs before the first request.
+ */
+export function searchQuery(params: SearchParams = {}): QueryParams {
+  assertSearchParams(params);
+  if (params.q !== undefined) assertValid("q", params.q, nonEmptyProblem);
+  if (params.sort !== undefined) assertValid("sort", params.sort, nonEmptyProblem);
+  assertPageNumber("page", params.page);
+  assertPageNumber("pageSize", params.pageSize);
+  if (params.page !== undefined && params.pageSize === undefined) {
+    throw new LobbyValidationError(
+      "Invalid page: page needs pageSize (the client slices the full result set into pages).",
+    );
+  }
+  const query: QueryParams = filterQuery(params.filters ?? [], { allowUnknown: params.allowUnknownFilters });
+  if (params.q !== undefined) query["q"] = params.q;
+  if (params.sort !== undefined) query["sort"] = params.sort;
+  return query;
+}
+
 export class LobbyregisterClient {
   // A real private field: util.inspect, console.log and JSON.stringify of a client
   // never show the engine, and so never the base URL or a header a caller added.
@@ -169,20 +194,8 @@ export class LobbyregisterClient {
    * `ignoredSort`); the data is still returned.
    */
   async search(params: SearchParams = {}): Promise<SearchResult> {
-    assertSearchParams(params);
-    if (params.q !== undefined) assertValid("q", params.q, nonEmptyProblem);
-    if (params.sort !== undefined) assertValid("sort", params.sort, nonEmptyProblem);
-    assertPageNumber("page", params.page);
-    assertPageNumber("pageSize", params.pageSize);
-    if (params.page !== undefined && params.pageSize === undefined) {
-      throw new LobbyValidationError(
-        "Invalid page: page needs pageSize (the client slices the full result set into pages).",
-      );
-    }
+    const query = searchQuery(params);
     const filters = params.filters ?? [];
-    const query: QueryParams = filterQuery(filters, { allowUnknown: params.allowUnknownFilters });
-    if (params.q !== undefined) query["q"] = params.q;
-    if (params.sort !== undefined) query["sort"] = params.sort;
     const result = await this.#engine.getJson<unknown>(PATH, query);
     assertSearchResult(result);
     const ignored = ignoredFilters(filters, result.searchParameters);

@@ -560,3 +560,23 @@ test("a malformed answer, and a filter the reply does not echo, are ERROR record
     assert.match(untimed(cli.err[0] ?? ""), /^ERROR \[lobbyregister\.api\] /, cli.err.join("\n"));
   }
 });
+
+test("a usage error found before any request logs no cleartext WARN (B02-2)", async () => {
+  const cases = [
+    ["search", "Energie", "--page", "2"],
+    ["search", "Energie", "--filter", "revolvingdoordata=maybe"],
+    ["count", "--filter", "nosuchattribute=true"],
+    ["search", "Energie", "--filter", "revolvingdoordata=true", "--filter", "fieldsofinterest=FOI_NOPE"],
+  ];
+  for (const argv of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["--base-url", "http://mirror.example", ...argv], cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, argv.join(" "));
+    assert.ok(!cli.err.some((line) => line.includes("[lobbyregister.http]")), `${argv.join(" ")}:\n${cli.err.join("\n")}`);
+    assert.match(untimed(cli.err[0] ?? ""), /^ERROR \[lobbyregister\.cli\] /, argv.join(" "));
+  }
+  // A run that does send a request still warns, once, before it.
+  const sent = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["--base-url", "http://mirror.example", "search", "Energie", "--filter", "revolvingdoordata=true"], sent.deps), 0);
+  assert.equal(sent.err.filter((line) => line.includes("WARN  [lobbyregister.http]")).length, 1, sent.err.join("\n"));
+});

@@ -149,7 +149,9 @@ a value, add it; until a release has it, `search({ ..., allowUnknownFilters: tru
 (CLI: `--allow-unknown-filters`) lifts both checks, and the CLI then notes on stderr
 when a reply of 0 follows a code it didn't know (`isKnownFilter`). The CLI's `--filter`
 parser checks only the syntax and leaves the catalogue check to the client, so the
-flag works wherever it stands. `search()` also rejects a parameter key it doesn't take
+flag works wherever it stands. `searchQuery(params)` (exported) runs exactly these checks and returns the query
+`search()` would send, without a request; the CLI calls it before it logs the cleartext
+warning, so a usage error is never preceded by that warning. `search()` also rejects a parameter key it doesn't take
 (`{ filter: … }`, `{ revolvingdoordata: "true" }`, `__proto__`), which it used to ignore
 and so return the whole register. The CLI's single-value options (`--sort`, `--page`,
 `--page-size` and the global ones) may be given only once. On the reply the client also checks that `searchParameters.facets` echoes
@@ -369,7 +371,7 @@ npm test          # builds, then runs `node --test` over dist/test
   attributes, values and repeated flags). The follow-up round of 2026-10-06 added P20
   (`conformance-p20-cleartext-warning`: a remote plain `http:` base URL gets one `WARN`
   record of `lobbyregister.http` on stderr from the library's `cleartextProblem`, printed by `action()` in `shared.ts`
-  before the client is built; no base-URL variable and no secret here, so those two cases
+  after the command's checks (so never before a usage error) and before the client is built; no base-URL variable and no secret here, so those two cases
   are skipped, and so is the credentials case, since a base URL with credentials is a usage
   error here — a lobbyregister case at the end checks that instead) and P21 (`conformance-p21-readme-links`: every relative link in `README.md`
   points to a file `package.json` `files` ships, since npmjs.com shows the README; other
