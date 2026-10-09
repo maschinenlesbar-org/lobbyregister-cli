@@ -374,7 +374,13 @@ npm test          # builds, then runs `node --test` over dist/test
   error here — a lobbyregister case at the end checks that instead) and P21 (`conformance-p21-readme-links`: every relative link in `README.md`
   points to a file `package.json` `files` ships, since npmjs.com shows the README; other
   documents are linked by their GitHub URL). P23 (`conformance-p23-log-format`, 2026-10-09)
-  checks that every stderr line is a log record and `--log-format text|jsonl`.
+  checks that every stderr line is a log record and `--log-format text|jsonl`, and since the
+  fix plan of the 2026-10-09 sweep that a record is one line with nothing raw, well-formed
+  and bounded, a secret is replaced in the message only, commander's help is one record per
+  line, every failure has an ERROR, the format is commander's, a malformed answer is `api`
+  and an `a:b@c` value is no credential. Its adapter sets `BASE_URL_USERINFO = false` (a
+  base URL with userinfo is a usage error here, so the echoed-credentials check skips) and
+  `OUTPUT_OPTION = undefined` (no `-o`).
 
 ## Continuous integration
 
