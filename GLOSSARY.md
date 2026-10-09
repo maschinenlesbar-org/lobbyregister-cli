@@ -154,6 +154,15 @@ back `resultCount`; the API has no count-only mode, so it downloads every matchi
 record, just like `search`. Takes the optional query, `--filter` and
 the global options.
 
+**Log record.** Every diagnostic line the CLI writes to stderr: a timestamp, a level
+(`ERROR`, `WARN`, `INFO`) and a topic `lobbyregister.<area>`, as text (log4j style) or with
+`--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
+commander's messages, unexpected errors), `api` (the API's answers and the notes on them:
+an error status, a malformed answer — bad JSON, the wrong shape or content type —, a filter
+the reply did not echo, the ignored `--sort`, relevance-order paging), `http` (the
+connection, the cleartext warning) and `output` (a failed write to stdout). A record is
+always one line; control characters in it are escaped.
+
 ---
 
 ## Exit codes

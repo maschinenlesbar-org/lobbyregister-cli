@@ -52,7 +52,7 @@ test("run() maps a LobbyValidationError from an action to exit 2 and an ERROR re
   assert.equal(mt.calls.length, 0);
 });
 
-test("run() keeps exit 1 for a plain LobbyError", async () => {
+test("run() keeps exit 1 for a plain LobbyError, an ERROR of lobbyregister.api", async () => {
   const err: string[] = [];
   const deps: CliDeps = {
     io: { out: () => {}, err: (s) => err.push(s) },
@@ -71,7 +71,9 @@ test("run() keeps exit 1 for a plain LobbyError", async () => {
     },
   };
   assert.equal(await run(["count"], deps), 1);
-  assert.deepEqual(err.map(untimed), ["ERROR [lobbyregister.cli] boom"]);
+  // The library's plain LobbyError is the register's answer not matching the request (a
+  // filter it did not echo): `api`, like a malformed answer (2026-10-09, L9).
+  assert.deepEqual(err.map(untimed), ["ERROR [lobbyregister.api] boom"]);
 });
 
 test("parity() sends the same input through the CLI and the library on one transport", async () => {

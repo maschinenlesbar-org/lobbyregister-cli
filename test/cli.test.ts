@@ -545,3 +545,18 @@ test("a parse error is logged in the format commander would have parsed (L6)", a
     assert.ok(cli.err.length > 0 && cli.err.every((line) => isJsonl(line) === jsonl), `${argv.join(" ")}:\n${cli.err.join("\n")}`);
   }
 });
+
+test("a malformed answer, and a filter the reply does not echo, are ERROR records of lobbyregister.api (L9)", async () => {
+  const answers: HttpResponse[] = [
+    rawResponse("<html>not json</html>", "application/json"),
+    rawResponse("<!doctype html><html>a proxy</html>", "text/html"),
+    jsonResponse([]),
+    jsonResponse({ resultCount: "1", results: [] }),
+    jsonResponse({ resultCount: 0, results: [], searchParameters: { facets: [] } }),
+  ];
+  for (const answer of answers) {
+    const cli = makeCli(() => answer);
+    assert.equal(await run(["count", "--filter", "revolvingdoordata=true"], cli.deps), 1);
+    assert.match(untimed(cli.err[0] ?? ""), /^ERROR \[lobbyregister\.api\] /, cli.err.join("\n"));
+  }
+});

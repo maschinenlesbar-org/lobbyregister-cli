@@ -159,6 +159,16 @@ und `--filter` (siehe oben).
 alle passenden Einträge herunter. Nimmt den optionalen Suchbegriff, `--filter`
 und die globalen Optionen entgegen.
 
+**Log-Eintrag (log record).** Jede Diagnosezeile, die die CLI nach stderr schreibt: ein
+Zeitstempel, eine Stufe (`ERROR`, `WARN`, `INFO`) und ein Thema `lobbyregister.<Bereich>`,
+als Text (im Stil von log4j) oder mit `--log-format jsonl` als ein JSON-Objekt pro Zeile.
+Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `api` (die
+Antworten der API und die Hinweise dazu: ein Fehlerstatus, eine fehlerhafte Antwort —
+ungültiges JSON, die falsche Form oder der falsche Inhaltstyp —, ein Filter, den die Antwort
+nicht bestätigt, das ignorierte `--sort`, das Blättern in Relevanz-Reihenfolge), `http` (die
+Verbindung, die Klartext-Warnung) und `output` (ein Schreibfehler auf stdout). Ein Eintrag
+ist immer eine Zeile; Steuerzeichen darin werden maskiert.
+
 ---
 
 ## Exit-Codes

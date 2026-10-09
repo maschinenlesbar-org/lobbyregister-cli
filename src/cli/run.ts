@@ -257,7 +257,10 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       return USAGE_ERROR_EXIT_CODE;
     }
     if (err instanceof LobbyError) {
-      log.error(err instanceof LobbyNetworkError ? "http" : "cli", err.message);
+      // The rest is about the API's answer as much as an error status is, so `api`: a
+      // malformed answer (a LobbyParseError: bad JSON, the wrong shape or content type,
+      // an unknown charset) and a filter the reply did not echo (the register ignored it).
+      log.error(err instanceof LobbyNetworkError ? "http" : "api", err.message);
       return 1;
     }
     log.error("cli", `Unexpected error: ${err instanceof Error ? err.message : String(err)}`);
