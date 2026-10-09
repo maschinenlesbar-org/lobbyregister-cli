@@ -160,7 +160,7 @@ the global options.
 commander's messages, unexpected errors), `api` (the API's answers and the notes on them:
 an error status, a malformed answer — bad JSON, the wrong shape or content type —, a filter
 the reply did not echo, the ignored `--sort`, relevance-order paging), `http` (the
-connection, the cleartext warning) and `output` (a failed write to stdout). A record is
+connection, the cleartext warning, and one WARN per retry before it waits) and `output` (a failed write to stdout). A record is
 always one line; control characters in it are escaped.
 
 ---

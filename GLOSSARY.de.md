@@ -166,7 +166,7 @@ Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler),
 Antworten der API und die Hinweise dazu: ein Fehlerstatus, eine fehlerhafte Antwort —
 ungültiges JSON, die falsche Form oder der falsche Inhaltstyp —, ein Filter, den die Antwort
 nicht bestätigt, das ignorierte `--sort`, das Blättern in Relevanz-Reihenfolge), `http` (die
-Verbindung, die Klartext-Warnung) und `output` (ein Schreibfehler auf stdout). Ein Eintrag
+Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten) und `output` (ein Schreibfehler auf stdout). Ein Eintrag
 ist immer eine Zeile; Steuerzeichen darin werden maskiert.
 
 ---

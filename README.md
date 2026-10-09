@@ -254,7 +254,7 @@ These apply to every command and may be given before *or* after it:
 | `--base-url <url>` | API base URL (default `https://www.lobbyregister.bundestag.de`); http(s) only, given once. A user name or password in it is a usage error (exit `2`; the API needs no credentials, and the message never repeats them). A plain `http:` URL to a host other than loopback (`localhost`, `127.0.0.0/8`, `::1`) logs one `WARN` record of `lobbyregister.http` (`requests to <host> are sent unencrypted (http:, not https:)`) on stderr before the first request; stdout and the exit code are unchanged |
 | `--timeout <ms>` | Time limit per request, reading the whole response included (default `30000`) |
 | `--user-agent <ua>` | `User-Agent` header value (default `lobbyregister-cli`; not blank, no control characters, Latin-1 only) |
-| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (default `2`); each waits 200 ms × attempt, or the server's `Retry-After` when that is longer (up to 60 s). A timeout is not retried |
+| `--max-retries <n>` | Retries for transient `429`/`503` responses and reset connections (default `2`); each waits 200 ms × attempt, or the server's `Retry-After` when that is longer (up to 60 s). A timeout is not retried. Each retry logs one WARN record of `lobbyregister.http` before it waits (`HTTP 503 from host: retry 1 of 3 in 2 s`) |
 | `--max-redirects <n>` | HTTP redirects to follow (`0` = none; default `5`) |
 | `--max-response-bytes <n>` | Cap response body size in bytes (`0` = unlimited; default 100 MiB) |
 

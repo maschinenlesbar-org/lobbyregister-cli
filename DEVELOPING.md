@@ -278,6 +278,13 @@ way, with the linear backoff (`isTransientNetworkError`: `ECONNRESET`/`EPIPE`/
 `GET`/`HEAD` only); a refused connection, a DNS failure and a timeout are not retried.
 `LobbyApiError` exposes `isRetryable`.
 
+Each retry is announced: the engine option `onRetry(event: RetryEvent)` (exported type:
+`{ retry` (1-based), `maxRetries`, `delayMs`, `status?` (absent for a reset), `url` (userinfo
+redacted) `}`) is called once per retry right before the sleep, never when there is none, and
+a throw in it is swallowed. The CLI's `action()` sets it to log one `WARN` record of
+`lobbyregister.http`, `HTTP 503 from <host>: retry 1 of 3 in 2 s` (`retryMessage`; host only,
+whole seconds, ms under 1 s). Tests: `test/retry-log.test.ts`.
+
 **maxResponseBytes.** A hard cap on response body size (default 100 MiB; `0` =
 unlimited) guarding against memory exhaustion from a hostile or buggy endpoint.
 CLI: `--max-response-bytes`. The default transport aborts as soon as the cap is
