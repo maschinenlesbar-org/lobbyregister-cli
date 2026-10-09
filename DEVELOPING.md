@@ -242,7 +242,8 @@ type first: a wrong-typed input — `search({ q: 123 })`, `filters` that is not 
 `count({ q: "Energie" })`, a string `transport`, a numeric `sleep`, `page: "2"` — is a
 `LobbyValidationError` too, never a raw `TypeError`; `null` client options mean none.
 Server text in a message (an error `detail`, a transport's error text, a redirect
-target) is cut at 500 characters; `LobbyApiError.body` keeps it all.
+target) is cut at 500 characters, never inside a surrogate pair (`cutText`), so the
+message stays well-formed; `LobbyApiError.body` keeps it all.
 
 **Retry / backoff.** Transient `429` (rate-limited) and `503` responses are
 retried automatically, with a linear backoff (`retryDelayMs * attempt`). A
@@ -414,7 +415,9 @@ and `msg`. A record is always one line: `formatLogRecord` runs `escapeForRecord`
 the message (text) or the whole JSON object (jsonl), which writes CR and LF as `\r`/`\n`,
 every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
 controls as `\uXXXX`, so no text that reaches a record, by whatever path, can split it,
-forge another one or steer the terminal. The library's error messages keep a server's line
+forge another one or steer the terminal. Before that a lone surrogate (half a
+character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellFormed`).
+The library's error messages keep a server's line
 breaks (`sanitizeServerText` strips only the other controls); the record escapes them. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter) and `http` (the connection, the cleartext warning). The `Output error:` line `handleOutputErrors` writes when stdout itself fails stays plain. Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly. `run()` builds the logger from argv before commander parses it,
 so commander's own usage errors are records too, and on top of the redacted `io.err`, so

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine, cleartextProblem, parseRetryAfter } from "../src/client/engine.js";
-import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError } from "../src/client/errors.js";
+import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError, cutText, toWellFormed } from "../src/client/errors.js";
 import {
   makeMockTransport,
   jsonResponse,
@@ -439,6 +439,23 @@ test("a long server detail is cut at 500 characters in the message; the body kee
     (err: unknown) =>
       err instanceof LobbyApiError && err.message.length < 1000 && err.detail?.length === 501 && err.body.length > 200_000,
   );
+});
+
+test("cutText never cuts inside a surrogate pair; toWellFormed replaces half a character", () => {
+  assert.equal(cutText("ab\u{1f600}cd", 3), "ab");
+  assert.equal(cutText("ab\u{1f600}cd", 4), "ab\u{1f600}");
+  assert.equal(cutText("short", 10), "short");
+  assert.equal(toWellFormed("a\ud83d b\ude00 \u{1f600}"), "a\ufffd b\ufffd \u{1f600}");
+});
+
+test("a server detail cut at 500 characters keeps the message well-formed", async () => {
+  // "a" first, so the 500th unit is the high half of an emoji.
+  const mt = makeMockTransport(() => jsonResponse({ detail: "a" + "\u{1f600}".repeat(400) }, 500));
+  const e = new RequestEngine({ transport: mt.transport, maxRetries: 0 });
+  const err = await e.getJson("/x").catch((caught: unknown) => caught);
+  assert.ok(err instanceof LobbyApiError);
+  assert.equal(toWellFormed(err.message), err.message);
+  assert.match(err.message, /…$/);
 });
 
 test("a redirect to the register's error page is reported as a rejected request, not followed (01#1)", async () => {
