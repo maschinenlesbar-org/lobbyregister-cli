@@ -459,3 +459,17 @@ test("the register's sortOrder is quoted clean, on one line and cut, in the sort
     assert.equal(cli.err.filter((line) => line.includes("forged")).length, sortOrder.includes("forged") ? 1 : 0);
   }
 });
+
+test("credentials typed in a search term are replaced where a server echoes them without the @ (L13)", async () => {
+  // The register needs no credentials, but a URL typed as a search term carries its userinfo
+  // into the query; a server that echoes it back decoded, without the "@", was printed whole.
+  const cli = makeCli(() => jsonResponse({ detail: "query bob:hunter22 rejected; password hunter22" }, 500));
+  assert.equal(await run(["search", "https://bob:hunter22@example.org"], cli.deps), 1);
+  const all = cli.err.join("\n");
+  assert.match(all, /rejected/);
+  assert.ok(!all.includes("hunter22"), all);
+  // stdout keeps a bare password (it may well occur in the data); the decoded pair is replaced there too.
+  const ok = makeCli(() => jsonResponse({ resultCount: 1, results: [{ note: "bob:hunter22 and hunter22" }] }));
+  assert.equal(await run(["--compact", "search", "https://bob:hunter22@example.org"], ok.deps), 0);
+  assert.match(ok.out.join("\n"), /"\*\*\* and hunter22"/);
+});

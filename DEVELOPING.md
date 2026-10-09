@@ -90,7 +90,10 @@ commander's usage errors, which echo rejected values, and its own messages — s
 password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one. The
 log replaces them in each record's *message*, before the record is cut and escaped, and
 writes it to the raw stderr: the frame (time, level, topic) is never touched, and a
-password with DEL, C1 or bidi characters is matched in its raw form.
+password with DEL, C1 or bidi characters is matched in its raw form. The forms a server
+echoes a userinfo back in are replaced too (`echoedCredentialForms`): the `Basic` value and
+the decoded `user:password` on stdout and stderr, the password alone (4 characters or more)
+on stderr only, since it may well occur in the data.
 `redactUrl` (exported) masks the userinfo of a URL and falls back to the same
 text-based cut (`redactCredentials`, exported) for a value that doesn't parse.
 
