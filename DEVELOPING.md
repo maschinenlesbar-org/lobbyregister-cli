@@ -84,10 +84,13 @@ A base URL with a user name or password is rejected (`baseUrlProblem`, so the li
 `LobbyValidationError` and the CLI's usage error, exit 2): the register needs no
 credentials, the engine never sent them, and accepting them only looked as if they were
 used. The validation reasons never repeat a base URL. The CLI also redacts on output:
-`run.ts` (`withRedactedOutput`) takes the exact userinfo of every argument
+`run.ts` (`redactionFor`, `withRedactedOutput`) takes the exact userinfo of every argument
 (`credentialsIn`, exported) and replaces it with `***` in everything it prints —
 commander's usage errors, which echo rejected values, and its own messages — so a
-password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one.
+password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one. The
+log replaces them in each record's *message*, before the record is cut and escaped, and
+writes it to the raw stderr: the frame (time, level, topic) is never touched, and a
+password with DEL, C1 or bidi characters is matched in its raw form.
 `redactUrl` (exported) masks the userinfo of a URL and falls back to the same
 text-based cut (`redactCredentials`, exported) for a value that doesn't parse.
 
@@ -431,7 +434,8 @@ code point and ends in `… (N more characters)`.
 The library's error messages keep a server's line
 breaks (`sanitizeServerText` strips only the other controls); the record escapes them. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter) and `http` (the connection, the cleartext warning). The `Output error:` line `handleOutputErrors` writes when stdout itself fails stays plain. Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly. `run()` builds the logger from argv before commander parses it,
-so commander's own usage errors are records too, and on top of the redacted `io.err`, so
-a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
+so commander's own usage errors are records too, and with the run's redaction
+(`withRedactedOutput`), which replaces a secret in the message only, before it is
+escaped: the frame is never touched, and a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
 testable. stdout carries data only. Conformance test P23 checks all of this, and its
 body is shared across the *-cli repos.
