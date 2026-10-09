@@ -333,6 +333,8 @@ npm test          # builds, then runs `node --test` over dist/test
 - **`client.test.ts`** — the search URL/param mapping, blank-query and blank-sort rejection and the `count` helper — mocked transport.
 - **`validate.test.ts`** — `assertValid`, the `LobbyValidationError` -> exit `2` mapping, and the `parity()` helper (`test/helpers.ts`), which sends one input through `run()` and through the library on one recording mock transport.
 - **`parity.test.ts`** — CLI <-> library parity: each input runs through the CLI and the library on one mock transport, and both must reject before any request or send the identical request.
+- **`log.test.ts`** — the record helpers of `src/cli/log.ts` on their own
+  (`escapeForRecord`, `formatLogRecord`); the CLI-level checks are P23's.
 - **`cli.test.ts`** — command parsing, `--page`/`--sort`/`--results-only` passthrough, `count`, and exit codes (404, 400-with-hint, network and parse errors) — mocked client.
 - **`conformance-p*.test.ts`** — the shared checks of the 2026-10-05 fix patterns, the same
   files in every maschinenlesbar.org CLI with only the adapter block at the top changed:
@@ -408,7 +410,12 @@ Every diagnostic line on stderr is a log record (`src/cli/log.ts`): a timestamp,
 (`ERROR`, `WARN`, `INFO`) and a topic, `lobbyregister.<area>`. `--log-format text` (the default)
 writes it log4j style, `<ISO 8601 UTC> <LEVEL padded to 5> [<topic>] <message>`;
 `--log-format jsonl` writes one JSON object per line with exactly `ts`, `level`, `topic`
-and `msg`. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter) and `http` (the connection, the cleartext warning). The `Output error:` line `handleOutputErrors` writes when stdout itself fails stays plain. Code logs through `logOf(deps)` and never writes diagnostics
+and `msg`. A record is always one line: `formatLogRecord` runs `escapeForRecord` over
+the message (text) or the whole JSON object (jsonl), which writes CR and LF as `\r`/`\n`,
+every other C0 control but TAB, DEL and C1 as `\u00XX`, and U+2028, U+2029 and the bidi
+controls as `\uXXXX`, so no text that reaches a record, by whatever path, can split it,
+forge another one or steer the terminal. The library's error messages keep a server's line
+breaks (`sanitizeServerText` strips only the other controls); the record escapes them. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter) and `http` (the connection, the cleartext warning). The `Output error:` line `handleOutputErrors` writes when stdout itself fails stays plain. Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly. `run()` builds the logger from argv before commander parses it,
 so commander's own usage errors are records too, and on top of the redacted `io.err`, so
 a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
