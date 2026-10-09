@@ -13,6 +13,7 @@ import type { HttpRequest, HttpResponse, Transport } from "../src/client/http.js
 import {
   SEARCH_FILTER_ATTRIBUTES,
   ignoredSort,
+  sortOrderForMessage,
   knownFilterAttributeProblem,
   normaliseFilter,
   parseFilter,
@@ -329,4 +330,12 @@ test("parity: an accepted base URL sends the same request on both sides", async 
     const r = await parity(["--base-url", baseUrl, "count", "x"], (t) => new LobbyregisterClient({ baseUrl, transport: t }).count("x"));
     assertSameRequests(r.cli, r.lib, baseUrl);
   }
+});
+
+test("sortOrderForMessage: a sort order from the reply, clean, on one line and cut (B01-1)", () => {
+  assert.equal(sortOrderForMessage("RELEVANCE_DESC"), "RELEVANCE_DESC");
+  assert.equal(sortOrderForMessage("A\n  B\r\tC"), "A B C");
+  assert.equal(sortOrderForMessage("X\u001b]0;t\u0007\u009b31m\u007fY"), "X]0;t31mY");
+  const long = sortOrderForMessage("Z".repeat(5000));
+  assert.equal(long, `${"Z".repeat(200)}…`);
 });

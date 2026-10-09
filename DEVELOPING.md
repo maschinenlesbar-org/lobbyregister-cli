@@ -152,6 +152,12 @@ echo throws `LobbyError` (a reply without a `facets` array is not checked).
 names another order the result carries `sortIgnored: { requested, applied }`
 (`ignoredSort` in `filters.ts`); the data is still returned. The CLI prints the
 envelope without that field and turns it into a `WARN` record of `lobbyregister.api` on stderr.
+`sortOrder` is the server's text, so `SortIgnored.applied` and the envelope keep it as sent,
+and a message quotes it through `sortOrderForMessage` (exported): control characters
+dropped (`sanitizeServerText`, as for an error detail), white space folded to one space,
+cut at `MAX_QUOTED_LENGTH` (200). The CLI's sort-ignored `WARN` and relevance-paging `INFO`
+both do; a hostile `sortOrder` used to forge log records, steer the terminal and fill
+200 KB of stderr.
 
 ## Architecture
 

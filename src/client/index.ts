@@ -26,6 +26,7 @@ export {
   knownFilterAttributeProblem,
   knownFilterValueProblem,
   ignoredSort,
+  sortOrderForMessage,
   normaliseFilter,
   parseFilter,
 } from "./filters.js";

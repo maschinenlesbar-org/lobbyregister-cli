@@ -15,6 +15,7 @@
 // The website's number ranges (`filter[financialexpenses][100-2000]`, reported in
 // `searchParameters.numberRanges`) are not covered here.
 
+import { sanitizeServerText } from "./engine.js";
 import { LobbyValidationError, cutForMessage } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import { assertValid, type Problem } from "./validate.js";
@@ -463,4 +464,17 @@ export function ignoredSort(requested: string | undefined, searchParameters: unk
       : undefined;
   if (typeof applied !== "string" || applied === requested) return undefined;
   return { requested, applied };
+}
+
+/**
+ * A sort order from the register's reply (`searchParameters.sortOrder`, as in
+ * `SortIgnored.applied`) as an own message quotes it: control characters dropped, as in
+ * an error detail (`sanitizeServerText`), white space folded to one space, and cut at
+ * `MAX_QUOTED_LENGTH` (200, `cutForMessage`). It is the server's text: a hostile reply
+ * held line breaks that forged log records, terminal escapes and 200 000 characters. The
+ * envelope and `SortIgnored` keep the value as the register sent it; the CLI's
+ * sort-ignored warning and relevance-paging note quote it through this.
+ */
+export function sortOrderForMessage(order: string): string {
+  return cutForMessage(sanitizeServerText(order).replace(/\s+/g, " ").trim());
 }

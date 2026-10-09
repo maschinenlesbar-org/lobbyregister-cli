@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { logOf, type CliDeps } from "../io.js";
 import type { SearchResult } from "../../client/types.js";
 import type { SearchFilter } from "../../client/filters.js";
-import { describeFilter } from "../../client/filters.js";
+import { describeFilter, sortOrderForMessage } from "../../client/filters.js";
 import { resultCountMismatch } from "../../client/client.js";
 import { cutForMessage } from "../../client/errors.js";
 import {
@@ -27,7 +27,10 @@ const SORT_HELP =
   "NUMBEROFMEMBERSHIPS_DESC. The API ignores an unknown value and falls back to its " +
   "default order; the CLI then warns on stderr.\n";
 
-/** The sort order the server says it applied (`searchParameters.sortOrder`), if any. */
+/**
+ * The sort order the server says it applied (`searchParameters.sortOrder`), if any, as
+ * the register sent it: a message quotes it through `sortOrderForMessage`.
+ */
 function sortOrderOf(result: SearchResult): string | undefined {
   const order = result.searchParameters?.["sortOrder"];
   return typeof order === "string" ? order : undefined;
@@ -96,7 +99,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
           logOf(deps).warn(
             "api",
             `the API did not apply --sort ${JSON.stringify(cutForMessage(sortIgnored.requested))} and sorted by ` +
-              `${sortIgnored.applied} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
+              `${sortOrderForMessage(sortIgnored.applied)} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
               "(see search --help).",
           );
         }
@@ -105,7 +108,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
           if (order === undefined || order.startsWith("RELEVANCE")) {
             logOf(deps).info(
               "api",
-              `the results are in relevance order (${order ?? "the default"}), which the ` +
+              `the results are in relevance order (${order === undefined ? "the default" : sortOrderForMessage(order)}), which the ` +
                 "register does not keep stable between requests, so pages from separate runs can " +
                 "repeat or miss entries. To page across runs, sort by date (--sort " +
                 "REGISTRATION_DESC), or fetch once and slice.",

@@ -154,7 +154,7 @@ function engineHeadersOnly(headers: Record<string, string>): Record<string, stri
  * only needs to cover text that flows into an error message. Built with a
  * char-code filter so no raw control byte ever appears in this source file.
  */
-function sanitizeServerText(text: string): string {
+export function sanitizeServerText(text: string): string {
   let out = "";
   for (const ch of text) {
     const n = ch.codePointAt(0) ?? 0;

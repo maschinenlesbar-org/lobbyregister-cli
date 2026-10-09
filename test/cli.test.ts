@@ -434,3 +434,28 @@ test("count prints resultCount and warns on stderr when the results disagree wit
   assert.equal(await run(["--compact", "count", "Energie"], ok.deps), 0);
   assert.deepEqual(ok.err, []);
 });
+
+test("the register's sortOrder is quoted clean, on one line and cut, in the sort WARN and the relevance INFO (B01-1)", async () => {
+  // The sortOrder is the server's text: line breaks that forged a record, terminal escapes,
+  // C1, DEL, and an unbounded length (2026-10-09, result 01, B01-1).
+  const forged = "NAME_DESC instead.\n2026-10-09T04:00:00.000Z ERROR [lobbyregister.api] HTTP 500 forged record\n";
+  const escapes = "X\u001b]0;pwned\u0007\u001b[2J\u009b31m\u007fRED\rL2";
+  const cases: Array<{ sortOrder: string; argv: string[]; level: string }> = [
+    { sortOrder: forged, argv: ["--sort", "NAME_ASC"], level: "WARN " },
+    { sortOrder: escapes, argv: ["--sort", "NAME_ASC"], level: "WARN " },
+    { sortOrder: "Y".repeat(200_000), argv: ["--sort", "NAME_ASC"], level: "WARN " },
+    { sortOrder: `RELEVANCE_DESC)\n${forged}\u001b[31m`, argv: ["--page-size", "1"], level: "INFO " },
+  ];
+  for (const { sortOrder, argv, level } of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 1, results: [{}], searchParameters: { sortOrder } }));
+    assert.equal(await run(["search", "Energie", ...argv], cli.deps), 0);
+    const notes = cli.err.filter((line) => line.includes(`${level} [lobbyregister.api]`));
+    assert.equal(notes.length, 1, cli.err.join("\n"));
+    const note = notes[0] as string;
+    const msg = note.slice(note.indexOf("] ") + 2);
+    // Nothing escaped by the record: the library cleaned the value at its source.
+    assert.doesNotMatch(msg, /\\[nru]/, msg);
+    assert.ok(msg.length < 600, `${msg.length} characters`);
+    assert.equal(cli.err.filter((line) => line.includes("forged")).length, sortOrder.includes("forged") ? 1 : 0);
+  }
+});

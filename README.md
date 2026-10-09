@@ -185,7 +185,8 @@ do the same thing.
 > The value is passed through verbatim and is case-sensitive. The live API
 > ignores an unrecognised value (HTTP `200`) and falls back to its default order;
 > the CLI then logs a `WARN` record on stderr naming the order the API used
-> (`searchParameters.sortOrder`), and still exits `0`.
+> (`searchParameters.sortOrder`, cleaned: control characters dropped, on one line, at
+> most 200 characters), and still exits `0`.
 
 > **Note on `--page` / `--page-size`** — the live endpoint ignores paging and
 > returns all matches, so these are not sent: the client downloads the full set
