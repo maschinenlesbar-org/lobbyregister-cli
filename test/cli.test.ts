@@ -502,3 +502,28 @@ test("an a:b@c argument (a search term, a User-Agent, a rejected value) is neith
   assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
   assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
 });
+
+test("a run without a command, or help for an unknown one, logs an ERROR \"missing command\", then the help one INFO record per line (L5)", async () => {
+  for (const argv of [["--compact"], [], ["help", "nosuch"]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    const records = cli.err.map(untimed);
+    assert.equal(records[0], "ERROR [lobbyregister.cli] missing command: `lobbyregister <subcommand>`", argv.join(" "));
+    assert.ok(records.length > 3, records.join("\n"));
+    for (const record of records.slice(1)) assert.match(record, /^INFO  \[lobbyregister\.cli\] .*\S$/);
+    assert.ok(records.some((record) => /\] Usage: lobbyregister /.test(record)), records.join("\n"));
+    assert.deepEqual(cli.out, []);
+  }
+});
+
+test("search's help after a usage error is one INFO record per line, its own text block included (L5)", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["search", "--no-such-option"], cli.deps), 2);
+  const records = cli.err.map(untimed);
+  assert.equal(records[0], "ERROR [lobbyregister.cli] unknown option '--no-such-option'");
+  for (const record of records.slice(1)) {
+    assert.match(record, /^INFO  \[lobbyregister\.cli\] .*\S$/);
+    assert.doesNotMatch(record, /\\n/, "one line of the help per record");
+  }
+  assert.ok(records.some((record) => record.includes("Sort orders (--sort;")), records.join("\n"));
+});

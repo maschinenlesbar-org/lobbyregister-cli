@@ -440,7 +440,13 @@ code point and ends in `… (N more characters)`.
 The library's error messages keep a server's line
 breaks (`sanitizeServerText` strips only the other controls); the record escapes them. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter) and `http` (the connection, the cleartext warning). The `Output error:` line `handleOutputErrors` writes when stdout itself fails stays plain. Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly. `run()` builds the logger from argv before commander parses it,
-so commander's own usage errors are records too, and with the run's redaction
+so commander's own usage errors are records too: its `error: …` an ERROR of `cli` (a
+`(Did you mean …?)` line joined to it), the help it shows after one an INFO record per
+line, and a run without a command (or `help` for an unknown one) an ERROR "missing
+command: `lobbyregister <subcommand>`" before that help, so every failed run has an ERROR
+record (`writeCommanderErr`). A command's own usage error goes through `command.error()`
+with commander's `error: ` prefix, so it is the same ERROR. The log is built with the
+run's redaction
 (`withRedactedOutput`), which replaces a secret in the message only, before it is
 escaped: the frame is never touched, and a secret is kept out of the log in either format. `CliDeps.now` makes the timestamps
 testable. stdout carries data only. Conformance test P23 checks all of this, and its
