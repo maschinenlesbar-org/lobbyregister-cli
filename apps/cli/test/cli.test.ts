@@ -1,0 +1,582 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { run } from "../src/cli/run.js";
+import { LobbyregisterClient } from "@maschinenlesbar.org/lobbyregister-client/internal/client";
+import type { CliDeps } from "../src/cli/io.js";
+import type { HttpRequest, HttpResponse } from "@maschinenlesbar.org/lobbyregister-client/internal/http";
+import { LobbyNetworkError, credentialsIn } from "@maschinenlesbar.org/lobbyregister-client/internal/errors";
+import { makeMockTransport, jsonResponse, rawResponse, untimed } from "./helpers.js";
+
+function makeCli(responder: (req: HttpRequest) => HttpResponse) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const mt = makeMockTransport(responder);
+
+  const deps: CliDeps = {
+    io: {
+      out: (s) => out.push(s),
+      err: (s) => err.push(s),
+    },
+    createClient: (opts) => new LobbyregisterClient({ ...opts, transport: mt.transport }),
+  };
+  return { deps, out, err, mt };
+}
+
+test("search passes the query; paging is not sent (the API ignores it)", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 1, results: [{ id: "e1" }] }));
+  const code = await run(["search", "Energie", "--page-size", "5"], cli.deps);
+  assert.equal(code, 0);
+  const url = new URL(cli.mt.last().url);
+  assert.equal(url.pathname, "/sucheJson");
+  assert.equal(url.searchParams.get("q"), "Energie");
+  assert.equal(url.searchParams.get("pageSize"), null);
+});
+
+test("--results-only prints just the results array", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 1, results: [{ id: "e1" }] }));
+  await run(["--compact", "search", "Energie", "--results-only"], cli.deps);
+  assert.deepEqual(JSON.parse(cli.out.join("\n")), [{ id: "e1" }]);
+});
+
+test("count prints the resultCount", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 99, results: [{}] }));
+  await run(["--compact", "count", "Energie"], cli.deps);
+  assert.deepEqual(JSON.parse(cli.out.join("\n")), { query: "Energie", resultCount: 99 });
+});
+
+test("DEL and C1 control characters in server data are escaped in the JSON output", async () => {
+  const controls = String.fromCharCode(0x7f, 0x85, 0x9b) + "2J";
+  const served = { resultCount: 1, results: [{ id: "e1", name: `Verband${controls}`, city: String.fromCharCode(0x1b) + "[31m" }] };
+  for (const format of [[], ["--compact"]]) {
+    const cli = makeCli(() => jsonResponse(served));
+    assert.equal(await run([...format, "search", "Energie"], cli.deps), 0);
+    const text = cli.out.join("\n");
+    const raw = [...text].filter((c) => c.charCodeAt(0) < 0x20 ? c !== "\n" : c.charCodeAt(0) >= 0x7f && c.charCodeAt(0) <= 0x9f);
+    assert.deepEqual(raw, [], format.join(" "));
+    assert.match(text, /Verband\\u007f\\u0085\\u009b2J/);
+    assert.deepEqual(JSON.parse(text), served);
+  }
+});
+
+test("search forwards --sort to the API and keeps --page/--page-size client-side", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  const code = await run(
+    ["search", "Energie", "--page", "3", "--page-size", "5", "--sort", "REGISTRATION_DESC"],
+    cli.deps,
+  );
+  assert.equal(code, 0);
+  const url = new URL(cli.mt.last().url);
+  assert.equal(url.searchParams.get("page"), null);
+  assert.equal(url.searchParams.get("pageSize"), null);
+  assert.equal(url.searchParams.get("sort"), "REGISTRATION_DESC");
+});
+
+test("--page without --page-size is a usage error (exit 2)", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 20, results: [] }));
+  const code = await run(["search", "x", "--page", "2"], cli.deps);
+  assert.equal(code, 2);
+  assert.match(cli.err.join("\n"), /--page requires --page-size/);
+});
+
+test("--page without --page-size is an ERROR record of lobbyregister.cli, then the help (B02-1)", async () => {
+  for (const format of ["text", "jsonl"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 20, results: [] }));
+    assert.equal(await run(["--log-format", format, "search", "x", "--page", "2"], cli.deps), 2);
+    const first = untimed(cli.err[0] ?? "");
+    if (format === "text") assert.equal(first, "ERROR [lobbyregister.cli] --page requires --page-size.");
+    else assert.deepEqual(
+      (({ level, topic, msg }) => ({ level, topic, msg }))(JSON.parse(cli.err[0] ?? "{}") as Record<string, unknown>),
+      { level: "ERROR", topic: "lobbyregister.cli", msg: "--page requires --page-size." },
+    );
+    assert.ok(cli.err.slice(1).some((line) => line.includes("Usage: lobbyregister search")), cli.err.join("\n"));
+    assert.equal(cli.mt.calls.length, 0);
+  }
+});
+
+test("--page-size alone slices the first page client-side", async () => {
+  const results = Array.from({ length: 20 }, (_, i) => ({ n: i }));
+  const cli = makeCli(() => jsonResponse({ resultCount: 20, results }));
+  await run(["--compact", "search", "x", "--page-size", "5", "--results-only"], cli.deps);
+  const printed = JSON.parse(cli.out.join("\n"));
+  assert.equal(printed.length, 5);
+  assert.deepEqual(printed[0], { n: 0 });
+});
+
+test("--page with --page-size slices the requested page client-side", async () => {
+  const results = Array.from({ length: 20 }, (_, i) => ({ n: i }));
+  const cli = makeCli(() => jsonResponse({ resultCount: 20, results }));
+  await run(["--compact", "search", "x", "--page", "3", "--page-size", "5", "--results-only"], cli.deps);
+  const printed = JSON.parse(cli.out.join("\n"));
+  assert.equal(printed.length, 5);
+  assert.deepEqual(printed[0], { n: 10 });
+});
+
+test("the `help` command and `help <subcommand>` exit 0", async () => {
+  for (const argv of [["help"], ["help", "search"], ["help", "count"]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(argv, cli.deps);
+    assert.equal(code, 0, `expected exit 0 for ${JSON.stringify(argv)}`);
+  }
+});
+
+test("--help / -h / --version / -V exit 0", async () => {
+  for (const argv of [["--help"], ["-h"], ["--version"], ["-V"], ["search", "--help"]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(argv, cli.deps);
+    assert.equal(code, 0, `expected exit 0 for ${JSON.stringify(argv)}`);
+  }
+});
+
+test("no command (auto-help) and unknown command/option exit 2", async () => {
+  for (const argv of [[], ["frobnicate"], ["search", "x", "--nope"]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(argv, cli.deps);
+    assert.equal(code, 2, `expected exit 2 for ${JSON.stringify(argv)}`);
+  }
+});
+
+test("a near-miss command or option suggests the closest match", async () => {
+  const cmd = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["serch", "x"], cmd.deps), 2);
+  assert.match(cmd.err.join("\n"), /Did you mean search\?/);
+
+  const opt = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["search", "x", "--sory", "X"], opt.deps), 2);
+  assert.match(opt.err.join("\n"), /Did you mean --sort\?/);
+});
+
+test("a 404 from the API maps to exit code 4", async () => {
+  const cli = makeCli(() => jsonResponse({}, 404));
+  const code = await run(["search", "x"], cli.deps);
+  assert.equal(code, 4);
+});
+
+test("a 400 (e.g. an invalid --sort) maps to exit 1 with a hint", async () => {
+  const cli = makeCli(() => jsonResponse({}, 400));
+  const code = await run(["search", "x", "--sort", "BOGUS"], cli.deps);
+  assert.equal(code, 1);
+  const stderr = cli.err.join("\n");
+  assert.match(stderr, /HTTP 400/);
+  assert.match(stderr, /--sort/);
+});
+
+test("a 400 with an API detail surfaces the detail (no generic hint)", async () => {
+  const cli = makeCli(() => jsonResponse({ detail: "invalid sort value" }, 400));
+  const code = await run(["search", "x", "--sort", "BOGUS"], cli.deps);
+  assert.equal(code, 1);
+  const stderr = cli.err.join("\n");
+  assert.match(stderr, /invalid sort value/);
+});
+
+test("a network error maps to exit code 1", async () => {
+  const cli = makeCli(() => {
+    throw new LobbyNetworkError("connection reset");
+  });
+  const code = await run(["search", "x"], cli.deps);
+  assert.equal(code, 1);
+  assert.match(cli.err.join("\n"), /connection reset/);
+});
+
+test("an unparseable JSON body maps to exit code 1", async () => {
+  const cli = makeCli(() => rawResponse("not json", "application/json"));
+  const code = await run(["search", "x"], cli.deps);
+  assert.equal(code, 1);
+  assert.match(cli.err.join("\n"), /parse/i);
+});
+
+test("a blank query or --sort is a usage error, before any request", async () => {
+  const cases: [string, string[]][] = [
+    ["search query", ["search", ""]],
+    ["search query (whitespace)", ["search", "   "]],
+    ["search --sort", ["search", "Energie", "--sort", ""]],
+    ["search --sort (whitespace)", ["search", "Energie", "--sort", " \t"]],
+    ["count query", ["count", ""]],
+    ["count query (whitespace)", ["count", "  "]],
+  ];
+  for (const [label, argv] of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(argv, cli.deps);
+    assert.notEqual(code, 0, label);
+    assert.equal(cli.mt.calls.length, 0, `${label}: no request`);
+  }
+});
+
+test("--timeout accepts the largest timer Node supports and rejects one above it", async () => {
+  const ok = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["--timeout", "2147483647", "count"], ok.deps), 0);
+  assert.equal(ok.mt.last().timeoutMs, 2147483647);
+
+  const tooBig = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  const code = await run(["--timeout", "2147483648", "count"], tooBig.deps);
+  assert.notEqual(code, 0);
+  assert.equal(tooBig.mt.calls.length, 0);
+  assert.match(tooBig.err.join("\n"), /Must be <= 2147483647\./);
+});
+
+test("a non-http(s) or malformed --base-url is a usage error before any request", async () => {
+  for (const bad of ["file:///etc/passwd", "ftp://example.org", "notaurl"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    const code = await run(["--base-url", bad, "search", "Energie"], cli.deps);
+    assert.equal(code, 2, bad);
+    assert.equal(cli.mt.calls.length, 0, `${bad}: no request may reach the transport`);
+    assert.match(cli.err.join("\n"), /--base-url/, bad);
+  }
+});
+
+/** A /sucheJson stand-in that echoes the facet filters it received, as the live API does. */
+function echoFacets(req: HttpRequest): HttpResponse {
+  const facets: { attribute: string; value: string }[] = [];
+  for (const key of new URL(req.url).searchParams.keys()) {
+    const m = /^filter\[([^\]]+)\]\[([^\]]+)\]$/.exec(key);
+    if (m) facets.push({ attribute: m[1]!, value: m[2]! });
+  }
+  return jsonResponse({ resultCount: 680, results: [], searchParameters: { facets } });
+}
+
+test("--filter sends register facet filters, repeatable, on search and count", async () => {
+  const search = makeCli(echoFacets);
+  const code = await run(
+    ["search", "Energie", "--filter", "revolvingdoordata=true", "--filter", "RevolvingDoorPersonTypes=ENTRUSTED_PERSON", "--filter", "fieldsofinterest=FOI_WORK|FOI_WORK_POLICY"],
+    search.deps,
+  );
+  assert.equal(code, 0, search.err.join("\n"));
+  const params = new URL(search.mt.last().url).searchParams;
+  assert.equal(params.get("filter[revolvingdoordata][true]"), "true");
+  assert.equal(params.get("filter[revolvingdoorpersontypes][ENTRUSTED_PERSON]"), "true");
+  assert.equal(params.get("filter[fieldsofinterest][FOI_WORK|FOI_WORK_POLICY]"), "true");
+  assert.equal(params.get("q"), "Energie");
+
+  const count = makeCli(echoFacets);
+  assert.equal(await run(["--compact", "count", "--filter", "revolvingdoordata=true"], count.deps), 0);
+  assert.deepEqual(JSON.parse(count.out.join("\n")), {
+    query: null,
+    filters: ["revolvingdoordata=true"],
+    resultCount: 680,
+  });
+});
+
+test("a malformed or unknown --filter is a usage error before any request", async () => {
+  const cases: [string, RegExp][] = [
+    ["revolvingdoor=true", /Unknown filter "revolvingdoor"\. The register ignores unknown filters/],
+    ["revolvingdoordata", /expected attribute=value/],
+    ["=true", /expected attribute=value/],
+    ["revolvingdoordata= ", /expected attribute=value/],
+    ["revolvingdoordata=a]b", /Invalid filter value for "revolvingdoordata": expected a code such as true, FOI_ENERGY or FOI_WORK\|FOI_WORK_POLICY, got "a\]b"/],
+    ["--nope", /Expected a value, got another option/],
+  ];
+  for (const [value, message] of cases) {
+    for (const command of ["search", "count"]) {
+      const cli = makeCli(echoFacets);
+      const code = await run([command, "--filter", value], cli.deps);
+      assert.equal(code, 2, `${command} --filter ${value}`);
+      assert.equal(cli.mt.calls.length, 0, `${command} --filter ${value}: no request`);
+      assert.match(cli.err.join("\n"), message, `${command} --filter ${value}`);
+    }
+  }
+});
+
+test("a filter value the register doesn't know is a usage error naming the codes (06#1)", async () => {
+  const cases: [string, RegExp][] = [
+    ["donationsreceived=true", /Unknown value "true" for donationsreceived: the register matches nothing for it\. Values: DONATIONS_INFORMATION_MISSING_FISCAL_YEAR, DONATIONS_NOT_RECEIVED, DONATIONS_RECEIVED/],
+    ["fieldsofinterest=FOI_NOTHING", /Unknown value "FOI_NOTHING" for fieldsofinterest.*FOI_ENERGY.*or a sub-code such as/],
+    ["fieldsofinterest=|", /Unknown value "\|" for fieldsofinterest/],
+  ];
+  for (const [value, message] of cases) {
+    for (const command of ["search", "count"]) {
+      const cli = makeCli(echoFacets);
+      assert.equal(await run([command, "--filter", value], cli.deps), 2, `${command} --filter ${value}`);
+      assert.equal(cli.mt.calls.length, 0, `${command} --filter ${value}: no request`);
+      assert.match(cli.err.join("\n"), message, `${command} --filter ${value}`);
+    }
+  }
+});
+
+test("a sub-code copied from the data is sent with its parent, a wrong-case code in the register's case (01#2, 06#1)", async () => {
+  const cases: [string, string][] = [
+    ["fieldsofinterest=FOI_EU_LAWS", "fieldsofinterest=FOI_EUROPEAN_UNION|FOI_EU_LAWS"],
+    ["fieldsofinterest=FOI_ENERGY_NET", "fieldsofinterest=FOI_ENERGY|FOI_ENERGY_NET"],
+    ["fieldsofinterest=FOI_ENVIRONMENT_CLIMATE", "fieldsofinterest=FOI_ENVIRONMENT|FOI_ENVIRONMENT_CLIMATE"],
+    ["fieldsofinterest=foi_energy", "fieldsofinterest=FOI_ENERGY"],
+    ["donationsreceived=donations_received", "donationsreceived=DONATIONS_RECEIVED"],
+    ["revolvingdoordata=TRUE", "revolvingdoordata=true"],
+  ];
+  for (const [given, sent] of cases) {
+    const cli = makeCli(echoFacets);
+    assert.equal(await run(["--compact", "count", "--filter", given], cli.deps), 0, cli.err.join("\n"));
+    const [attribute, value] = sent.split("=") as [string, string];
+    assert.equal(new URL(cli.mt.last().url).searchParams.get(`filter[${attribute}][${value}]`), "true", given);
+    assert.deepEqual(JSON.parse(cli.out.join("\n")).filters, [sent], given);
+  }
+});
+
+test("--allow-unknown-filters sends an unknown code, and a reply of 0 then gets a note", async () => {
+  const empty = (req: HttpRequest): HttpResponse => {
+    const res = echoFacets(req);
+    const body = JSON.parse(res.body.toString("utf8")) as Record<string, unknown>;
+    return jsonResponse({ ...body, resultCount: 0 });
+  };
+  for (const argv of [
+    ["count", "--filter", "fieldsofinterest=FOI_NEW_CODE", "--allow-unknown-filters"],
+    ["search", "--allow-unknown-filters", "--filter", "fieldsofinterest=FOI_NEW_CODE"],
+  ]) {
+    const cli = makeCli(empty);
+    assert.equal(await run(argv, cli.deps), 0, cli.err.join("\n"));
+    assert.equal(new URL(cli.mt.last().url).searchParams.get("filter[fieldsofinterest][FOI_NEW_CODE]"), "true");
+    assert.match(untimed(cli.err.join("\n")), /^INFO  \[lobbyregister\.api\] no entry matched\. --filter fieldsofinterest=FOI_NEW_CODE is not in this release's list/);
+  }
+  // A known code that matches nothing is a real "none": no note.
+  const known = makeCli(empty);
+  assert.equal(await run(["count", "--filter", "annotations=CODEX_VIOLATION"], known.deps), 0);
+  assert.deepEqual(known.err, []);
+});
+
+test("a single-value option given twice is a usage error before any request", async () => {
+  for (const argv of [
+    ["search", "--sort", "NAME_ASC", "--sort", "NAME_DESC"],
+    ["search", "--page-size", "5", "--page-size", "10"],
+    ["--timeout", "1000", "--timeout", "2000", "count"],
+    ["--base-url", "https://a.example", "--base-url", "https://b.example", "count"],
+  ]) {
+    const cli = makeCli(echoFacets);
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, argv.join(" "));
+    assert.match(cli.err.join("\n"), /may be given only once/, argv.join(" "));
+  }
+});
+
+test("a filter the reply does not echo exits 1 instead of printing an unfiltered set", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 6989, results: [], searchParameters: { facets: [] } }));
+  const code = await run(["count", "--filter", "revolvingdoordata=true"], cli.deps);
+  assert.equal(code, 1);
+  assert.deepEqual(cli.out, []);
+  assert.match(cli.err.join("\n"), /The register ignored the filter "revolvingdoordata=true"/);
+});
+
+test("paging in relevance order warns on stderr that pages across runs are unstable", async () => {
+  const results = Array.from({ length: 20 }, (_, i) => ({ n: i }));
+  const relevance = makeCli(() =>
+    jsonResponse({ resultCount: 20, results, searchParameters: { sortOrder: "RELEVANCE_DESC" } }),
+  );
+  assert.equal(await run(["search", "x", "--page-size", "5", "--page", "2"], relevance.deps), 0);
+  assert.match(untimed(relevance.err.join("\n")), /^INFO  \[lobbyregister\.api\] the results are in relevance order \(RELEVANCE_DESC\).*--sort REGISTRATION_DESC/);
+
+  const byDate = makeCli(() =>
+    jsonResponse({ resultCount: 20, results, searchParameters: { sortOrder: "REGISTRATION_DESC" } }),
+  );
+  assert.equal(await run(["search", "x", "--page-size", "5", "--sort", "REGISTRATION_DESC"], byDate.deps), 0);
+  assert.deepEqual(byDate.err, []);
+
+  const unpaged = makeCli(() => jsonResponse({ resultCount: 20, results, searchParameters: { sortOrder: "RELEVANCE_DESC" } }));
+  assert.equal(await run(["search", "x"], unpaged.deps), 0);
+  assert.deepEqual(unpaged.err, []);
+});
+
+test("a --sort the API did not apply gets a stderr warning (exit 0)", async () => {
+  const ignored = makeCli(() =>
+    jsonResponse({ resultCount: 1, results: [{}], searchParameters: { sortOrder: "RELEVANCE_DESC" } }),
+  );
+  assert.equal(await run(["search", "R002822", "--sort", "registration_desc"], ignored.deps), 0);
+  assert.equal(
+    untimed(ignored.err.join("\n")),
+    'WARN  [lobbyregister.api] the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead. ' +
+      "Sort orders are upper case, e.g. REGISTRATION_DESC (see search --help).",
+  );
+
+  const applied = makeCli(() =>
+    jsonResponse({ resultCount: 1, results: [{}], searchParameters: { sortOrder: "FINANCIALEXPENSES_DESC" } }),
+  );
+  assert.equal(await run(["search", "x", "--sort", "FINANCIALEXPENSES_DESC"], applied.deps), 0);
+  assert.deepEqual(applied.err, []);
+
+  // No echo to compare against: nothing to say.
+  const bare = makeCli(() => jsonResponse({ resultCount: 1, results: [{}] }));
+  assert.equal(await run(["search", "x", "--sort", "whatever"], bare.deps), 0);
+  assert.deepEqual(bare.err, []);
+});
+
+test("--page 0 and --page-size 0 are usage errors before any request", async () => {
+  for (const argv of [
+    ["search", "x", "--page", "0", "--page-size", "3"],
+    ["search", "x", "--page-size", "0"],
+  ]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, `${argv.join(" ")}: no request`);
+    assert.match(cli.err.join("\n"), /Must be >= 1\./);
+  }
+});
+
+test("a blank or unsendable --user-agent is a usage error before any request", async () => {
+  const cases: [string, RegExp][] = [
+    ["", /Expected a non-empty value\./],
+    ["   ", /Expected a non-empty value\./],
+    ["a\nX-Evil: 1", /Value contains control characters\./],
+    ["a" + String.fromCharCode(0x7f), /Value contains control characters\./],
+    ["café ☃", /Value contains characters outside Latin-1 \(above U\+00FF\)\./],
+  ];
+  for (const [ua, message] of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["--user-agent", ua, "count"], cli.deps), 2, JSON.stringify(ua));
+    assert.equal(cli.mt.calls.length, 0);
+    assert.match(cli.err.join("\n"), message);
+  }
+  for (const ua of ["my-app/1.0", "tab\there", "café"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["--user-agent", ua, "count"], cli.deps), 0, ua);
+    assert.equal(cli.mt.last().headers?.["User-Agent"], ua);
+  }
+});
+
+test("--base-url with a user name or password is a usage error (exit 2), no request, password never printed", async () => {
+  for (const base of ["https://alice:s3cret-pw@mirror.example", "https://alice@mirror.example"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["--base-url", base, "count"], cli.deps), 2, base);
+    assert.equal(cli.mt.calls.length, 0);
+    assert.deepEqual(cli.out, []);
+    const err = cli.err.join("\n");
+    assert.match(err, /user name or password in the base URL is not supported/);
+    assert.ok(!err.includes("s3cret-pw"), err);
+  }
+});
+
+test("count prints resultCount and warns on stderr when the results disagree with it", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 7, results: [{ id: "a" }, { id: "b" }] }));
+  assert.equal(await run(["--compact", "count", "Energie"], cli.deps), 0);
+  assert.deepEqual(JSON.parse(cli.out.join("\n")), { query: "Energie", resultCount: 7 });
+  assert.deepEqual(cli.err.map(untimed), ["WARN  [lobbyregister.api] the register reports resultCount 7 but returned 2 results; the count shown is resultCount"]);
+  // Agreeing numbers: no warning.
+  const ok = makeCli(() => jsonResponse({ resultCount: 2, results: [{ id: "a" }, { id: "b" }] }));
+  assert.equal(await run(["--compact", "count", "Energie"], ok.deps), 0);
+  assert.deepEqual(ok.err, []);
+});
+
+test("the register's sortOrder is quoted clean, on one line and cut, in the sort WARN and the relevance INFO (B01-1)", async () => {
+  // The sortOrder is the server's text: line breaks that forged a record, terminal escapes,
+  // C1, DEL, and an unbounded length (2026-10-09, result 01, B01-1).
+  const forged = "NAME_DESC instead.\n2026-10-09T04:00:00.000Z ERROR [lobbyregister.api] HTTP 500 forged record\n";
+  const escapes = "X\u001b]0;pwned\u0007\u001b[2J\u009b31m\u007fRED\rL2";
+  const cases: Array<{ sortOrder: string; argv: string[]; level: string }> = [
+    { sortOrder: forged, argv: ["--sort", "NAME_ASC"], level: "WARN " },
+    { sortOrder: escapes, argv: ["--sort", "NAME_ASC"], level: "WARN " },
+    { sortOrder: "Y".repeat(200_000), argv: ["--sort", "NAME_ASC"], level: "WARN " },
+    { sortOrder: `RELEVANCE_DESC)\n${forged}\u001b[31m`, argv: ["--page-size", "1"], level: "INFO " },
+  ];
+  for (const { sortOrder, argv, level } of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 1, results: [{}], searchParameters: { sortOrder } }));
+    assert.equal(await run(["search", "Energie", ...argv], cli.deps), 0);
+    const notes = cli.err.filter((line) => line.includes(`${level} [lobbyregister.api]`));
+    assert.equal(notes.length, 1, cli.err.join("\n"));
+    const note = notes[0] as string;
+    const msg = note.slice(note.indexOf("] ") + 2);
+    // Nothing escaped by the record: the library cleaned the value at its source.
+    assert.doesNotMatch(msg, /\\[nru]/, msg);
+    assert.ok(msg.length < 600, `${msg.length} characters`);
+    assert.equal(cli.err.filter((line) => line.includes("forged")).length, sortOrder.includes("forged") ? 1 : 0);
+  }
+});
+
+test("credentials typed in a search term are replaced where a server echoes them without the @ (L13)", async () => {
+  // The register needs no credentials, but a URL typed as a search term carries its userinfo
+  // into the query; a server that echoes it back decoded, without the "@", was printed whole.
+  const cli = makeCli(() => jsonResponse({ detail: "query bob:hunter22 rejected; password hunter22" }, 500));
+  assert.equal(await run(["search", "https://bob:hunter22@example.org"], cli.deps), 1);
+  const all = cli.err.join("\n");
+  assert.match(all, /rejected/);
+  assert.ok(!all.includes("hunter22"), all);
+  // stdout keeps a bare password (it may well occur in the data); the decoded pair is replaced there too.
+  const ok = makeCli(() => jsonResponse({ resultCount: 1, results: [{ note: "bob:hunter22 and hunter22" }] }));
+  assert.equal(await run(["--compact", "search", "https://bob:hunter22@example.org"], ok.deps), 0);
+  assert.match(ok.out.join("\n"), /"\*\*\* and hunter22"/);
+});
+
+test("an a:b@c argument (a search term, a User-Agent, a rejected value) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
+  const body = { resultCount: 1, results: [{ name: "run:2026-10-09@x" }] };
+  for (const argv of [["search", "run:2026-10-09@x"], ["--user-agent", "run:2026-10-09@x", "search", "Energie"]]) {
+    const cli = makeCli(() => jsonResponse(body));
+    assert.equal(await run(["--compact", ...argv], cli.deps), 0);
+    assert.match(cli.out.join("\n"), /"name":"run:2026-10-09@x"/, argv.join(" "));
+  }
+  const typed = makeCli(() => jsonResponse(body));
+  assert.equal(await run(["--timeout", "run:2026-10-09@x", "count"], typed.deps), 2);
+  assert.match(typed.err.join("\n"), /run:2026-10-09@x/);
+  assert.deepEqual(credentialsIn("run:2026-10-09@x"), []);
+  assert.deepEqual(credentialsIn("https://alice:pw@host"), ["alice:pw"]);
+});
+
+test("a run without a command, or help for an unknown one, logs an ERROR \"missing command\", then the help one INFO record per line (L5)", async () => {
+  for (const argv of [["--compact"], [], ["help", "nosuch"]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    const records = cli.err.map(untimed);
+    assert.equal(records[0], "ERROR [lobbyregister.cli] missing command: `lobbyregister <subcommand>`", argv.join(" "));
+    assert.ok(records.length > 3, records.join("\n"));
+    for (const record of records.slice(1)) assert.match(record, /^INFO  \[lobbyregister\.cli\] .*\S$/);
+    assert.ok(records.some((record) => /\] Usage: lobbyregister /.test(record)), records.join("\n"));
+    assert.deepEqual(cli.out, []);
+  }
+});
+
+test("search's help after a usage error is one INFO record per line, its own text block included (L5)", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["search", "--no-such-option"], cli.deps), 2);
+  const records = cli.err.map(untimed);
+  assert.equal(records[0], "ERROR [lobbyregister.cli] unknown option '--no-such-option'");
+  for (const record of records.slice(1)) {
+    assert.match(record, /^INFO  \[lobbyregister\.cli\] .*\S$/);
+    assert.doesNotMatch(record, /\\n/, "one line of the help per record");
+  }
+  assert.ok(records.some((record) => record.includes("Sort orders (--sort;")), records.join("\n"));
+});
+
+test("a parse error is logged in the format commander would have parsed (L6)", async () => {
+  const isJsonl = (line: string): boolean => line.startsWith("{");
+  const cases: [string[], boolean][] = [
+    // once() keeps the first --log-format and rejects the second.
+    [["--log-format", "jsonl", "--log-format", "text", "count"], true],
+    [["--log-format", "text", "--log-format", "jsonl", "count"], false],
+    // --log-format is --user-agent's value; "jsonl" is then an unknown command.
+    [["--user-agent", "--log-format", "jsonl", "count"], false],
+    // commander takes the program's --log-format out first; --filter is left without its value.
+    [["search", "--filter", "--log-format", "jsonl"], true],
+  ];
+  for (const [argv, jsonl] of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+    assert.ok(cli.err.length > 0 && cli.err.every((line) => isJsonl(line) === jsonl), `${argv.join(" ")}:\n${cli.err.join("\n")}`);
+  }
+});
+
+test("a malformed answer, and a filter the reply does not echo, are ERROR records of lobbyregister.api (L9)", async () => {
+  const answers: HttpResponse[] = [
+    rawResponse("<html>not json</html>", "application/json"),
+    rawResponse("<!doctype html><html>a proxy</html>", "text/html"),
+    jsonResponse([]),
+    jsonResponse({ resultCount: "1", results: [] }),
+    jsonResponse({ resultCount: 0, results: [], searchParameters: { facets: [] } }),
+  ];
+  for (const answer of answers) {
+    const cli = makeCli(() => answer);
+    assert.equal(await run(["count", "--filter", "revolvingdoordata=true"], cli.deps), 1);
+    assert.match(untimed(cli.err[0] ?? ""), /^ERROR \[lobbyregister\.api\] /, cli.err.join("\n"));
+  }
+});
+
+test("a usage error found before any request logs no cleartext WARN (B02-2)", async () => {
+  const cases = [
+    ["search", "Energie", "--page", "2"],
+    ["search", "Energie", "--filter", "revolvingdoordata=maybe"],
+    ["count", "--filter", "nosuchattribute=true"],
+    ["search", "Energie", "--filter", "revolvingdoordata=true", "--filter", "fieldsofinterest=FOI_NOPE"],
+  ];
+  for (const argv of cases) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["--base-url", "http://mirror.example", ...argv], cli.deps), 2, argv.join(" "));
+    assert.equal(cli.mt.calls.length, 0, argv.join(" "));
+    assert.ok(!cli.err.some((line) => line.includes("[lobbyregister.http]")), `${argv.join(" ")}:\n${cli.err.join("\n")}`);
+    assert.match(untimed(cli.err[0] ?? ""), /^ERROR \[lobbyregister\.cli\] /, argv.join(" "));
+  }
+  // A run that does send a request still warns, once, before it.
+  const sent = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["--base-url", "http://mirror.example", "search", "Energie", "--filter", "revolvingdoordata=true"], sent.deps), 0);
+  assert.equal(sent.err.filter((line) => line.includes("WARN  [lobbyregister.http]")).length, 1, sent.err.join("\n"));
+});

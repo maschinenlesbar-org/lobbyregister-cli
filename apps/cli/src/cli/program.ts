@@ -1,0 +1,98 @@
+// Assemble the full commander program. The program is built around an injectable
+// CliDeps so the entire CLI can be driven in tests with a mocked client and
+// captured output.
+
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { Command, InvalidArgumentError } from "commander";
+import type { CliDeps } from "./io.js";
+import { defaultIO } from "./io.js";
+import { LobbyregisterClient } from "@maschinenlesbar.org/lobbyregister-client/internal/client";
+import { MAX_TIMEOUT_MS } from "@maschinenlesbar.org/lobbyregister-client/internal/http";
+import { once, parseBaseUrl, parseBoundedInt, parseHeaderValue, parseIntArg } from "./shared.js";
+import { registerSearchCommands } from "./commands/search.js";
+import { DEFAULT_LOG_FORMAT, logFormatProblem } from "./log.js";
+
+/**
+ * Single source of truth for the version: read from package.json at runtime
+ * rather than duplicating a literal that can silently drift after a release bump.
+ * From the compiled location (dist/src/cli/program.js) package.json is three
+ * directories up; the same offset holds for the source under src/cli.
+ */
+function readVersion(): string {
+  try {
+    const pkgUrl = new URL("../../../package.json", import.meta.url);
+    const pkg = JSON.parse(readFileSync(fileURLToPath(pkgUrl), "utf8")) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+export const VERSION = readVersion();
+
+/** Default dependencies: real client + real stdout/stderr/filesystem. */
+export const defaultDeps: CliDeps = {
+  io: defaultIO,
+  createClient: (options) => new LobbyregisterClient(options),
+};
+
+/** commander value-parser for `--log-format`. */
+function parseLogFormat(value: string): string {
+  const problem = logFormatProblem(value);
+  if (problem !== undefined) throw new InvalidArgumentError(problem);
+  return value;
+}
+
+export function buildProgram(deps: CliDeps = defaultDeps): Command {
+  const program = new Command();
+
+  program
+    .name("lobbyregister")
+    .description(
+      "CLI for the open German Lobbyregister search API " +
+        "(https://www.lobbyregister.bundestag.de/sucheJson)",
+    )
+    .version(VERSION)
+    .option("--base-url <url>", "API base URL", once("--base-url", parseBaseUrl), "https://www.lobbyregister.bundestag.de")
+    .option(
+      "--timeout <ms>",
+      "time limit per request in milliseconds, whole response included",
+      once("--timeout", parseBoundedInt(0, MAX_TIMEOUT_MS)),
+      30_000,
+    )
+    .option("--user-agent <ua>", "User-Agent header value", once("--user-agent", parseHeaderValue))
+    .option(
+      "--max-retries <n>",
+      "retries for transient 429/503 responses and reset connections (each waits 200 ms × attempt, " +
+        "or the server's Retry-After when longer, up to 60 s)",
+      once("--max-retries", parseIntArg),
+      2,
+    )
+    .option("--max-redirects <n>", "HTTP redirects to follow (0 = none)", once("--max-redirects", parseIntArg), 5)
+    .option(
+      "--max-response-bytes <n>",
+      "cap response body size in bytes (0 = unlimited)",
+      once("--max-response-bytes", parseIntArg),
+      100 * 1024 * 1024,
+    )
+    .option(
+      "--log-format <format>",
+      `how errors, warnings and notes are written to stderr: text (log4j style: time, level, [topic], message) or jsonl (one JSON object per line: ts, level, topic, msg); default ${DEFAULT_LOG_FORMAT}`,
+      once("--log-format", parseLogFormat),
+    )
+    .option("--compact", "print JSON on a single line instead of pretty-printed")
+    .showHelpAfterError()
+    // On an unknown option or command, point at the closest known one
+    // ("(Did you mean --results-only?)") instead of a bare "unknown option".
+    .showSuggestionAfterError();
+
+  registerSearchCommands(program, deps);
+
+  // commander resolves "did you mean" against the command that owns the option,
+  // so the program-level setting does not reach a subcommand's own options
+  // (e.g. `search --results` -> `--results-only`). Propagate it to each child.
+  for (const child of program.commands) child.showSuggestionAfterError();
+
+  return program;
+}
