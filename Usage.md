@@ -22,7 +22,7 @@ lobbyregister --help
 ```
 
 Without a global install you can also run it from a checkout with
-`node dist/src/cli/index.js …` (after `npm run build`).
+`node apps/cli/dist/src/cli/index.js …` (after `npm run build`).
 
 ## Use cases
 
