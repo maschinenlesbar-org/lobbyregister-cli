@@ -336,6 +336,8 @@ test("a single-value option given twice is a usage error before any request", as
     ["search", "--page-size", "5", "--page-size", "10"],
     ["--timeout", "1000", "--timeout", "2000", "count"],
     ["--base-url", "https://a.example", "--base-url", "https://b.example", "count"],
+    ["--log-format", "text", "--log-format", "jsonl", "count"],
+    ["--max-retries", "1", "count", "--max-retries", "2"],
   ]) {
     const cli = makeCli(echoFacets);
     assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
