@@ -118,7 +118,7 @@ const ENGINE_HEADERS = new Set(["Accept", "User-Agent"]);
 /**
  * The register's error page. `/sucheJson` answers a query it cannot parse (an
  * unbalanced quote or parenthesis, a very long query) with `302 Location: /fehler`,
- * an HTML page; following it used to end in "Unexpected content type text/html".
+ * an HTML page; following it used to end in "unexpected content type text/html".
  */
 const ERROR_PAGE_PATH = /(^|\/)fehler\/?$/;
 
@@ -534,6 +534,15 @@ export class RequestEngine {
   }
 
   /**
+   * The request URL as error messages show it: absolute (so a message names the host that
+   * gave a bad answer, which matters with a custom base URL), userinfo redacted and cut at
+   * `MAX_QUOTED_LENGTH` characters (`cutForMessage`).
+   */
+  describeUrl(path: string, query?: QueryParams): string {
+    return cutForMessage(redactUrl(this.buildUrl(path, query)));
+  }
+
+  /**
    * `text` without the base URL's credentials: server text (an error body that echoes
    * the request URL) and transport text (fetch's "Failed to fetch <url>") can carry them.
    */
@@ -757,34 +766,40 @@ export class RequestEngine {
     }
   }
 
-  /** Perform a GET expecting JSON and parse it into `T`. */
+  /**
+   * Perform a GET expecting JSON and parse it into `T`. Every error about the answer names the
+   * request (`GET <url>: …`, userinfo redacted, cut at 200 characters): a content type that is
+   * not JSON, an unknown charset, an empty body, text that is not JSON, a number JSON.parse
+   * cannot carry exactly.
+   */
   async getJson<T>(path: string, query?: QueryParams): Promise<T> {
     const res = await this.request("GET", path, { query, accept: "application/json" });
+    const request = `GET ${this.describeUrl(path, query)}`;
     // Guard against a 2xx response that is not actually JSON (e.g. a captive
     // portal or a wildcard-DNS host returning an HTML page). Without this check
-    // such a body would surface the misleading "Failed to parse JSON" error.
+    // such a body would surface as a misleading "not valid JSON" error.
     // The header may carry a charset/parameters (e.g. "application/json;
     // charset=utf-8"), so match the media type prefix only.
     const mediaType = (res.contentType.split(";", 1)[0] ?? "").trim().toLowerCase();
     if (mediaType && mediaType !== "application/json" && !mediaType.endsWith("+json")) {
-      throw new LobbyParseError(
-        `Unexpected content type "${cleanDetail(res.contentType)}" from ${path} (expected JSON).`,
-      );
+      throw new LobbyParseError(`${request}: unexpected content type "${cleanDetail(res.contentType)}" (expected JSON).`);
     }
-    const text = decodeBody(res.data, res.contentType, path);
+    const text = decodeBody(res.data, res.contentType, request);
+    if (text.trim() === "") {
+      // A broken answer, not "no results": the envelope always has a resultCount.
+      throw new LobbyParseError(`${request}: empty response body.`);
+    }
     let parsed: T;
     try {
       parsed = JSON.parse(text) as T;
     } catch (cause) {
-      throw new LobbyParseError(`Failed to parse JSON response from ${path}`, { cause });
+      throw new LobbyParseError(`${request}: the answer is not valid JSON.`, { cause });
     }
     // JSON.parse rounds and overflows numbers silently: refuse the answer rather than print a
     // changed value.
     const inexact = firstInexactNumber(text);
     if (inexact !== undefined) {
-      throw new LobbyParseError(
-        `Unexpected response from ${path}: the number ${cutForMessage(inexact)} cannot be represented exactly.`,
-      );
+      throw new LobbyParseError(`${request}: the number ${cutForMessage(inexact)} cannot be represented exactly.`);
     }
     return parsed;
   }
@@ -825,15 +840,15 @@ export class RequestEngine {
  * none). A proxy or mirror that answers in ISO-8859-1 used to come out as
  * "B\uFFFDndnis" with exit 0. TextDecoder also drops a leading byte order mark, which
  * Buffer#toString keeps and JSON.parse then rejects. An unknown charset label is a
- * LobbyParseError.
+ * LobbyParseError naming `request`.
  */
-function decodeBody(body: Buffer, contentType: string, path: string): string {
+function decodeBody(body: Buffer, contentType: string, request: string): string {
   const charset = /;\s*charset\s*=\s*"?([^";\s]+)"?/i.exec(contentType)?.[1] ?? "utf-8";
   let decoder: TextDecoder;
   try {
     decoder = new TextDecoder(charset);
   } catch {
-    throw new LobbyParseError(`Unsupported response charset "${cleanDetail(charset)}" from ${path}.`);
+    throw new LobbyParseError(`${request}: unsupported response charset "${cleanDetail(charset)}".`);
   }
   return decoder.decode(body);
 }

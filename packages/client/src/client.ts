@@ -24,7 +24,7 @@ const PATH = "/sucheJson";
  * Infinity, is refused before, by the engine's number check). Every entry in `results` must be
  * a JSON object: a `null` or a string there would be printed as a register entry.
  */
-function assertSearchResult(value: unknown): asserts value is SearchResult {
+function assertSearchResult(value: unknown, request: string): asserts value is SearchResult {
   if (
     typeof value !== "object" ||
     value === null ||
@@ -33,19 +33,19 @@ function assertSearchResult(value: unknown): asserts value is SearchResult {
     !Array.isArray((value as { results?: unknown }).results)
   ) {
     throw new LobbyParseError(
-      `Unexpected response shape from ${PATH}: expected a JSON object with a numeric resultCount and a results array.`,
+      `${request}: unexpected response shape: expected a JSON object with a numeric resultCount and a results array.`,
     );
   }
   const count = (value as { resultCount: number }).resultCount;
   if (!Number.isSafeInteger(count) || count < 0) {
     throw new LobbyParseError(
-      `Unexpected response shape from ${PATH}: expected a non-negative integer resultCount.`,
+      `${request}: unexpected response shape: expected a non-negative integer resultCount.`,
     );
   }
   const results = (value as { results: unknown[] }).results;
   if (results.some((entry) => typeof entry !== "object" || entry === null || Array.isArray(entry))) {
     throw new LobbyParseError(
-      `Unexpected response shape from ${PATH}: expected every entry in results to be a JSON object.`,
+      `${request}: unexpected response shape: expected every entry in results to be a JSON object.`,
     );
   }
 }
@@ -199,11 +199,12 @@ export class LobbyregisterClient {
     const query = searchQuery(params);
     const filters = params.filters ?? [];
     const result = await this.#engine.getJson<unknown>(PATH, query);
-    assertSearchResult(result);
+    const request = `GET ${this.#engine.describeUrl(PATH, query)}`;
+    assertSearchResult(result, request);
     const ignored = ignoredFilters(filters, result.searchParameters);
     if (ignored !== undefined && ignored.length > 0) {
       throw new LobbyError(
-        `The register ignored the filter ${ignored.map((f) => `"${cutForMessage(describeFilter(f))}"`).join(", ")} ` +
+        `${request}: the register ignored the filter ${ignored.map((f) => `"${cutForMessage(describeFilter(f))}"`).join(", ")} ` +
           "(missing from searchParameters.facets in the reply), so the result would not be filtered.",
       );
     }

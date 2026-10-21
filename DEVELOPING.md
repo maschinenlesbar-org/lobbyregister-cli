@@ -302,7 +302,11 @@ subprocess.
   body over `maxResponseBytes`). A bad configured `baseUrl` is a
   `LobbyValidationError` instead.
 - **`LobbyParseError`** — the body could not be parsed as the expected JSON, or
-  had an unexpected content type.
+  had an unexpected content type. Its message names the request, as `GET <url>: …` (the URL
+  cut at 200 characters, userinfo redacted): `… unexpected content type "text/html" (expected
+  JSON).`, `… unsupported response charset "x".`, `… empty response body.`, `… the answer is
+  not valid JSON.`, `… unexpected response shape: expected …`. So does the `LobbyError` for a
+  filter the reply did not echo (`… the register ignored the filter …`).
 - **`LobbyValidationError`** — a rejected input: a client option or method argument
   that breaks one of the library's rules. Thrown before any request is made (a
   method rejects, the constructor throws), with the message
@@ -406,7 +410,7 @@ written form (`12345678901234567890`, `…890.0`, `9007199254740993e0`, `9007199
 a non-zero one too small for a double (`1e-400` would become `0`), and a subnormal one (below
 2.2250738585072014e-308, where a double has fewer digits) that does not print as written
 (`3e-324` would become `5e-324`; `5e-324` and `1e-310` pass). The message is
-`Unexpected response from /sucheJson: the number <N> cannot be represented exactly.` Below
+`GET <url>: the number <N> cannot be represented exactly.` Below
 2^53 a decimal fraction in the normal range keeps a double's usual precision, as JSON means it, and past it a
 double a server printed in its own shortest form (`1e23`, `1.7976931348623157E308`) passes,
 since it prints as the same number. The register's

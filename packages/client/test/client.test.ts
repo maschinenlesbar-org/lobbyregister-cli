@@ -87,9 +87,17 @@ test("search rejects a blank q or sort before any request (omit q to match every
   assert.equal(mt.calls.length, 0);
 });
 
-test("search rejects a valid-JSON body of the wrong shape", async () => {
+test("search rejects a valid-JSON body of the wrong shape, naming the request (D9)", async () => {
   const mt = constantJson({ foo: "bar" }); // 200, but not a SearchResult envelope
-  await assert.rejects(() => clientWith(mt).search({ q: "x" }), LobbyParseError);
+  await assert.rejects(() => clientWith(mt).search({ q: "x" }), (err: unknown) =>
+    err instanceof LobbyParseError &&
+    err.message === "GET https://www.lobbyregister.bundestag.de/sucheJson?q=x: unexpected response shape: " +
+      "expected a JSON object with a numeric resultCount and a results array.");
+  // So does a filter the reply did not echo.
+  const ignored = constantJson({ resultCount: 1, results: [], searchParameters: { facets: [] } });
+  await assert.rejects(() => clientWith(ignored).search({ filters: [{ attribute: "activelobbyist", value: "true" }] }), (err: unknown) =>
+    err instanceof LobbyError &&
+    err.message.startsWith("GET https://www.lobbyregister.bundestag.de/sucheJson?filter%5Bactivelobbyist%5D%5Btrue%5D=true: the register ignored the filter "));
 });
 
 test("count rejects a body whose resultCount is not a number", async () => {

@@ -181,7 +181,7 @@ test("an unparseable JSON body maps to exit code 1", async () => {
   const cli = makeCli(() => rawResponse("not json", "application/json"));
   const code = await run(["search", "x"], cli.deps);
   assert.equal(code, 1);
-  assert.match(cli.err.join("\n"), /parse/i);
+  assert.match(untimed(cli.err.join("\n")), /^ERROR \[lobbyregister.api\] GET https:\/\/www.lobbyregister.bundestag.de\/sucheJson\?q=x: the answer is not valid JSON\.$/);
 });
 
 test("a blank query or --sort is a usage error, before any request", async () => {
@@ -351,7 +351,7 @@ test("a filter the reply does not echo exits 1 instead of printing an unfiltered
   const code = await run(["count", "--filter", "revolvingdoordata=true"], cli.deps);
   assert.equal(code, 1);
   assert.deepEqual(cli.out, []);
-  assert.match(cli.err.join("\n"), /The register ignored the filter "revolvingdoordata=true"/);
+  assert.match(cli.err.join("\n"), /the register ignored the filter "revolvingdoordata=true"/);
 });
 
 test("paging in relevance order warns on stderr that pages across runs are unstable", async () => {

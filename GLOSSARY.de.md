@@ -167,7 +167,7 @@ Zeitstempel, eine Stufe (`ERROR`, `WARN`, `INFO`) und ein Thema `lobbyregister.<
 als Text (im Stil von log4j) oder mit `--log-format jsonl` als ein JSON-Objekt pro Zeile.
 Die Bereiche: `cli` (Bedienfehler, Meldungen von commander, unerwartete Fehler), `api` (die
 Antworten der API und die Hinweise dazu: ein Fehlerstatus, eine fehlerhafte Antwort —
-ungültiges JSON, die falsche Form oder der falsche Inhaltstyp, eine Zahl, die JSON nicht exakt tragen kann —, ein Filter, den die Antwort
+ungültiges JSON, die falsche Form oder der falsche Inhaltstyp, eine Zahl, die JSON nicht exakt tragen kann; die Meldung nennt die Anfrage, `GET <url>: …` —, ein Filter, den die Antwort
 nicht bestätigt, das ignorierte `--sort`, das Blättern in Relevanz-Reihenfolge), `http` (die
 Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten) und `output` (ein Schreibfehler auf stdout, eine Antwort, die zu tief verschachtelt ist, um sie auszugeben). Ein Eintrag
 ist immer eine Zeile; Steuerzeichen darin werden maskiert.

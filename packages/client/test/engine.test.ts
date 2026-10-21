@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RequestEngine, cleartextProblem, parseRetryAfter } from "../src/engine.js";
 import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError, cutText, toWellFormed } from "../src/errors.js";
+import type { HttpResponse } from "../src/http.js";
 import {
   makeMockTransport,
   jsonResponse,
@@ -70,7 +71,7 @@ test("a number the JSON cannot carry exactly is a parse error, never a changed v
     const e = new RequestEngine({ transport: makeMockTransport(() => rawResponse(body(n), "application/json")).transport });
     await assert.rejects(e.getJson("/sucheJson"), (err: unknown) => {
       assert.ok(err instanceof LobbyParseError, n);
-      assert.equal(err.message, `Unexpected response from /sucheJson: the number ${n} cannot be represented exactly.`);
+      assert.equal(err.message, `GET https://www.lobbyregister.bundestag.de/sucheJson: the number ${n} cannot be represented exactly.`);
       return true;
     });
   }
@@ -587,4 +588,26 @@ test("a header named __proto__ is an ordinary header, never the prototype of the
   const fetchLike = new Headers([["__proto__", "x"], ["content-type", "application/json"]]);
   const f = new RequestEngine({ transport: async () => ({ status: 200, headers: fetchLike as unknown as Record<string, string>, body: Buffer.from('{"a":1}') }) });
   assert.deepEqual(await f.getJson("/x"), { a: 1 });
+});
+
+test("an answer error names the request: method and URL, cut and with the query (D9)", async () => {
+  const answers: Array<[string, () => HttpResponse]> = [
+    ["unexpected content type", () => rawResponse("<html>", "text/html")],
+    ["the answer is not valid JSON", () => rawResponse("{", "application/json")],
+    ["empty response body", () => rawResponse(" ", "application/json")],
+    ["cannot be represented exactly", () => rawResponse('{"n":1e400}', "application/json")],
+    ["unsupported response charset", () => rawResponse("{}", "application/json; charset=x-bogus")],
+  ];
+  for (const [what, respond] of answers) {
+    const e = new RequestEngine({ baseUrl: "http://127.0.0.1:9", transport: makeMockTransport(respond).transport });
+    await assert.rejects(e.getJson("/sucheJson", { q: "x y" }), (err: unknown) => {
+      assert.ok(err instanceof LobbyParseError, what);
+      assert.ok(err.message.startsWith("GET http://127.0.0.1:9/sucheJson?q=x%20y: "), err.message);
+      assert.ok(err.message.includes(what), err.message);
+      return true;
+    });
+  }
+  // A long query is cut in the message, not printed whole.
+  const long = new RequestEngine({ transport: makeMockTransport(() => rawResponse("{", "application/json")).transport });
+  await assert.rejects(long.getJson("/sucheJson", { q: "x".repeat(5000) }), (err: Error) => err.message.length < 400 && /…: the answer is not valid JSON\.$/.test(err.message));
 });
