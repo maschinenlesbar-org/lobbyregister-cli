@@ -573,3 +573,14 @@ test("a redirect target is quoted at most 200 characters long (L3)", async () =>
   const e = new RequestEngine({ transport: async () => ({ status: 302, headers: { location: `http://[${long}` }, body: Buffer.alloc(0) }) });
   await assert.rejects(e.getJson("/sucheJson"), (err: Error) => err.message.length < 400 && /redirect to http:\/\/\[x+… not followed/.test(err.message));
 });
+
+test("a header named __proto__ is an ordinary header, never the prototype of the headers read (T12)", async () => {
+  // A JavaScript transport may return any object; JSON.parse makes "__proto__" an own key.
+  const headers = JSON.parse('{"__proto__":{"content-type":"text/html"}}') as Record<string, string>;
+  const e = new RequestEngine({ transport: async () => ({ status: 200, headers, body: Buffer.from('{"a":1}') }) });
+  // With the prototype set, "text/html" was read as the Content-Type and the answer refused.
+  assert.deepEqual(await e.getJson("/x"), { a: 1 });
+  const fetchLike = new Headers([["__proto__", "x"], ["content-type", "application/json"]]);
+  const f = new RequestEngine({ transport: async () => ({ status: 200, headers: fetchLike as unknown as Record<string, string>, body: Buffer.from('{"a":1}') }) });
+  assert.deepEqual(await f.getJson("/x"), { a: 1 });
+});
