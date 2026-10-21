@@ -20,8 +20,8 @@ const PATH = "/sucheJson";
  * `200`, or a future schema change could all yield valid JSON of the wrong
  * shape), so reject anything missing a numeric `resultCount` or an array
  * `results` rather than silently reporting a bogus count or crashing later.
- * The count must be a non-negative safe integer: `-5` or `1e400` (Infinity,
- * which JSON output prints as `null`) is no count. Every entry in `results` must be
+ * The count must be a non-negative safe integer: `-5` or `2.5` is no count (a `1e400`,
+ * Infinity, is refused before, by the engine's number check). Every entry in `results` must be
  * a JSON object: a `null` or a string there would be printed as a register entry.
  */
 function assertSearchResult(value: unknown): asserts value is SearchResult {

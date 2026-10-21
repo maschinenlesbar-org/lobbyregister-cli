@@ -158,7 +158,7 @@ the global options.
 (`ERROR`, `WARN`, `INFO`) and a topic `lobbyregister.<area>`, as text (log4j style) or with
 `--log-format jsonl` as one JSON object per line. The areas: `cli` (usage errors,
 commander's messages, unexpected errors), `api` (the API's answers and the notes on them:
-an error status, a malformed answer — bad JSON, the wrong shape or content type —, a filter
+an error status, a malformed answer — bad JSON, the wrong shape or content type, a number JSON cannot carry exactly —, a filter
 the reply did not echo, the ignored `--sort`, relevance-order paging), `http` (the
 connection, the cleartext warning, and one WARN per retry before it waits) and `output` (a failed write to stdout). A record is
 always one line; control characters in it are escaped.

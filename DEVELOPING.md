@@ -381,6 +381,18 @@ wildcard-DNS host returning HTML.
 reads correctly instead of as `B\uFFFDndnis`, and a leading byte order mark is dropped.
 An unknown charset label is a `LobbyParseError`. The register itself sends UTF-8.
 
+**Number check.** A `2xx` JSON answer with a number `JSON.parse` cannot carry exactly is a
+`LobbyParseError` (CLI exit `1`, an `ERROR` of `lobbyregister.api`), never a changed value:
+one out of a double's range (`1e400` would become `null` in the output), one past 2^53 in any
+written form (`12345678901234567890`, `…890.0`, `9007199254740993e0`, `9007199254740992.5`),
+and a non-zero one too small for a double (`1e-400` would become `0`). The message is
+`Unexpected response from /sucheJson: the number <N> cannot be represented exactly.` Below
+2^53 a decimal fraction keeps a double's usual precision, as JSON means it, and past it a
+double a server printed in its own shortest form (`1e23`, `1.7976931348623157E308`) passes,
+since it prints as the same number. The register's
+numbers (counts, euro amounts, staff numbers) are far below 2^53; register numbers are
+strings (`R002297`).
+
 **Envelope check.** A `2xx` JSON answer must be the documented envelope: an object
 with a non-negative integer `resultCount` and a `results` array whose entries are all
 objects. `null`, `{}`, an error object, a string count or a `null` entry is a

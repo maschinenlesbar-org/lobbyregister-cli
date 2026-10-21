@@ -154,11 +154,16 @@ test("a malformed or unknown filter is rejected before any request", async () =>
 });
 
 test("a negative, fractional or non-finite resultCount is a LobbyParseError", async () => {
-  for (const body of ['{"resultCount":-5,"results":[]}', '{"resultCount":1e400,"results":[]}', '{"resultCount":2.5,"results":[]}']) {
+  // 1e400 (Infinity) is refused by the engine's number check before the envelope is looked at.
+  for (const [body, reason] of [
+    ['{"resultCount":-5,"results":[]}', /expected a non-negative integer resultCount\./],
+    ['{"resultCount":1e400,"results":[]}', /the number 1e400 cannot be represented exactly\./],
+    ['{"resultCount":2.5,"results":[]}', /expected a non-negative integer resultCount\./],
+  ] as const) {
     const mt = makeMockTransport(() => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(body) }));
     await assert.rejects(
       () => clientWith(mt).count(),
-      (err) => err instanceof LobbyParseError && /expected a non-negative integer resultCount\./.test((err as Error).message),
+      (err) => err instanceof LobbyParseError && reason.test((err as Error).message),
       body,
     );
   }
