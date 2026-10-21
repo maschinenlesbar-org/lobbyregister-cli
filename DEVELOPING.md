@@ -352,7 +352,11 @@ whole seconds, ms under 1 s). Tests: `apps/cli/test/retry-log.test.ts`.
 unlimited) guarding against memory exhaustion from a hostile or buggy endpoint.
 CLI: `--max-response-bytes`. The default transport aborts as soon as the cap is
 passed; the engine also checks the body any transport returns, so the cap holds for
-custom transports too. The message names both the option and the flag.
+custom transports too. The message names both the option and the flag. With the cap lifted, a
+body too large to be one string (512 MB and more: V8's longest string is 536870888 characters)
+is a `LobbyParseError`, `GET <url>: the answer is too large to read as text (N bytes; …)`, an
+`ERROR` of `lobbyregister.api` (it was "Unexpected error"); an error status with such a body
+keeps its `LobbyApiError` and leaves the body out.
 
 **timeoutMs.** A deadline for the whole request, response body included (default
 30 s; `0` disables). The engine enforces it itself, for every transport: the
