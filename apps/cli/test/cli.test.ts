@@ -582,3 +582,12 @@ test("a usage error found before any request logs no cleartext WARN (B02-2)", as
   assert.equal(await run(["--base-url", "http://mirror.example", "search", "Energie", "--filter", "revolvingdoordata=true"], sent.deps), 0);
   assert.equal(sent.err.filter((line) => line.includes("WARN  [lobbyregister.http]")).length, 1, sent.err.join("\n"));
 });
+
+test("the query goes out trimmed and in NFC, and count prints the query it sent", async () => {
+  for (const argv of [["search", " Müller "], ["--compact", "count", " Müller "]]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(argv, cli.deps), 0, argv.join(" "));
+    assert.equal(new URL(cli.mt.last().url).searchParams.get("q"), "Müller", argv.join(" "));
+    if (argv[1] === "count") assert.deepEqual(JSON.parse(cli.out.join("\n")), { query: "Müller", resultCount: 0 });
+  }
+});

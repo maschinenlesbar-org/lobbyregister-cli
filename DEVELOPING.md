@@ -130,7 +130,10 @@ sent: the client downloads the whole set and slices `results` (1-based `page`, d
 else `LobbyValidationError` before any request. `q` and `sort` may be omitted but not blank: the
 register reads a blank `q` as no query (the whole register) and a blank `sort` as the
 default order, so `""` or whitespace rejects with `LobbyValidationError` before any
-request (`count` too). Omit `q` to match everything. `count` downloads the whole set
+request (`count` too). Omit `q` to match everything. `q` is free text and goes out trimmed and
+in composed Unicode, NFC (`normalizeText`, exported), so a pasted trailing space or a decomposed
+"Müller" (u plus U+0308) matches what the typed text matches; the CLI's `count` prints that
+form as its `query`. `sort` and the filter values are codes and are not touched by it. `count` downloads the whole set
 too — there is no count-only request.
 
 `filters` are the facet filters of the register's website search, sent as

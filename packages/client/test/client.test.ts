@@ -244,3 +244,24 @@ test("searchQuery checks params as search() does and gives the query it sends, w
   await clientWith(mt).search({ q: "Energie", sort: "NAME_ASC" });
   assert.deepEqual(Object.fromEntries(new URL(mt.last().url).searchParams), searchQuery({ q: "Energie", sort: "NAME_ASC" }));
 });
+
+test("the query goes out trimmed and in composed Unicode (NFC), from search, count and searchQuery", async () => {
+  // A trailing space or a decomposed "Müller" (u + U+0308, as pasted from a macOS file name)
+  // is not the text the register matches.
+  const decomposed = "  Müller\tGmbH \n";
+  const mt = constantJson({ resultCount: 0, results: [] });
+  await clientWith(mt).search({ q: decomposed });
+  assert.equal(new URL(mt.last().url).searchParams.get("q"), "Müller\tGmbH");
+  await clientWith(mt).count(decomposed);
+  assert.equal(new URL(mt.last().url).searchParams.get("q"), "Müller\tGmbH");
+  assert.equal(searchQuery({ q: decomposed })["q"], "Müller\tGmbH");
+  // sort is a code, sent as given.
+  await clientWith(mt).search({ q: "x", sort: "NAME_ASC" });
+  assert.equal(new URL(mt.last().url).searchParams.get("sort"), "NAME_ASC");
+  // Blank is still refused before any request.
+  const calls = mt.calls.length;
+  for (const q of ["", " \t\n", "　"]) {
+    await assert.rejects(clientWith(mt).search({ q }), LobbyValidationError, JSON.stringify(q));
+  }
+  assert.equal(mt.calls.length, calls);
+});

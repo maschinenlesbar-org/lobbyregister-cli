@@ -48,7 +48,10 @@ schreibt nie.
 
 **`q` (Suchanfrage).** Der Freitext-Suchbegriff. Optional – ohne `q` passt das gesamte
 Register; ein leeres `q` (`""` oder nur Leerraum) lehnen CLI und Bibliothek gleichermaßen
-vor jeder Anfrage ab. In der CLI ist es das Positionsargument `[query]` von
+vor jeder Anfrage ab. Er wird ohne Leerraum am Anfang und Ende und in zusammengesetztem
+Unicode (NFC) gesendet, so findet ein mitkopiertes Leerzeichen am Ende oder ein zerlegtes
+„Müller“ (u plus U+0308) dasselbe wie der getippte Text; `count` gibt diese Form als `query`
+aus. In der CLI ist es das Positionsargument `[query]` von
 `search` und `count`. Ein Suchbegriff, der mit einem Bindestrich beginnt, muss nach einem
 Trenner `--` übergeben werden (z. B. `search -- -Energie`). Der Server durchsucht auch
 Text, den die Antwort nicht enthält (etwa die Tätigkeitsbeschreibung auf der Registerseite

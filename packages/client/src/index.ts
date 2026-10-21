@@ -38,6 +38,7 @@ export {
   intInRangeProblem,
   isBlank,
   nonEmptyProblem,
+  normalizeText,
 } from "./validate.js";
 export type { Problem } from "./validate.js";
 export {

@@ -42,7 +42,8 @@ export interface SearchResult {
 export interface SearchParams {
   /**
    * Free-text query string. Omit it to match the whole register; a blank value
-   * (`""` or whitespace) rejects with `LobbyValidationError`.
+   * (`""` or whitespace) rejects with `LobbyValidationError`. Sent trimmed and in
+   * composed Unicode (NFC; `normalizeText`).
    */
   q?: string | undefined;
   /**

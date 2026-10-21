@@ -10,7 +10,7 @@ import { LobbyError, LobbyParseError, LobbyValidationError, cutForMessage } from
 import { describeFilter, filterQuery, ignoredFilters, ignoredSort, type SearchFilter } from "./filters.js";
 import type { QueryParams } from "./query.js";
 import type { SearchResult, SearchParams } from "./types.js";
-import { assertValid, nonEmptyProblem } from "./validate.js";
+import { assertValid, nonEmptyProblem, normalizeText } from "./validate.js";
 
 const PATH = "/sucheJson";
 
@@ -147,7 +147,7 @@ export function searchQuery(params: SearchParams = {}): QueryParams {
     );
   }
   const query: QueryParams = filterQuery(params.filters ?? [], { allowUnknown: params.allowUnknownFilters });
-  if (params.q !== undefined) query["q"] = params.q;
+  if (params.q !== undefined) query["q"] = normalizeText(params.q);
   if (params.sort !== undefined) query["sort"] = params.sort;
   return query;
 }
@@ -173,6 +173,8 @@ export class LobbyregisterClient {
    * `q` and `sort` may be omitted, but not blank: the register reads a blank `q`
    * as no query (the whole register) and a blank `sort` as the default order, so
    * `""` or whitespace rejects with `LobbyValidationError` before any request.
+   * `q` is sent trimmed and in composed Unicode (NFC; `normalizeText`); `sort` is a
+   * code and is sent as given.
    *
    * An unknown key in `params` is a `LobbyValidationError`. Each filter attribute
    * must be one of `SEARCH_FILTER_ATTRIBUTES` (the register ignores any other and

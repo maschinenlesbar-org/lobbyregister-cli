@@ -47,7 +47,9 @@ never writes.
 
 **`q` (query).** The free-text query string. Optional — omit `q` to match the
 whole register; a blank `q` (`""` or whitespace) is rejected, by the CLI and the
-library alike, before any request. On the CLI it is the positional `[query]` argument to
+library alike, before any request. It is sent trimmed and in composed Unicode (NFC), so a
+pasted trailing space or a decomposed "Müller" (u plus U+0308) finds what the typed text
+finds; `count` prints that form as its `query`. On the CLI it is the positional `[query]` argument to
 `search` and `count`. A query beginning with a dash must be passed after a `--`
 separator (e.g. `search -- -Energie`). The server also matches text that the response
 doesn't contain (such as the activity description on an entry's register page), so an

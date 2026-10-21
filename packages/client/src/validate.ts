@@ -44,6 +44,17 @@ export const nonEmptyProblem: Problem<unknown> = (value) =>
       : undefined;
 
 /**
+ * The free-text query as the register matches it: without surrounding whitespace (a value
+ * pasted with a trailing space is not the text typed) and in composed Unicode, NFC (a
+ * decomposed "Müller", u plus U+0308 as pasted from a macOS file name, is another string
+ * than the register's "Müller"). Inner whitespace is kept. Only for text the API matches,
+ * never for codes (`sort`, filter values) or ids.
+ */
+export function normalizeText(value: string): string {
+  return value.trim().normalize("NFC");
+}
+
+/**
  * A rule for an integer option: valid when `value` is a safe integer in
  * `min..max`. NaN, Infinity and fractions are no integer. The reasons match the
  * CLI's integer parsers ("Must be >= 0.", "Must be <= 2147483647.").

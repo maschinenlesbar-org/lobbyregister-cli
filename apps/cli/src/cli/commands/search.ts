@@ -5,6 +5,7 @@ import type { SearchFilter } from "@maschinenlesbar.org/lobbyregister-client/int
 import { describeFilter, sortOrderForMessage } from "@maschinenlesbar.org/lobbyregister-client/internal/filters";
 import { resultCountMismatch, searchQuery } from "@maschinenlesbar.org/lobbyregister-client/internal/client";
 import { cutForMessage } from "@maschinenlesbar.org/lobbyregister-client/internal/errors";
+import { normalizeText } from "@maschinenlesbar.org/lobbyregister-client/internal/validate";
 import {
   ALLOW_UNKNOWN_FILTERS_HELP,
   FILTER_HELP,
@@ -167,7 +168,8 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         const result = await client.search(countParamsOf(opts, query));
         const resultCount = result.resultCount;
         renderJson(deps, global, {
-          query: query ?? null,
+          // The query as it was sent: trimmed, in NFC (the library's normalizeText).
+          query: query === undefined ? null : normalizeText(query),
           ...(filters !== undefined ? { filters: filters.map(describeFilter) } : {}),
           resultCount,
         });
