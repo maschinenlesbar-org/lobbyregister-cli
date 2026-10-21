@@ -5,6 +5,7 @@
 import { CommanderError, type Command } from "commander";
 import { buildProgram, defaultDeps } from "./program.js";
 import { logOf, type CliDeps } from "./io.js";
+import { OutputError } from "./shared.js";
 import { DEFAULT_LOG_FORMAT, createLogger, logFormatFromArgv, type LogFormat, type Logger } from "./log.js";
 import {
   LobbyApiError,
@@ -255,6 +256,11 @@ export async function run(argv: string[], deps: CliDeps = defaultDeps): Promise<
       // commander parsers did not already catch): a usage error, like commander's.
       log.error("cli", err.message);
       return USAGE_ERROR_EXIT_CODE;
+    }
+    if (err instanceof OutputError) {
+      // The answer could not be written (nested too deeply to print).
+      log.error("output", err.message);
+      return 1;
     }
     if (err instanceof LobbyError) {
       // The rest is about the API's answer as much as an error status is, so `api`: a
