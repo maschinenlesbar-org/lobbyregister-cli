@@ -465,7 +465,14 @@ everything that drives the CLI is in `apps/cli/test/`.
   line, every failure has an ERROR, the format is commander's, a malformed answer is `api`
   and an `a:b@c` value is no credential. Its adapter sets `BASE_URL_USERINFO = false` (a
   base URL with userinfo is a usage error here, so the echoed-credentials check skips) and
-  `OUTPUT_OPTION = undefined` (no `-o`).
+  `OUTPUT_OPTION = undefined` (no `-o`). P24 (`conformance-p24-input-corpus`, 2026-10-21)
+  sends a corpus of tricky values through every text filter (the query of `search` and
+  `count`) on the CLI and in the library: both refuse it before any request, or both send it
+  trimmed and in NFC; its id list is empty, since no command puts an id into a path. P25
+  (`conformance-p25-response-corpus`) checks that a number the answer can't carry exactly,
+  and an empty answer, are errors (exit 1, an ERROR of `lobbyregister.api`), never a changed
+  value. Their adapters turn this repo's `parity` (which keeps the thrown error) into the
+  shape the shared bodies read. P26 (`-o` integrity) does not apply: this CLI has no `-o`.
 
 ## Continuous integration
 
