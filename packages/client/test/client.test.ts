@@ -298,3 +298,11 @@ test("sort is a code: canonicalised against SORT_ORDERS or refused before any re
   }
   assert.equal(mt.calls.length, 1);
 });
+
+test("the library never echoes the user name of a base URL without a scheme (Bug 2)", () => {
+  for (const baseUrl of ["tok3nSECRET:pw@127.0.0.1:18080", "tok3nSECRET:x@h.test"]) {
+    assert.throws(() => new LobbyregisterClient({ baseUrl }), (err: unknown) =>
+      err instanceof LobbyValidationError && !/tok3nsecret/i.test(err.message) && /Expected an absolute http\(s\) URL/.test(err.message));
+  }
+  assert.throws(() => new LobbyregisterClient({ baseUrl: "ftp://h.test" }), /Unsupported scheme "ftp:"/);
+});

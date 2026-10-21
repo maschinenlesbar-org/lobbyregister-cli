@@ -88,7 +88,9 @@ parsers apply the same rule (`intInRangeProblem`).
 A base URL with a user name or password is rejected (`baseUrlProblem`, so the library's
 `LobbyValidationError` and the CLI's usage error, exit 2): the register needs no
 credentials, the engine never sent them, and accepting them only looked as if they were
-used. The validation reasons never repeat a base URL. The CLI also redacts on output:
+used. The validation reasons never repeat a base URL, nor a part of one: a scheme is named
+(`Unsupported scheme "ftp:"`) only when the value spells one (`<scheme>://`), since
+`user:password@host` without a scheme parses as a URL whose scheme is the user name. The CLI also redacts on output:
 `run.ts` (`redactionFor`, `withRedactedOutput`) takes the exact userinfo of every URL
 argument (`credentialsIn`, exported; only a value that starts with a scheme counts, since a
 bare `a:b@c` is a search text or a User-Agent as often as a credential, except as the

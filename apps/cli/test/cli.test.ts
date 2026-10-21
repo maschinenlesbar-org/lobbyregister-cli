@@ -629,3 +629,22 @@ test("--sort is a code: canonicalised (trimmed, any case) or refused before any 
     assert.match(untimed(cli.err[0] ?? ""), reason, cli.err.join("\n"));
   }
 });
+
+test("a user name in a --base-url without a scheme is never echoed, not even as the scheme (Bug 2)", async () => {
+  // `tok3nSECRET:pw@host` parses as a URL whose scheme is "tok3nsecret:"; the refusal quoted that
+  // scheme, so the user name (a token, as in `<token>:x-oauth-basic@host`) reached stderr.
+  for (const value of ["tok3nSECRET:pw@127.0.0.1:18080", "tok3nSECRET:x-oauth-basic@h.test", "tok3nSECRET@h.test:1"]) {
+    for (const format of ["text", "jsonl"]) {
+      const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+      assert.equal(await run(["--log-format", format, "--base-url", value, "count", "x"], cli.deps), 2, value);
+      assert.equal(cli.mt.calls.length, 0);
+      const err = cli.err.join("\n");
+      assert.doesNotMatch(err, /tok3nsecret/i, err);
+      assert.match(err, /Expected an absolute http\(s\) URL/, err);
+    }
+  }
+  // A real scheme is still named.
+  const ftp = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+  assert.equal(await run(["--base-url", "ftp://h.test", "count", "x"], ftp.deps), 2);
+  assert.match(ftp.err.join("\n"), /Unsupported scheme "ftp:"/);
+});

@@ -254,8 +254,9 @@ function functionOption<F extends (...args: never[]) => unknown>(name: string, v
  * the scheme per hop, but the engine is exported as a library and may be handed a
  * custom transport that does no such check, so the configured base URL is checked
  * up front too (a `file:`/`ftp:` base URL fails fast). A user name or password in it
- * is rejected as well (the API needs none; the reason never repeats them). The reasons
- * match the CLI's `--base-url` parser, which calls this rule.
+ * is rejected as well (the API needs none; the reason never repeats them, nor a user name
+ * that a value without a scheme puts where the scheme would be). The reasons match the CLI's
+ * `--base-url` parser, which calls this rule.
  */
 export const baseUrlProblem: Problem<unknown> = (value) => {
   if (typeof value !== "string") return "Expected an absolute http(s) URL.";
@@ -266,7 +267,10 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
     return "Expected an absolute http(s) URL.";
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    return `Unsupported scheme "${url.protocol}". Expected an http(s) URL.`;
+    // `user:password@host` without a scheme parses as a URL whose scheme is the user name
+    // ("tok3nsecret:"): name a scheme only when the value spells one, `<scheme>://`.
+    if (!/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(value)) return "Expected an absolute http(s) URL, such as https://www.lobbyregister.bundestag.de.";
+    return `Unsupported scheme "${cutForMessage(url.protocol)}". Expected an http(s) URL.`;
   }
   // The register needs no credentials, and the engine never sends userinfo: a user name
   // or password here would only look as if it were used. Named, never echoed.
