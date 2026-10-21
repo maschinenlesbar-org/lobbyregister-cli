@@ -6,10 +6,13 @@
 // `searchParameters.facets`. Checked live on 2026-09-26 and 2026-10-05:
 //   - an unknown attribute is dropped from the echo and ignored, so the reply is the
 //     whole unfiltered set — hence the attribute allowlist below;
-//   - an unknown value is echoed but matches nothing (`resultCount: 0`), so a plausible
-//     value such as `donationsreceived=true` (the code is `DONATIONS_RECEIVED`) or a
-//     sub-code copied from the data (`FOI_EU_LAWS`; the register wants
+//   - an unknown value of a coded facet is echoed but matches nothing (`resultCount: 0`), so
+//     a plausible value such as `donationsreceived=true` (the code is `DONATIONS_RECEIVED`) or
+//     a sub-code copied from the data (`FOI_EU_LAWS`; the register wants
 //     `FOI_EUROPEAN_UNION|FOI_EU_LAWS`) answered "nobody" — hence the value catalogue;
+//   - an unknown value of a yes/no facet is echoed and read as true or false (live
+//     2026-10-21: `activelobbyist=ture` gave the 66 active entries, `=maybe` the inactive
+//     ones), a plausible answer — hence true and false only, even with allowUnknown;
 //   - two values of one attribute are alternatives (OR); different attributes must
 //     all match (AND).
 // The website's number ranges (`filter[financialexpenses][100-2000]`, reported in
@@ -62,6 +65,12 @@ export const SEARCH_FILTER_ATTRIBUTES: readonly string[] = Object.freeze([
 
 /** The values of a yes/no facet. */
 const BOOLEAN = ["false", "true"];
+
+/** Whether `attribute` is a yes/no facet: its only values are `true` and `false`. */
+function isYesNo(attribute: string): boolean {
+  const known = knownValues(attribute);
+  return known !== undefined && known.length === BOOLEAN.length && BOOLEAN.every((value) => known.includes(value));
+}
 
 /**
  * The values of a facet with sub-codes: each parent code alone, and each sub-code
@@ -279,6 +288,12 @@ export function knownFilterValueProblem(attribute: string): Problem<string> {
   return (value) => {
     const known = knownValues(attribute);
     if (known === undefined || known.includes(value)) return undefined;
+    if (isYesNo(attribute)) {
+      return (
+        `Unknown value ${quoteValue(value)} for ${attribute}: a yes/no facet takes true or false; the register ` +
+        "reads any other value as one of them and answers with entries that look filtered."
+      );
+    }
     const parents = known.filter((code) => !code.includes("|"));
     const example = known.find((code) => code.includes("|"))?.split("|")[1];
     const list =
@@ -328,8 +343,9 @@ export function normaliseFilter(filter: SearchFilter): SearchFilter {
 
 /**
  * Check one normalised filter; throws `LobbyValidationError` for a malformed
- * attribute or value, and, unless `allowUnknown`, for an attribute outside
- * `SEARCH_FILTER_ATTRIBUTES` or a value outside `SEARCH_FILTER_VALUES`.
+ * attribute or value, for a yes/no facet's value other than true/false, and, unless
+ * `allowUnknown`, for an attribute outside `SEARCH_FILTER_ATTRIBUTES` or a value outside
+ * `SEARCH_FILTER_VALUES`.
  */
 function checkFilter(filter: SearchFilter, allowUnknown: boolean): void {
   if (typeof filter?.attribute !== "string") {
@@ -349,7 +365,11 @@ function checkFilter(filter: SearchFilter, allowUnknown: boolean): void {
         `FOI_WORK|FOI_WORK_POLICY, got ${typeof filter.value === "string" ? quoteValue(filter.value) : JSON.stringify(filter.value)}.`,
     );
   }
-  if (!allowUnknown) assertValid("filter value", filter.value, knownFilterValueProblem(filter.attribute));
+  // A yes/no facet has no value to add later: anything but true/false is refused even with
+  // allowUnknown, since the register reads it as true or false and answers a plausible set.
+  if (!allowUnknown || isYesNo(filter.attribute)) {
+    assertValid("filter value", filter.value, knownFilterValueProblem(filter.attribute));
+  }
 }
 
 /**

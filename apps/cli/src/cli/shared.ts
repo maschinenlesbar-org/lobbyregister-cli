@@ -119,14 +119,16 @@ export const FILTER_HELP =
   "are alternatives; different attributes must all match. The values are the register's codes " +
   "(matched case-insensitively); a field-of-interest code from the data such as FOI_EU_LAWS is " +
   "sent with its parent (FOI_EUROPEAN_UNION|FOI_EU_LAWS). The register matches nothing for a " +
-  "value it doesn't know, so an unknown attribute or value is a usage error naming the valid ones; " +
-  "--allow-unknown-filters sends it anyway (for a code added after this release). Attributes: " +
+  "code it doesn't know, and reads any value of a yes/no facet but true/false as one of them, so " +
+  "an unknown attribute or value is a usage error naming the valid ones; --allow-unknown-filters " +
+  "sends an unknown attribute or code anyway (for one added after this release), never a yes/no " +
+  "value other than true/false. Attributes: " +
   SEARCH_FILTER_ATTRIBUTES.join(", ") +
   ".";
 
 /** Help for `--allow-unknown-filters`. */
 export const ALLOW_UNKNOWN_FILTERS_HELP =
-  "send a --filter attribute or value this release doesn't know (the register may ignore it or match nothing)";
+  "send a --filter attribute or code this release doesn't know (the register may ignore it or match nothing); a yes/no facet still takes only true or false";
 
 /**
  * The stderr note for a reply of 0 entries when a filter was sent that the catalogue

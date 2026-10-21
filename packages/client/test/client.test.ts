@@ -232,8 +232,8 @@ test("own messages quote a user's or the server's value at most 200 characters l
   await assert.rejects(client.search({ [`k${long}`]: 1 } as never), bounded(/unknown key "kx+"…/));
   // A filter the reply does not echo, sent with allowUnknownFilters.
   await assert.rejects(
-    client.search({ filters: [{ attribute: "revolvingdoordata", value: `V${long}` }], allowUnknownFilters: true }),
-    bounded(/ignored the filter "revolvingdoordata=Vx+"…/),
+    client.search({ filters: [{ attribute: "legalform", value: `V${long}` }], allowUnknownFilters: true }),
+    bounded(/ignored the filter "legalform=Vx+"…/),
   );
   assert.equal(mt.calls.length, 1, "only the last call reaches the transport");
 });
@@ -305,4 +305,21 @@ test("the library never echoes the user name of a base URL without a scheme (Bug
       err instanceof LobbyValidationError && !/tok3nsecret/i.test(err.message) && /Expected an absolute http\(s\) URL/.test(err.message));
   }
   assert.throws(() => new LobbyregisterClient({ baseUrl: "ftp://h.test" }), /Unsupported scheme "ftp:"/);
+});
+
+test("a yes/no facet takes only true or false, even with allowUnknownFilters (Bug 3)", async () => {
+  // The register reads any other value of a yes/no facet as one of the two (`ture` as true,
+  // `maybe` as false) and answers a plausible non-empty set; no new value can come.
+  const mt = constantJson({ resultCount: 66, results: [], searchParameters: { facets: [{ attribute: "activelobbyist", value: "ture" }] } });
+  for (const value of ["ture", "maybe", "yes", "1"]) {
+    for (const allowUnknownFilters of [false, true]) {
+      await assert.rejects(clientWith(mt).search({ q: "Tabak", filters: [{ attribute: "activelobbyist", value }], allowUnknownFilters }), (err: unknown) =>
+        err instanceof LobbyValidationError && /Unknown value "[^"]+" for activelobbyist: a yes\/no facet takes true or false/.test(err.message), value);
+    }
+    assert.throws(() => parseFilter(`statements=${value}`, { allowUnknown: true }), LobbyValidationError);
+  }
+  assert.equal(mt.calls.length, 0);
+  // A coded facet still takes an unknown code with allowUnknownFilters (a code added later).
+  const coded = constantJson({ resultCount: 0, results: [], searchParameters: { facets: [{ attribute: "legalform", value: "LF_NEW" }] } });
+  assert.equal((await clientWith(coded).search({ filters: [{ attribute: "legalform", value: "LF_NEW" }], allowUnknownFilters: true })).resultCount, 0);
 });

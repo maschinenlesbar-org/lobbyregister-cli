@@ -675,3 +675,10 @@ test("a password in a URL anywhere in an argument is redacted in every stderr me
     }
   }
 });
+
+test("--allow-unknown-filters does not let an unknown yes/no value through: a usage error, no request (Bug 3)", async () => {
+  const cli = makeCli(() => jsonResponse({ resultCount: 66, results: [] }));
+  assert.equal(await run(["count", "Tabak", "--filter", "activelobbyist=ture", "--allow-unknown-filters"], cli.deps), 2);
+  assert.equal(cli.mt.calls.length, 0);
+  assert.match(untimed(cli.err[0] ?? ""), /^ERROR \[lobbyregister\.cli\] .*Unknown value "ture" for activelobbyist: a yes\/no facet takes true or false/);
+});

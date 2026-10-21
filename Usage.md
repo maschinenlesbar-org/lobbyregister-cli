@@ -203,8 +203,10 @@ and a bare sub-field code from the data (`FOI_WORK_POLICY`) is sent in that form
 unknown attribute is a usage error (exit `2`) because the API would silently ignore it
 and return the whole set; an unknown **value** is a usage error too, naming the valid
 codes, because the API would match nothing (`resultCount: 0`) and "nobody" would look
-like an answer. `--allow-unknown-filters` sends either anyway (for a code the register
-added after this release); a reply of 0 then logs an `INFO` record on stderr. The library
+like an answer; for a yes/no facet it would read the value as `true` or `false` and answer a
+plausible set. `--allow-unknown-filters` sends an unknown attribute or code anyway (for one the
+register added after this release); a reply of 0 then logs an `INFO` record on stderr. A yes/no
+facet takes `true` or `false` even then. The library
 exports the codes as `SEARCH_FILTER_VALUES`. If a reply does not
 confirm a filter in `searchParameters.facets`, the CLI exits `1` rather than print an
 unfiltered set. The website's number ranges (spend, staff, members from/to) are not

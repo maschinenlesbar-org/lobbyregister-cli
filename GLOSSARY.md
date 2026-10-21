@@ -83,9 +83,10 @@ an entrusted person or a contractor — far more entries than carry the
 `ftepresent` (`true` = an FTE figure was declared, including the entries that declared
 0 FTE; not "has staff"). Values of one attribute are alternatives, different
 attributes must all match. The API ignores an unknown attribute (and would return
-everything) and matches nothing for an unknown value, so the CLI and the library accept
+everything), matches nothing for an unknown code and reads any value of a yes/no facet other
+than `true`/`false` as one of the two, so the CLI and the library accept
 only the known attributes and value codes (`--allow-unknown-filters`, or
-`allowUnknownFilters` in the library, opts out). Both parts are trimmed, the attribute
+`allowUnknownFilters` in the library, opts out, except for a yes/no facet). Both parts are trimmed, the attribute
 is compared case-insensitively (sent in lower case), the value is matched
 case-insensitively and sent in the register's spelling, and a sub-field code as the
 entries carry it (`FOI_EU_LAWS`) is sent with its parent (`FOI_EUROPEAN_UNION|FOI_EU_LAWS`):

@@ -73,7 +73,7 @@ count   [query]   count entries matching a query
 | `[query]` | free-text search term (optional — omit to match everything) |
 | `--sort <order>` | sort order, e.g. `RELEVANCE_DESC`, `REGISTRATION_DESC`, `FINANCIALEXPENSES_DESC` (all values below) |
 | `--filter <attribute=value>` | register facet filter, repeatable (see below) |
-| `--allow-unknown-filters` | send a `--filter` attribute or value this release doesn't know |
+| `--allow-unknown-filters` | send a `--filter` attribute or code this release doesn't know (a yes/no facet still takes only `true` or `false`) |
 | `--page <n>` | 1-based page number, 1 or more (client-side paging) |
 | `--page-size <n>` | results per page, 1 or more (client-side paging) |
 | `--results-only` | print just the `results` array, not the envelope |
@@ -91,11 +91,13 @@ The values are the register's codes: `true`/`false` for yes/no facets, otherwise
 such as `DONATIONS_RECEIVED` or `ACT_TRADE_ASSOC`, matched case-insensitively. A
 field-of-interest code as the entries carry it (`FOI_EU_LAWS`) is sent with its parent
 (`FOI_EUROPEAN_UNION|FOI_EU_LAWS`), the only form the register matches. The API ignores
-an unknown attribute (and would return everything) and matches nothing for an unknown
-value (`resultCount: 0`), so both are a usage error (exit `2`) whose message names the
-valid codes — `donationsreceived=true` names `DONATIONS_RECEIVED`.
-`--allow-unknown-filters` sends them anyway, for a code the register added after this
-release; a reply of 0 then gets an `INFO` record on stderr.
+an unknown attribute (and would return everything), matches nothing for an unknown
+code (`resultCount: 0`) and reads any value of a yes/no facet other than `true`/`false` as
+one of the two (`activelobbyist=ture` answers the active entries), so all of them are a
+usage error (exit `2`) whose message names the valid codes — `donationsreceived=true` names
+`DONATIONS_RECEIVED`. `--allow-unknown-filters` sends an unknown attribute or code anyway, for
+one the register added after this release (a reply of 0 then gets an `INFO` record on
+stderr); a yes/no facet takes `true` or `false` all the same.
 
 The **[Glossary](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/GLOSSARY.md)** explains every field and term in the response.
 

@@ -160,8 +160,10 @@ CLI's `--filter " RevolvingDoorData = true "`; `parseFilter("attribute=value")` 
 text form the CLI's `--filter` parser uses. The API ignores an
 unknown attribute and would return the whole unfiltered set, so the client accepts
 only the attributes in `SEARCH_FILTER_ATTRIBUTES`, taken from the website's search
-form (2026-09-26). It matches nothing for an unknown value (HTTP 200,
-`resultCount: 0`), so the client also accepts only the value codes in
+form (2026-09-26). It matches nothing for an unknown value of a coded facet (HTTP 200,
+`resultCount: 0`), and reads an unknown value of a yes/no facet as true or false
+(`activelobbyist=ture` answered the 66 active entries, `=maybe` the inactive ones, live
+2026-10-21), so the client also accepts only the value codes in
 `SEARCH_FILTER_VALUES` (read from the form on 2026-10-06): normalisation matches them
 case-insensitively and gives a bare sub-code from the data its parent
 (`canonicalFilterValue`: `FOI_EU_LAWS` → `FOI_EUROPEAN_UNION|FOI_EU_LAWS`, the only
@@ -170,10 +172,12 @@ a sub-code under the wrong parent — rejects with `LobbyValidationError` naming
 valid codes, before any request (`knownFilterAttributeProblem`,
 `knownFilterValueProblem`). Both lists are frozen. When the register adds a filter or
 a value, add it; until a release has it, `search({ ..., allowUnknownFilters: true })`
-(CLI: `--allow-unknown-filters`) lifts both checks, and the CLI then notes on stderr
+(CLI: `--allow-unknown-filters`) lifts both checks, except for a yes/no facet, which takes
+only `true` or `false` whatever the flag (no value can be added to it, and the register would
+answer a plausible set), and the CLI then notes on stderr
 when a reply of 0 follows a code it didn't know (`isKnownFilter`). The CLI's `--filter`
-parser checks only the syntax and leaves the catalogue check to the client, so the
-flag works wherever it stands. `searchQuery(params)` (exported) runs exactly these checks and returns the query
+parser checks the syntax and the yes/no values and leaves the rest of the catalogue check to
+the client, so the flag works wherever it stands. `searchQuery(params)` (exported) runs exactly these checks and returns the query
 `search()` would send, without a request; the CLI calls it before it logs the cleartext
 warning, so a usage error is never preceded by that warning. `search()` also rejects a parameter key it doesn't take
 (`{ filter: … }`, `{ revolvingdoordata: "true" }`, `__proto__`), which it used to ignore

@@ -89,9 +89,10 @@ abdeckt), `revolvingdoorpersontypes`, `revolvingdoorareas`, `activelobbyist`,
 `ftepresent` (`true` = eine VZÄ-Angabe liegt vor, auch bei Einträgen, die 0 VZÄ angegeben
 haben; nicht „hat Personal“). Werte desselben Attributs sind Alternativen, verschiedene
 Attribute müssen alle zutreffen. Die API ignoriert ein unbekanntes Attribut (und lieferte
-dann alles) und trifft mit einem unbekannten Wert nichts, deshalb nehmen CLI und
+dann alles), trifft mit einem unbekannten Code nichts und liest bei einer Ja/Nein-Facette
+jeden anderen Wert als `true`/`false` als einen der beiden, deshalb nehmen CLI und
 Bibliothek nur die bekannten Attribute und Wertcodes an (`--allow-unknown-filters`, in der
-Bibliothek `allowUnknownFilters`, hebt das auf). Beide Teile werden von Leerraum befreit,
+Bibliothek `allowUnknownFilters`, hebt das auf, außer bei einer Ja/Nein-Facette). Beide Teile werden von Leerraum befreit,
 das Attribut ohne Rücksicht auf Groß-/Kleinschreibung verglichen (und kleingeschrieben
 gesendet), der Wert ebenso verglichen und in der Schreibweise des Registers gesendet,
 und ein Unterbereichscode, wie er in den Einträgen steht (`FOI_EU_LAWS`), wird mit seinem

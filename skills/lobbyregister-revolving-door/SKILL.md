@@ -87,9 +87,9 @@ jq -r '.[] | select(.lobbyistIdentity.recentGovernmentFunctionPresent != true)
 > `=FEDERAL_GOVERNMENT`, `=FEDERAL_ADMINISTRATION` (where). Values of one attribute are
 > alternatives, different attributes must all match, so
 > `count --filter revolvingdoordata=true --filter revolvingdoorpersontypes=ENTRUSTED_PERSON`
-> counts the entries with an entrusted person who held office. An unknown attribute is a
-> usage error (exit `2`); a mistyped value matches nothing (`resultCount: 0`), so check the
-> spelling before reporting "none".
+> counts the entries with an entrusted person who held office. An unknown attribute or a
+> mistyped value is a usage error (exit `2`) naming the valid codes; fix the spelling and run
+> it again rather than reporting "none".
 
 > **A keyword hit isn't always visible in the returned data.** The search also matches text
 > that `/sucheJson` doesn't return, such as the activity description on the entry's register
