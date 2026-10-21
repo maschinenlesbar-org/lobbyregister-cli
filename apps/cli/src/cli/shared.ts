@@ -6,8 +6,8 @@ import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import { logOf, type CliDeps } from "./io.js";
 import { DEFAULT_BASE_URL, baseUrlProblem, cleartextProblem, isBidiControl, type EngineOptions, type RetryEvent } from "@maschinenlesbar.org/lobbyregister-client/internal/engine";
-import { headerValueProblem, intInRangeProblem, nonEmptyProblem } from "@maschinenlesbar.org/lobbyregister-client/internal/validate";
-import { SEARCH_FILTER_ATTRIBUTES, isKnownFilter, parseFilter, describeFilter, type SearchFilter } from "@maschinenlesbar.org/lobbyregister-client/internal/filters";
+import { headerValueProblem, intInRangeProblem, textProblem } from "@maschinenlesbar.org/lobbyregister-client/internal/validate";
+import { SEARCH_FILTER_ATTRIBUTES, canonicalSort, isKnownFilter, parseFilter, describeFilter, sortProblem, type SearchFilter } from "@maschinenlesbar.org/lobbyregister-client/internal/filters";
 import { LobbyError, cutForMessage } from "@maschinenlesbar.org/lobbyregister-client/internal/errors";
 
 /**
@@ -34,14 +34,26 @@ export function parseIntArg(value: string): number {
 }
 
 /**
- * commander value-parser: a value that is not blank. The rule is the library's
- * nonEmptyProblem, which the client enforces on `q` and `sort` too; here it only
- * turns a blank value into an early usage error.
+ * commander value-parser for the free-text query: the library's textProblem (not blank, not
+ * only invisible characters, no control, format or half character), which the client enforces
+ * on `q` too; here it turns such a value into an early usage error. The value is passed on as
+ * typed: the client sends it trimmed and in NFC.
  */
-export function parseNonEmpty(value: string): string {
-  const reason = nonEmptyProblem(value);
+export function parseText(value: string): string {
+  const reason = textProblem(value);
   if (reason !== undefined) throw new InvalidArgumentError(reason);
   return value;
+}
+
+/**
+ * commander value-parser for `--sort`: the library's sortProblem (a token, and one of the
+ * register's sort orders, matched case-insensitively), as the client checks `sort`. It returns
+ * the register's spelling (`canonicalSort`: ` registration_desc ` → `REGISTRATION_DESC`).
+ */
+export function parseSort(value: string): string {
+  const reason = sortProblem(value);
+  if (reason !== undefined) throw new InvalidArgumentError(reason);
+  return canonicalSort(value);
 }
 
 /**

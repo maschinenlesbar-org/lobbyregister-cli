@@ -46,8 +46,9 @@ never writes.
 ## Search request
 
 **`q` (query).** The free-text query string. Optional — omit `q` to match the
-whole register; a blank `q` (`""` or whitespace) is rejected, by the CLI and the
-library alike, before any request. It is sent trimmed and in composed Unicode (NFC), so a
+whole register; a blank `q` (`""`, whitespace, or only invisible characters such as a
+zero-width space) is rejected, by the CLI and the library alike, before any request, and so
+is one with a control or invisible character inside (it would match nothing). It is sent trimmed and in composed Unicode (NFC), so a
 pasted trailing space or a decomposed "Müller" (u plus U+0308) finds what the typed text
 finds; `count` prints that form as its `query`. On the CLI it is the positional `[query]` argument to
 `search` and `count`. A query beginning with a dash must be passed after a `--`
@@ -55,15 +56,17 @@ separator (e.g. `search -- -Energie`). The server also matches text that the res
 doesn't contain (such as the activity description on an entry's register page), so an
 entry can match without the term appearing anywhere in its JSON.
 
-**`sort`.** The result sort order, passed through verbatim (case-sensitive); a
-blank value is rejected before any request. The
+**`sort`.** The result sort order, a code: sent trimmed and matched in any case
+(` registration_desc ` sends `REGISTRATION_DESC`); a blank, unknown or invisible-character
+value is rejected before any request. The
 values are those of the register's website search: `RELEVANCE_DESC` (the default with a query), `REGISTRATION_DESC` (first published),
 `UPDATE_DESC` (last updated), `INACTIVITY_DESC` (went inactive), `NAME_ASC`,
 `FINANCIALEXPENSES_DESC` (declared spend), `DONATIONAMOUNT_DESC`, `MEMBERSHIPFEES_DESC`,
 `NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFSTATEMENTS_DESC`, `NUMBEROFFTE_DESC`,
 `NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
 `NUMBEROFMEMBERSHIPS_DESC` — each also in the other direction (`_ASC` / `_DESC`). The live endpoint ignores an unrecognised value (HTTP `200`) and falls back
-to its default order rather than rejecting it. The library then adds
+to its default order rather than rejecting it, which is why the client refuses one. Should it
+not apply a known order, the library adds
 `sortIgnored: { requested, applied }` to the result, from the order echoed in
 `searchParameters.sortOrder`, and the CLI warns on stderr. CLI: `search --sort <order>`.
 

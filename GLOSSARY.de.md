@@ -47,8 +47,9 @@ schreibt nie.
 ## Suchanfrage
 
 **`q` (Suchanfrage).** Der Freitext-Suchbegriff. Optional – ohne `q` passt das gesamte
-Register; ein leeres `q` (`""` oder nur Leerraum) lehnen CLI und Bibliothek gleichermaßen
-vor jeder Anfrage ab. Er wird ohne Leerraum am Anfang und Ende und in zusammengesetztem
+Register; ein leeres `q` (`""`, nur Leerraum oder nur unsichtbare Zeichen wie ein
+Leerzeichen der Breite null) lehnen CLI und Bibliothek gleichermaßen vor jeder Anfrage ab,
+ebenso eines mit einem Steuer- oder unsichtbaren Zeichen darin (es fände nichts). Er wird ohne Leerraum am Anfang und Ende und in zusammengesetztem
 Unicode (NFC) gesendet, so findet ein mitkopiertes Leerzeichen am Ende oder ein zerlegtes
 „Müller“ (u plus U+0308) dasselbe wie der getippte Text; `count` gibt diese Form als `query`
 aus. In der CLI ist es das Positionsargument `[query]` von
@@ -58,8 +59,10 @@ Text, den die Antwort nicht enthält (etwa die Tätigkeitsbeschreibung auf der R
 eines Eintrags); ein Eintrag kann also passen, ohne dass der Begriff irgendwo in seinem JSON
 vorkommt.
 
-**`sort`.** Die Sortierreihenfolge der Ergebnisse; wird unverändert weitergegeben
-(Groß-/Kleinschreibung zählt), ein leerer Wert wird vor jeder Anfrage abgelehnt. Die Werte sind die der Suche auf der Website des Registers:
+**`sort`.** Die Sortierreihenfolge der Ergebnisse, ein Code: ohne Leerraum am Anfang und
+Ende gesendet und in beliebiger Schreibung erkannt (` registration_desc ` sendet
+`REGISTRATION_DESC`); ein leerer, unbekannter oder unsichtbare Zeichen enthaltender Wert
+wird vor jeder Anfrage abgelehnt. Die Werte sind die der Suche auf der Website des Registers:
 `RELEVANCE_DESC` (Standard bei einem Suchbegriff), `REGISTRATION_DESC` (Erstveröffentlichung),
 `UPDATE_DESC` (letzte Aktualisierung), `INACTIVITY_DESC` (Beendigung), `NAME_ASC`,
 `FINANCIALEXPENSES_DESC` (angegebene Ausgaben), `DONATIONAMOUNT_DESC`, `MEMBERSHIPFEES_DESC`,
@@ -67,7 +70,8 @@ vorkommt.
 `NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
 `NUMBEROFMEMBERSHIPS_DESC` – jeweils auch in der Gegenrichtung (`_ASC` / `_DESC`). Der
 Live-Endpoint ignoriert einen unbekannten Wert (HTTP `200`) und fällt auf seine
-Standardreihenfolge zurück, statt ihn abzulehnen. Die Bibliothek ergänzt das Ergebnis dann
+Standardreihenfolge zurück, statt ihn abzulehnen; deshalb lehnt der Client ihn ab. Wendet er
+eine bekannte Reihenfolge doch nicht an, ergänzt die Bibliothek das Ergebnis
 um `sortIgnored: { requested, applied }` aus der in `searchParameters.sortOrder` gemeldeten
 Reihenfolge, und die CLI warnt auf stderr. CLI: `search --sort <order>`.
 

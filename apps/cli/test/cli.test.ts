@@ -151,9 +151,9 @@ test("a 404 from the API maps to exit code 4", async () => {
   assert.equal(code, 4);
 });
 
-test("a 400 (e.g. an invalid --sort) maps to exit 1 with a hint", async () => {
+test("a 400 (e.g. a rejected --sort) maps to exit 1 with a hint", async () => {
   const cli = makeCli(() => jsonResponse({}, 400));
-  const code = await run(["search", "x", "--sort", "BOGUS"], cli.deps);
+  const code = await run(["search", "x", "--sort", "NAME_ASC"], cli.deps);
   assert.equal(code, 1);
   const stderr = cli.err.join("\n");
   assert.match(stderr, /HTTP 400/);
@@ -162,7 +162,7 @@ test("a 400 (e.g. an invalid --sort) maps to exit 1 with a hint", async () => {
 
 test("a 400 with an API detail surfaces the detail (no generic hint)", async () => {
   const cli = makeCli(() => jsonResponse({ detail: "invalid sort value" }, 400));
-  const code = await run(["search", "x", "--sort", "BOGUS"], cli.deps);
+  const code = await run(["search", "x", "--sort", "NAME_ASC"], cli.deps);
   assert.equal(code, 1);
   const stderr = cli.err.join("\n");
   assert.match(stderr, /invalid sort value/);
@@ -378,10 +378,11 @@ test("a --sort the API did not apply gets a stderr warning (exit 0)", async () =
     jsonResponse({ resultCount: 1, results: [{}], searchParameters: { sortOrder: "RELEVANCE_DESC" } }),
   );
   assert.equal(await run(["search", "R002822", "--sort", "registration_desc"], ignored.deps), 0);
+  assert.equal(new URL(ignored.mt.last().url).searchParams.get("sort"), "REGISTRATION_DESC");
   assert.equal(
     untimed(ignored.err.join("\n")),
-    'WARN  [lobbyregister.api] the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead. ' +
-      "Sort orders are upper case, e.g. REGISTRATION_DESC (see search --help).",
+    'WARN  [lobbyregister.api] the API did not apply --sort "REGISTRATION_DESC" and sorted by RELEVANCE_DESC instead; ' +
+      "the register may no longer support that order (see search --help).",
   );
 
   const applied = makeCli(() =>
@@ -392,7 +393,7 @@ test("a --sort the API did not apply gets a stderr warning (exit 0)", async () =
 
   // No echo to compare against: nothing to say.
   const bare = makeCli(() => jsonResponse({ resultCount: 1, results: [{}] }));
-  assert.equal(await run(["search", "x", "--sort", "whatever"], bare.deps), 0);
+  assert.equal(await run(["search", "x", "--sort", "NAME_ASC"], bare.deps), 0);
   assert.deepEqual(bare.err, []);
 });
 
@@ -605,5 +606,26 @@ test("a refused value is shown with its invisible and control characters escaped
       assert.ok(err.includes(escape), `${escape}: ${err}`);
       assert.ok(!err.includes(ch), `${escape} raw: ${err}`);
     }
+  }
+});
+
+test("--sort is a code: canonicalised (trimmed, any case) or refused before any request, never sent raw (Bug 1)", async () => {
+  // " REGISTRATION_DESC " went out as `sort=%20REGISTRATION_DESC%20`; the register ignored it and
+  // sorted by relevance, exit 0, with a WARN that blamed the case.
+  for (const given of [" REGISTRATION_DESC ", "REGISTRATION_DESC\t", "registration_desc", "\u00a0Registration_Desc\n"]) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [], searchParameters: { sortOrder: "REGISTRATION_DESC" } }));
+    assert.equal(await run(["search", "Tabak", "--sort", given], cli.deps), 0, JSON.stringify(given));
+    assert.equal(new URL(cli.mt.last().url).searchParams.get("sort"), "REGISTRATION_DESC", JSON.stringify(given));
+    assert.deepEqual(cli.err, [], JSON.stringify(given));
+  }
+  for (const [given, reason] of [
+    ["BOGUS", /Unknown sort order "BOGUS": the register would ignore it and sort by relevance\. Sort orders: RELEVANCE_DESC, REGISTRATION_DESC, /],
+    ["REGISTRATION\u200b_DESC", /"REGISTRATION\\u200b_DESC" contains an invisible or control character \(U\+200B\)/],
+    ["\u200b", /Expected a non-empty value\./],
+  ] as const) {
+    const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+    assert.equal(await run(["search", "Tabak", "--sort", given], cli.deps), 2, given);
+    assert.equal(cli.mt.calls.length, 0, given);
+    assert.match(untimed(cli.err[0] ?? ""), reason, cli.err.join("\n"));
   }
 });

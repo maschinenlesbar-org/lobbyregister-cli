@@ -8,7 +8,7 @@ import {
   LobbyValidationError,
 } from "../src/errors.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
-import { SEARCH_FILTER_ATTRIBUTES, SEARCH_FILTER_VALUES, parseFilter } from "../src/filters.js";
+import { SEARCH_FILTER_ATTRIBUTES, SEARCH_FILTER_VALUES, SORT_ORDERS, canonicalSort, parseFilter } from "../src/filters.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>): LobbyregisterClient {
   return new LobbyregisterClient({ transport: mt.transport });
@@ -283,4 +283,18 @@ test("a value a message quotes shows its invisible characters escaped, never raw
     await assert.rejects(client.search({ [`q${ch}`]: "x" } as never), visible);
     assert.throws(() => parseFilter(`activelobbyist=tr${ch}ue`), visible);
   }
+});
+
+test("sort is a code: canonicalised against SORT_ORDERS or refused before any request (Bug 1)", async () => {
+  assert.equal(SORT_ORDERS.length, 30);
+  assert.ok(SORT_ORDERS.includes("REGISTRATION_DESC") && SORT_ORDERS.includes("NUMBEROFMEMBERSHIPS_ASC"));
+  assert.equal(canonicalSort(" registration_desc\t"), "REGISTRATION_DESC");
+  const mt = constantJson({ resultCount: 0, results: [], searchParameters: { sortOrder: "NAME_ASC" } });
+  const res = await clientWith(mt).search({ q: "Tabak", sort: " name_asc " });
+  assert.equal(new URL(mt.last().url).searchParams.get("sort"), "NAME_ASC");
+  assert.equal("sortIgnored" in res, false);
+  for (const sort of ["BOGUS", "NAME", "NAME_ASC_", "NAME\u00adASC", "\u200b", "NAME_ASC\ud800"]) {
+    await assert.rejects(clientWith(mt).search({ sort }), (err: unknown) => err instanceof LobbyValidationError && err.message.startsWith("Invalid sort: "), sort);
+  }
+  assert.equal(mt.calls.length, 1);
 });

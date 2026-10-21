@@ -19,7 +19,9 @@ export type { QueryParams, QueryValue } from "./query.js";
 export {
   SEARCH_FILTER_ATTRIBUTES,
   SEARCH_FILTER_VALUES,
+  SORT_ORDERS,
   FILTER_VALUE_PATTERN,
+  canonicalSort,
   canonicalFilterValue,
   filterQuery,
   isKnownFilter,
@@ -29,6 +31,7 @@ export {
   sortOrderForMessage,
   normaliseFilter,
   parseFilter,
+  sortProblem,
 } from "./filters.js";
 export type { SearchFilter, SortIgnored } from "./filters.js";
 export {
@@ -37,8 +40,13 @@ export {
   headerValueProblem,
   intInRangeProblem,
   isBlank,
+  listProblem,
   nonEmptyProblem,
   normalizeText,
+  normalizeToken,
+  splitList,
+  textProblem,
+  tokenProblem,
 } from "./validate.js";
 export type { Problem } from "./validate.js";
 export {

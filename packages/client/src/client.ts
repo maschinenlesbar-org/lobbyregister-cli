@@ -7,10 +7,10 @@
 
 import { RequestEngine, type EngineOptions } from "./engine.js";
 import { LobbyError, LobbyParseError, LobbyValidationError, quoteValue } from "./errors.js";
-import { describeFilter, filterQuery, ignoredFilters, ignoredSort, type SearchFilter } from "./filters.js";
+import { canonicalSort, describeFilter, filterQuery, ignoredFilters, ignoredSort, sortProblem, type SearchFilter } from "./filters.js";
 import type { QueryParams } from "./query.js";
 import type { SearchResult, SearchParams } from "./types.js";
-import { assertValid, nonEmptyProblem, normalizeText } from "./validate.js";
+import { assertValid, normalizeText, textProblem } from "./validate.js";
 
 const PATH = "/sucheJson";
 
@@ -133,12 +133,13 @@ function slicePage(result: SearchResult, page: number | undefined, pageSize: num
  * (an unknown key, a blank `q` or `sort`, a bad `page`/`pageSize`, an unknown or
  * malformed filter unless `allowUnknownFilters`). It makes no request, so a caller can
  * check its input first; the CLI does, so a usage error is never preceded by the
- * cleartext warning it logs before the first request.
+ * cleartext warning it logs before the first request. `q` goes out as `normalizeText` gives
+ * it, `sort` as `canonicalSort` gives it.
  */
 export function searchQuery(params: SearchParams = {}): QueryParams {
   assertSearchParams(params);
-  if (params.q !== undefined) assertValid("q", params.q, nonEmptyProblem);
-  if (params.sort !== undefined) assertValid("sort", params.sort, nonEmptyProblem);
+  if (params.q !== undefined) assertValid("q", params.q, textProblem);
+  if (params.sort !== undefined) assertValid("sort", params.sort, sortProblem);
   assertPageNumber("page", params.page);
   assertPageNumber("pageSize", params.pageSize);
   if (params.page !== undefined && params.pageSize === undefined) {
@@ -148,7 +149,7 @@ export function searchQuery(params: SearchParams = {}): QueryParams {
   }
   const query: QueryParams = filterQuery(params.filters ?? [], { allowUnknown: params.allowUnknownFilters });
   if (params.q !== undefined) query["q"] = normalizeText(params.q);
-  if (params.sort !== undefined) query["sort"] = params.sort;
+  if (params.sort !== undefined) query["sort"] = canonicalSort(params.sort);
   return query;
 }
 
@@ -172,9 +173,12 @@ export class LobbyregisterClient {
    *
    * `q` and `sort` may be omitted, but not blank: the register reads a blank `q`
    * as no query (the whole register) and a blank `sort` as the default order, so
-   * `""` or whitespace rejects with `LobbyValidationError` before any request.
-   * `q` is sent trimmed and in composed Unicode (NFC; `normalizeText`); `sort` is a
-   * code and is sent as given.
+   * `""`, whitespace or only invisible characters reject with `LobbyValidationError`
+   * before any request. `q` is free text (`textProblem`: no control, format or half
+   * character) and is sent trimmed and in composed Unicode (NFC; `normalizeText`). `sort`
+   * is a code: one of `SORT_ORDERS`, matched case-insensitively and sent in the register's
+   * spelling (`canonicalSort`: ` registration_desc ` → `REGISTRATION_DESC`); any other is a
+   * `LobbyValidationError` (the register would ignore it and sort by relevance).
    *
    * An unknown key in `params` is a `LobbyValidationError`. Each filter attribute
    * must be one of `SEARCH_FILTER_ATTRIBUTES` (the register ignores any other and
@@ -208,7 +212,7 @@ export class LobbyregisterClient {
           "(missing from searchParameters.facets in the reply), so the result would not be filtered.",
       );
     }
-    const sortIgnored = ignoredSort(params.sort, result.searchParameters);
+    const sortIgnored = ignoredSort(params.sort === undefined ? undefined : canonicalSort(params.sort), result.searchParameters);
     const page = slicePage(result, params.page, params.pageSize);
     return sortIgnored === undefined ? page : { ...page, sortIgnored };
   }

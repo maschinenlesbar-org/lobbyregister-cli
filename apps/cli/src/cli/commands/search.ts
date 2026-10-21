@@ -14,7 +14,8 @@ import {
   collectFilter,
   once,
   parseBoundedInt,
-  parseNonEmpty,
+  parseSort,
+  parseText,
   renderJson,
   unknownFilterNote,
 } from "../shared.js";
@@ -26,8 +27,9 @@ const SORT_HELP =
   "FINANCIALEXPENSES_DESC, DONATIONAMOUNT_DESC, MEMBERSHIPFEES_DESC, " +
   "NUMBEROFREGULATORYPROJECTS_DESC, NUMBEROFSTATEMENTS_DESC, NUMBEROFFTE_DESC, " +
   "NUMBEROFENTRUSTEDPERSONS_DESC, NUMBEROFCONTRACTS_DESC, NUMBEROFMEMBERS_DESC, " +
-  "NUMBEROFMEMBERSHIPS_DESC. The API ignores an unknown value and falls back to its " +
-  "default order; the CLI then warns on stderr.\n";
+  "NUMBEROFMEMBERSHIPS_DESC. Matched in any case; any other value is a usage error, since the " +
+  "API would ignore it and fall back to its default order. Should the API not apply an order " +
+  "after all, the CLI warns on stderr.\n";
 
 /**
  * The sort order the server says it applied (`searchParameters.sortOrder`), if any, as
@@ -83,7 +85,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
   program
     .command("search")
     .description("Search the lobby register")
-    .argument("[query]", "free-text search term (omit to match everything)", parseNonEmpty)
+    .argument("[query]", "free-text search term (omit to match everything)", parseText)
     .option(
       "--page <n>",
       "1-based page number (1 or more; client-side paging)",
@@ -94,7 +96,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
       "results per page (1 or more; client-side paging)",
       once("--page-size", parseBoundedInt(1, Number.MAX_SAFE_INTEGER)),
     )
-    .option("--sort <order>", 'e.g. RELEVANCE_DESC, REGISTRATION_DESC', once("--sort", parseNonEmpty))
+    .option("--sort <order>", "e.g. RELEVANCE_DESC, REGISTRATION_DESC (any case)", once("--sort", parseSort))
     .option(
       "--filter <attribute=value>",
       "register facet filter, e.g. revolvingdoordata=true (repeatable)",
@@ -125,7 +127,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
           logOf(deps).warn(
             "api",
             `the API did not apply --sort ${quoteValue(sortIgnored.requested)} and sorted by ` +
-              `${sortOrderForMessage(sortIgnored.applied)} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
+              `${sortOrderForMessage(sortIgnored.applied)} instead; the register may no longer support that order ` +
               "(see search --help).",
           );
         }
@@ -147,7 +149,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
   program
     .command("count")
     .description("Count entries matching a query")
-    .argument("[query]", "free-text search term (omit to match everything)", parseNonEmpty)
+    .argument("[query]", "free-text search term (omit to match everything)", parseText)
     .option(
       "--filter <attribute=value>",
       "register facet filter, e.g. revolvingdoordata=true (repeatable)",

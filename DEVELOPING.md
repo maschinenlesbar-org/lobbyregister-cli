@@ -130,10 +130,22 @@ sent: the client downloads the whole set and slices `results` (1-based `page`, d
 else `LobbyValidationError` before any request. `q` and `sort` may be omitted but not blank: the
 register reads a blank `q` as no query (the whole register) and a blank `sort` as the
 default order, so `""` or whitespace rejects with `LobbyValidationError` before any
-request (`count` too). Omit `q` to match everything. `q` is free text and goes out trimmed and
-in composed Unicode, NFC (`normalizeText`, exported), so a pasted trailing space or a decomposed
-"Müller" (u plus U+0308) matches what the typed text matches; the CLI's `count` prints that
-form as its `query`. `sort` and the filter values are codes and are not touched by it. `count` downloads the whole set
+request (`count` too). Omit `q` to match everything. Blank means `isBlank`: nothing left once
+whitespace, control and format characters and combining marks are taken out (a lone zero-width
+space is blank). `q` is free text (`textProblem`, exported: it also refuses a lone surrogate, a
+control character other than TAB/LF/CR and a format character other than ZWNJ/ZWJ, which would
+make the search match nothing) and goes out trimmed and in composed Unicode, NFC
+(`normalizeText`, exported), so a pasted trailing space or a decomposed "Müller" (u plus
+U+0308) matches what the typed text matches; the CLI's `count` prints that form as its `query`.
+`sort` and the filter values are codes (tokens: `tokenProblem`/`normalizeToken`, exported,
+refuse every control and format character and a lone surrogate, and send the value trimmed in
+NFC). `sort` must be one of `SORT_ORDERS` (exported; the 15 keys of the website's search, each
+`_ASC` and `_DESC`), matched case-insensitively and sent in the register's spelling
+(`canonicalSort`: ` registration_desc ` sends `REGISTRATION_DESC`); any other is a
+`LobbyValidationError` (`sortProblem`) naming the orders, before any request, since the register
+ignores an unknown order and sorts by relevance (bug 1 of the 2026-10-21 sweep: a padded value
+went out raw and was ignored). `splitList`/`listProblem` (exported) are the kit's rule for a
+comma list; this CLI has no list option. `count` downloads the whole set
 too — there is no count-only request.
 
 `filters` are the facet filters of the register's website search, sent as
@@ -166,9 +178,10 @@ and so return the whole register. The CLI's single-value options (`--sort`, `--p
 each filter, which catches an attribute the register has dropped: a filter it did not
 echo throws `LobbyError` (a reply without a `facets` array is not checked).
 
-`sort` is sent verbatim. The register ignores an unknown or wrong-case value (HTTP
+`sort` is sent in the register's spelling (above). The register ignores an unknown value (HTTP
 `200`) and falls back to its default order, so when `searchParameters.sortOrder`
-names another order the result carries `sortIgnored: { requested, applied }`
+names another order than the one sent (should the register drop one) the result carries
+`sortIgnored: { requested, applied }`
 (`ignoredSort` in `filters.ts`); the data is still returned. The CLI prints the
 envelope without that field and turns it into a `WARN` record of `lobbyregister.api` on stderr.
 `sortOrder` is the server's text, so `SortIgnored.applied` and the envelope keep it as sent,
@@ -501,8 +514,10 @@ everything that drives the CLI is in `apps/cli/test/`.
   base URL with userinfo is a usage error here, so the echoed-credentials check skips) and
   `OUTPUT_OPTION = undefined` (no `-o`). P24 (`conformance-p24-input-corpus`, 2026-10-21)
   sends a corpus of tricky values through every text filter (the query of `search` and
-  `count`) on the CLI and in the library: both refuse it before any request, or both send it
-  trimmed and in NFC; its id list is empty, since no command puts an id into a path. P25
+  `count`) and every token (`--sort`, and a filter value sent with `--allow-unknown-filters`) on
+  the CLI and in the library: both refuse it before any request, showing an invisible character
+  escaped, or both send it trimmed and in NFC; a blank, invisible, control or half character is
+  refused everywhere; its list inputs are empty (no list option). P25
   (`conformance-p25-response-corpus`) checks that a number the answer can't carry exactly,
   and an empty answer, are errors (exit 1, an ERROR of `lobbyregister.api`), never a changed
   value. Their adapters turn this repo's `parity` (which keeps the thrown error) into the

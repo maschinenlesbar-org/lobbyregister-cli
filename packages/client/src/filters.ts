@@ -18,7 +18,7 @@
 import { sanitizeServerText } from "./engine.js";
 import { LobbyValidationError, cutForMessage, quoteValue } from "./errors.js";
 import type { QueryParams } from "./query.js";
-import { assertValid, type Problem } from "./validate.js";
+import { assertValid, normalizeToken, tokenProblem, type Problem } from "./validate.js";
 
 /** One facet filter: `{ attribute: "revolvingdoordata", value: "true" }`. */
 export interface SearchFilter {
@@ -442,6 +442,49 @@ export function ignoredFilters(
       ),
   );
 }
+
+/** The sort keys of the register's website search (2026-09-26); each is an order in both directions. */
+const SORT_KEYS = [
+  "RELEVANCE", "REGISTRATION", "UPDATE", "INACTIVITY", "NAME", "FINANCIALEXPENSES", "DONATIONAMOUNT",
+  "MEMBERSHIPFEES", "NUMBEROFREGULATORYPROJECTS", "NUMBEROFSTATEMENTS", "NUMBEROFFTE",
+  "NUMBEROFENTRUSTEDPERSONS", "NUMBEROFCONTRACTS", "NUMBEROFMEMBERS", "NUMBEROFMEMBERSHIPS",
+];
+
+/**
+ * The sort orders the register knows (`REGISTRATION_DESC`, `NAME_ASC`, …), each key in both
+ * directions, from the website's search form (2026-09-26). The register ignores any other value
+ * and sorts by relevance (HTTP 200), so the client accepts only these; when the register adds
+ * one, add it here.
+ */
+export const SORT_ORDERS: readonly string[] = Object.freeze(SORT_KEYS.flatMap((key) => [`${key}_ASC`, `${key}_DESC`]));
+
+/**
+ * A sort order as the register spells it: trimmed and in NFC (`normalizeToken`), matched
+ * case-insensitively against `SORT_ORDERS` (`registration_desc` → `REGISTRATION_DESC`). A value
+ * the catalogue doesn't know is returned trimmed; `sortProblem` refuses it.
+ */
+export function canonicalSort(value: string): string {
+  const token = normalizeToken(value);
+  const upper = token.toUpperCase();
+  return SORT_ORDERS.find((order) => order === upper) ?? token;
+}
+
+/**
+ * Why `value` cannot be sent as `sort`, or undefined when it can: the token rules
+ * (`tokenProblem`: not blank, no invisible or control character, no half character), then one
+ * of `SORT_ORDERS` after `canonicalSort`. The register ignored a padded (`" REGISTRATION_DESC "`),
+ * wrong-case or unknown value and sorted by relevance with exit 0, which looked like a sorted
+ * answer.
+ */
+export const sortProblem: Problem<unknown> = (value) => {
+  const problem = tokenProblem(value);
+  if (problem !== undefined) return problem;
+  if (SORT_ORDERS.includes(canonicalSort(value as string))) return undefined;
+  return (
+    `Unknown sort order ${quoteValue(value as string)}: the register would ignore it and sort by relevance. ` +
+    `Sort orders: ${SORT_KEYS.map((key) => `${key}_DESC`).join(", ")}, each also _ASC.`
+  );
+};
 
 /** A sort the register did not apply: the order asked for and the one it used. */
 export interface SortIgnored {

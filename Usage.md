@@ -86,10 +86,12 @@ lobbyregister search Pharma --sort REGISTRATION_DESC
 `NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFSTATEMENTS_DESC`, `NUMBEROFFTE_DESC`,
 `NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
 `NUMBEROFMEMBERSHIPS_DESC` — each also in the other direction (`_ASC` / `_DESC`).
-The value is passed through verbatim and is case-sensitive. The API ignores an
+The value is a code: it is sent trimmed and matched in any case (` registration_desc `
+sends `REGISTRATION_DESC`). Any other value, or one with an invisible or control
+character, is a usage error (exit `2`) before any request: the API ignores an
 unrecognised value (HTTP `200`, default ordering), so a bad sort never raises a
-`400`; the CLI compares the order the API reports (`searchParameters.sortOrder`)
-with the one you asked for and logs a `WARN` record on stderr when they differ
+`400`. The CLI also compares the order the API reports (`searchParameters.sortOrder`)
+with the one it sent and logs a `WARN` record on stderr when they differ
 (exit `0`). The record quotes the reported order cleaned, as it does an error message:
 control characters dropped, on one line, at most 200 characters.
 

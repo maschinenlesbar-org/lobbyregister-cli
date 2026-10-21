@@ -152,11 +152,11 @@ refusals never look alike; a message longer than 4000 characters is cut and ends
 
 ```text
 2026-10-09T14:03:12.481Z WARN  [lobbyregister.http] requests to mirror.test are sent unencrypted (http:, not https:)
-2026-10-09T14:03:12.902Z WARN  [lobbyregister.api] the API did not apply --sort "registration_desc" and sorted by RELEVANCE_DESC instead. Sort orders are upper case, e.g. REGISTRATION_DESC (see search --help).
+2026-10-09T14:03:12.902Z WARN  [lobbyregister.api] the API did not apply --sort "UPDATE_ASC" and sorted by RELEVANCE_DESC instead; the register may no longer support that order (see search --help).
 ```
 
 ```bash
-lobbyregister --log-format jsonl search Klimaschutz --sort registration_desc 2>log.jsonl   # {"ts":"…","level":"WARN","topic":"lobbyregister.api","msg":"the API did not apply --sort …"}
+lobbyregister --log-format jsonl search Klimaschutz --page-size 5 2>log.jsonl   # {"ts":"…","level":"INFO","topic":"lobbyregister.api","msg":"the results are in relevance order …"}
 ```
 
 ```bash
@@ -187,9 +187,11 @@ do the same thing.
 > `NUMBEROFREGULATORYPROJECTS_DESC`, `NUMBEROFSTATEMENTS_DESC`, `NUMBEROFFTE_DESC`,
 > `NUMBEROFENTRUSTEDPERSONS_DESC`, `NUMBEROFCONTRACTS_DESC`, `NUMBEROFMEMBERS_DESC`,
 > `NUMBEROFMEMBERSHIPS_DESC` — each also in the other direction (`_ASC` / `_DESC`).
-> The value is passed through verbatim and is case-sensitive. The live API
-> ignores an unrecognised value (HTTP `200`) and falls back to its default order;
-> the CLI then logs a `WARN` record on stderr naming the order the API used
+> The value is a code: it is sent trimmed and matched in any case (` registration_desc `
+> sends `REGISTRATION_DESC`); any other value, or one with an invisible or control
+> character, is a usage error (exit `2`) before any request, since the live API would
+> ignore it (HTTP `200`) and sort by relevance. Should the API not apply an order after all,
+> the CLI logs a `WARN` record on stderr naming the order the API used
 > (`searchParameters.sortOrder`, cleaned: control characters dropped, on one line, at
 > most 200 characters), and still exits `0`.
 
