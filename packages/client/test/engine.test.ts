@@ -99,6 +99,39 @@ test("the number check skips strings and costs one pass over the text", async ()
   assert.equal((await f.getJson<number[]>("/x")).length, 200_000);
 });
 
+test("a timeout, the size cap, a refused connection and a DNS failure name the request (K3)", async () => {
+  const url = "https://www.lobbyregister.bundestag.de/sucheJson?q=Energie";
+  const refused = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:9"), { code: "ECONNREFUSED" });
+  const dns = Object.assign(new Error("getaddrinfo ENOTFOUND nosuch.example"), { code: "ENOTFOUND" });
+  for (const thrown of [refused, dns]) {
+    const e = new RequestEngine({ transport: async () => { throw new LobbyNetworkError(thrown.message, { cause: thrown }); } });
+    await assert.rejects(e.getJson("/sucheJson", { q: "Energie" }), (err: unknown) => {
+      assert.ok(err instanceof LobbyNetworkError);
+      assert.equal(err.message, `GET ${url} failed: ${thrown.message}`);
+      assert.equal((err.cause as Error).cause, thrown);
+      return true;
+    });
+  }
+  // The engine's own deadline, for a transport that answers too late. (Its timer keeps the event
+  // loop alive: the engine's deadline timer is unref'd, and on Node 22 a test whose only pending
+  // timer is unref'd is cancelled.)
+  const late = () => new Promise<never>((resolve) => setTimeout(() => resolve(rawResponse("{}", "application/json") as never), 50));
+  const slow = new RequestEngine({ timeoutMs: 5, transport: late });
+  await assert.rejects(slow.getJson("/sucheJson", { q: "Energie" }), (err: unknown) => {
+    assert.ok(err instanceof LobbyNetworkError);
+    assert.equal(err.message, `GET ${url} failed: Request timed out after 5ms`);
+    assert.ok(err.cause instanceof LobbyNetworkError);
+    return true;
+  });
+  // The size cap, whether the transport or the engine finds it.
+  const big = new RequestEngine({ maxResponseBytes: 3, transport: async () => rawResponse("[1,2,3]", "application/json") });
+  await assert.rejects(big.getJson("/sucheJson", { q: "Energie" }), (err: unknown) => {
+    assert.ok(err instanceof LobbyNetworkError);
+    assert.match(err.message, new RegExp(`^GET ${url.replace(/[.?]/g, "\\$&")} failed: Response exceeded the size limit of 3 bytes`));
+    return true;
+  });
+});
+
 test("a 503 is retried up to maxRetries then surfaces as LobbyApiError", async () => {
   let calls = 0;
   const mt = makeMockTransport(() => {
