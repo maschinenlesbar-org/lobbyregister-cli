@@ -648,3 +648,30 @@ test("a user name in a --base-url without a scheme is never echoed, not even as 
   assert.equal(await run(["--base-url", "ftp://h.test", "count", "x"], ftp.deps), 2);
   assert.match(ftp.err.join("\n"), /Unsupported scheme "ftp:"/);
 });
+
+test("a password in a URL anywhere in an argument is redacted in every stderr message (T15)", async () => {
+  // A filter value (`legalform=https://…`), a padded or mid-phrase query (sent trimmed, so its URL
+  // reached the request URL in an error record, percent-encoded) and a padded --sort: the
+  // redaction looked only at an argument that starts with a scheme.
+  const notFound = () => jsonResponse({ detail: "nope" }, 404);
+  const cases: Array<[string[], () => HttpResponse, number]> = [
+    [["count", "x", "--filter", "legalform=https://u:secretpw@h.test/x"], notFound, 2],
+    [["count", "x", "--filter=legalform=https://u:secretpw@h.test/x"], notFound, 2],
+    [["count", "x", "--filter", "legalform=https://u:secretpw@h.test/x", "--allow-unknown-filters"], notFound, 2],
+    [["search", " https://u:secretpw@h.test/x"], notFound, 4],
+    [["count", "Energie https://u:secretpw@h.test/x"], notFound, 4],
+    [["count", "--", "-x https://u:secretpw@h.test/x"], notFound, 4],
+    [["count", "-x https://u:secretpw@h.test/x"], notFound, 2],
+    [["search", "x", "--sort", " https://u:secretpw@h.test/x"], notFound, 2],
+    [["count", "\thttps://u:secretpw@h.test/x"], () => { throw new LobbyNetworkError("connection reset"); }, 1],
+  ];
+  for (const [argv, respond, code] of cases) {
+    for (const format of ["text", "jsonl"]) {
+      const cli = makeCli(respond);
+      assert.equal(await run(["--log-format", format, ...argv], cli.deps), code, argv.join(" "));
+      const err = cli.err.join("\n");
+      assert.doesNotMatch(err, /secretpw/, err);
+      assert.match(err, /\*\*\*/, err);
+    }
+  }
+});

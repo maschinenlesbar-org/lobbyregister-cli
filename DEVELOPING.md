@@ -92,9 +92,11 @@ used. The validation reasons never repeat a base URL, nor a part of one: a schem
 (`Unsupported scheme "ftp:"`) only when the value spells one (`<scheme>://`), since
 `user:password@host` without a scheme parses as a URL whose scheme is the user name. The CLI also redacts on output:
 `run.ts` (`redactionFor`, `withRedactedOutput`) takes the exact userinfo of every URL
-argument (`credentialsIn`, exported; only a value that starts with a scheme counts, since a
+argument (`credentialsIn`, exported; only a URL with a scheme counts, since a
 bare `a:b@c` is a search text or a User-Agent as often as a credential, except as the
-`--base-url` value, which is read as if it had one) and replaces it with `***` in
+`--base-url` value, which is read as if it had one; the URL may start anywhere in the argument
+(`urlsWithin`): a filter value `legalform=https://u:pw@h`, a padded or dash-led query, a URL inside
+a phrase) and replaces it with `***` in
 everything it prints —
 commander's usage errors, which echo rejected values, and its own messages — so a
 password with spaces, quotes, `#`, `?` or `/` is caught as well as an ordinary one. The
