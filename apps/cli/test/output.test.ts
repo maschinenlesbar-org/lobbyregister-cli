@@ -52,3 +52,18 @@ test("--compact takes the gap path only for an answer holding a huge string, the
   assert.deepEqual(calls.map((args) => (args.length >= 3 ? args[2] : "none")), ["", "none", "", "", 2]);
   assert.deepEqual(out, ['"stub"', '"stub"', '"stub"', '"stub"', '"stub"']);
 });
+
+test("the bidi controls in server data are escaped in the JSON output, pretty and compact", async () => {
+  // JSON.stringify leaves them raw; a terminal reorders the text after them ("Trojan Source").
+  const bidi = [0x061c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069];
+  const served = { resultCount: 1, results: [{ name: `Verband ${String.fromCharCode(...bidi)} e.V.` }] };
+  for (const format of [[], ["--compact"]]) {
+    const cli = makeCli(() => jsonResponse(served));
+    assert.equal(await run([...format, "search", "Energie"], cli.deps), 0);
+    const text = cli.out.join("\n");
+    assert.deepEqual([...text].filter((c) => bidi.includes(c.charCodeAt(0))), [], format.join(" "));
+    assert.match(text, /\\u202e/);
+    assert.ok(text.includes("\\u061c\\u200e\\u200f\\u202a\\u202b\\u202c\\u202d\\u202e\\u2066\\u2067\\u2068\\u2069"));
+    assert.deepEqual(JSON.parse(text), served);
+  }
+});

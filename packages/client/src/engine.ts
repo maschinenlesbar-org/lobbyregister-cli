@@ -169,7 +169,7 @@ function engineHeadersOnly(headers: Record<string, string>): Record<string, stri
  * body into a real ESC byte, so without this a hostile/MITM'd endpoint could drive
  * ANSI/OSC escape sequences into the user's terminal when the message is printed
  * to stderr. The CLI's JSON output is escaped separately (`escapeControlChars` in
- * cli/shared.ts): `JSON.stringify` alone leaves DEL and the C1 range raw. So this
+ * cli/shared.ts): `JSON.stringify` alone leaves DEL, the C1 range and the bidi controls raw. So this
  * only needs to cover text that flows into an error message. Built with a
  * char-code filter so no raw control byte ever appears in this source file.
  */
@@ -181,6 +181,22 @@ export function sanitizeServerText(text: string): string {
     out += ch;
   }
   return out;
+}
+
+/**
+ * True for the Unicode bidirectional formatting characters: ALM (U+061C), LRM/RLM
+ * (U+200E/U+200F), the embeddings and overrides U+202A–U+202E and the isolates
+ * U+2066–U+2069. A terminal applies them to the text that follows, so an override
+ * in server text can reorder what the user sees ("Trojan Source" spoofing).
+ */
+export function isBidiControl(code: number): boolean {
+  return (
+    code === 0x061c ||
+    code === 0x200e ||
+    code === 0x200f ||
+    (code >= 0x202a && code <= 0x202e) ||
+    (code >= 0x2066 && code <= 0x2069)
+  );
 }
 
 /**
