@@ -49,13 +49,15 @@ total count under `resultCount`. Pull out just the entries with `jq`:
 lobbyregister search Energie | jq '.results'
 ```
 
-Print just the number of entries that mention a topic:
+Count the entries that mention a topic:
 
 ```bash
-lobbyregister count Energie
+lobbyregister count Energie                      # {"query": "Energie", "resultCount": 2409}
+lobbyregister count Energie | jq '.resultCount'  # just the number, for a script
 ```
 
-`count` prints one number, but the API has no count-only mode: it still downloads
+`count` prints a small JSON object, `{ query, resultCount }` (with `filters` when you give
+`--filter`), not a bare number. The API has no count-only mode: it still downloads
 every matching record (the whole register, about 18 MB, when you give no query or
 filter), so it is no faster than `search`.
 
