@@ -225,7 +225,7 @@ export class LobbyregisterClient {
   async count(
     q?: string,
     filters?: readonly SearchFilter[],
-    options: { allowUnknownFilters?: boolean } = {},
+    options: { allowUnknownFilters?: boolean | undefined } = {},
   ): Promise<number> {
     if (typeof options !== "object" || options === null || Array.isArray(options)) {
       throw new LobbyValidationError("Invalid count options: expected an object such as { allowUnknownFilters: true }.");

@@ -44,16 +44,16 @@ export interface SearchParams {
    * Free-text query string. Omit it to match the whole register; a blank value
    * (`""` or whitespace) rejects with `LobbyValidationError`.
    */
-  q?: string;
+  q?: string | undefined;
   /**
    * 1-based page number (default 1). Needs `pageSize`. Applied by the client, not
    * sent: the API ignores paging and returns every match.
    */
-  page?: number;
+  page?: number | undefined;
   /** Results per page, sliced client-side out of the full result set. */
-  pageSize?: number;
+  pageSize?: number | undefined;
   /** Sort order, e.g. "RELEVANCE_DESC", "REGISTRATION_DESC". Must not be blank. */
-  sort?: string;
+  sort?: string | undefined;
   /**
    * Facet filters, sent as `filter[<attribute>][<value>]=true` — e.g.
    * `[{ attribute: "revolvingdoordata", value: "true" }]`. Values of one attribute
@@ -62,11 +62,11 @@ export interface SearchParams {
    * (matched case-insensitively; a bare sub-code such as `FOI_EU_LAWS` is sent with
    * its parent), else `LobbyValidationError` before any request.
    */
-  filters?: readonly SearchFilter[];
+  filters?: readonly SearchFilter[] | undefined;
   /**
    * Accept a filter attribute outside `SEARCH_FILTER_ATTRIBUTES` or a value outside
    * `SEARCH_FILTER_VALUES`, e.g. one the register added after this release. Off by
    * default. The reply must still echo the filter in `searchParameters.facets`.
    */
-  allowUnknownFilters?: boolean;
+  allowUnknownFilters?: boolean | undefined;
 }

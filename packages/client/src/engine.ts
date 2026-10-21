@@ -36,15 +36,15 @@ export interface RawResponse {
 
 export interface EngineOptions {
   /** Base URL of the API. Defaults to https://www.lobbyregister.bundestag.de */
-  baseUrl?: string;
+  baseUrl?: string | undefined;
   /** Swappable transport. Defaults to the built-in node http/https transport. */
-  transport?: Transport;
+  transport?: Transport | undefined;
   /**
    * Value of the User-Agent header (default `lobbyregister-cli`). A blank value, a
    * control character other than tab, or a character above U+00FF throws a
    * `LobbyValidationError`.
    */
-  userAgent?: string;
+  userAgent?: string | undefined;
   /**
    * Extra headers sent on every request to the configured origin (e.g. an
    * Authorization token for a future authenticated endpoint). When a redirect
@@ -54,13 +54,13 @@ export interface EngineOptions {
    * arbitrary host named in Location. Names must be HTTP tokens and values are
    * checked like `userAgent`.
    */
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | undefined;
   /**
    * Time limit per request in milliseconds, covering the whole response body, not
    * only idle gaps: an integer 0..`MAX_TIMEOUT_MS` (2^31 - 1, the largest timer
    * Node supports); 0 disables. Defaults to 30000.
    */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
   /**
    * Number of automatic retries for transient (429/503) responses and reset
    * connections (ECONNRESET, EPIPE, ECONNABORTED, undici's UND_ERR_SOCKET, anywhere in
@@ -68,31 +68,31 @@ export interface EngineOptions {
    * to 2. Timeouts are not retried. Each retry waits `retryDelayMs * attempt`, or the
    * response's `Retry-After` when that is longer (capped at 60 s).
    */
-  maxRetries?: number;
+  maxRetries?: number | undefined;
   /**
    * Base backoff between retries in milliseconds (grows linearly), an integer from 0
    * to 60 000 (the Retry-After cap). Defaults to 200. A `Retry-After` can make a wait
    * longer, never shorter.
    */
-  retryDelayMs?: number;
+  retryDelayMs?: number | undefined;
   /**
    * Number of HTTP redirects (301/302/303/307/308) to follow, a non-negative
    * integer (0 = none). Defaults to 5.
    */
-  maxRedirects?: number;
+  maxRedirects?: number | undefined;
   /**
    * Hard cap on response body size in bytes (defends against memory exhaustion
    * from a hostile/buggy endpoint), a non-negative integer. Defaults to 100 MiB;
    * set to 0 for no limit.
    */
-  maxResponseBytes?: number;
+  maxResponseBytes?: number | undefined;
   /** Injectable sleep, primarily for deterministic tests. */
-  sleep?: (ms: number) => Promise<void>;
+  sleep?: ((ms: number) => Promise<void>) | undefined;
   /**
    * Called once per retry, right before the backoff sleep, for each retried 429/503
    * and reset connection; never when there is no retry. A throw is swallowed.
    */
-  onRetry?: (event: RetryEvent) => void;
+  onRetry?: ((event: RetryEvent) => void) | undefined;
 }
 
 /** What `EngineOptions.onRetry` is told about one retry. */
@@ -574,7 +574,7 @@ export class RequestEngine {
   async request(
     method: string,
     path: string,
-    options: { query?: QueryParams; accept: string } = { accept: "application/json" },
+    options: { query?: QueryParams | undefined; accept: string } = { accept: "application/json" },
   ): Promise<RawResponse> {
     let url = this.buildUrl(path, options.query);
     let headers: Record<string, string> = {

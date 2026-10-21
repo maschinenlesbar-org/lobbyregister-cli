@@ -186,10 +186,10 @@ export class LobbyApiError extends LobbyError {
     url: string;
     method: string;
     body: string;
-    detail?: string;
-    location?: string;
+    detail?: string | undefined;
+    location?: string | undefined;
     /** Advice appended to the message (e.g. that a redirect dropped the credential headers). */
-    hint?: string;
+    hint?: string | undefined;
   }) {
     const parts: string[] = [];
     if (args.detail) parts.push(args.detail);

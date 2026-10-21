@@ -371,7 +371,7 @@ export function isKnownFilter(filter: SearchFilter): boolean {
  * calls it with `allowUnknown` and leaves those two checks to the client, so that
  * `--allow-unknown-filters` can lift them wherever it stands on the command line.
  */
-export function parseFilter(text: string, options: { allowUnknown?: boolean } = {}): SearchFilter {
+export function parseFilter(text: string, options: { allowUnknown?: boolean | undefined } = {}): SearchFilter {
   const eq = text.indexOf("=");
   const filter = normaliseFilter({
     attribute: eq === -1 ? "" : text.slice(0, eq),
@@ -401,7 +401,7 @@ export function parseFilter(text: string, options: { allowUnknown?: boolean } = 
  */
 export function filterQuery(
   filters: readonly SearchFilter[],
-  options: { allowUnknown?: boolean } = {},
+  options: { allowUnknown?: boolean | undefined } = {},
 ): QueryParams {
   const query: QueryParams = {};
   for (const filter of filters.map(normaliseFilter)) {

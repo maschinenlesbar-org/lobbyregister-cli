@@ -68,6 +68,11 @@ new LobbyregisterClient({
 });
 ```
 
+Every option — here, in `search()`'s parameters, `count()`'s options and the `allowUnknown`
+option of `parseFilter`/`filterQuery` — may also be given as `undefined`, which means its
+default, as an omitted one does; the types say so (`?: T | undefined`), so a consumer compiled
+with `exactOptionalPropertyTypes` can pass `process.env.X` as it is.
+
 `baseUrl` must be an absolute `http:`/`https:` URL (`baseUrlProblem`,
 `validateBaseUrl`); a malformed one or another scheme throws `LobbyValidationError`
 when the client is built, as the CLI's `--base-url` parser does. The numeric options
