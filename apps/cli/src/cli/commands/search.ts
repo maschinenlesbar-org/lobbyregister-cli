@@ -4,7 +4,7 @@ import type { SearchParams, SearchResult } from "@maschinenlesbar.org/lobbyregis
 import type { SearchFilter } from "@maschinenlesbar.org/lobbyregister-client/internal/filters";
 import { describeFilter, sortOrderForMessage } from "@maschinenlesbar.org/lobbyregister-client/internal/filters";
 import { resultCountMismatch, searchQuery } from "@maschinenlesbar.org/lobbyregister-client/internal/client";
-import { cutForMessage } from "@maschinenlesbar.org/lobbyregister-client/internal/errors";
+import { quoteValue } from "@maschinenlesbar.org/lobbyregister-client/internal/errors";
 import { normalizeText } from "@maschinenlesbar.org/lobbyregister-client/internal/validate";
 import {
   ALLOW_UNKNOWN_FILTERS_HELP,
@@ -124,7 +124,7 @@ export function registerSearchCommands(program: Command, deps: CliDeps): void {
         if (sortIgnored !== undefined) {
           logOf(deps).warn(
             "api",
-            `the API did not apply --sort ${JSON.stringify(cutForMessage(sortIgnored.requested))} and sorted by ` +
+            `the API did not apply --sort ${quoteValue(sortIgnored.requested)} and sorted by ` +
               `${sortOrderForMessage(sortIgnored.applied)} instead. Sort orders are upper case, e.g. REGISTRATION_DESC ` +
               "(see search --help).",
           );

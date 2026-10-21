@@ -16,7 +16,7 @@
 // `searchParameters.numberRanges`) are not covered here.
 
 import { sanitizeServerText } from "./engine.js";
-import { LobbyValidationError, cutForMessage } from "./errors.js";
+import { LobbyValidationError, cutForMessage, quoteValue } from "./errors.js";
 import type { QueryParams } from "./query.js";
 import { assertValid, type Problem } from "./validate.js";
 
@@ -286,7 +286,7 @@ export function knownFilterValueProblem(attribute: string): Problem<string> {
         ? `${parents.join(", ")}, or a sub-code such as ${example} (sent with its parent); ` +
           "SEARCH_FILTER_VALUES in the library lists them all"
         : known.join(", ");
-    return `Unknown value ${JSON.stringify(cutForMessage(value))} for ${attribute}: the register matches nothing for it. Values: ${list}.`;
+    return `Unknown value ${quoteValue(value)} for ${attribute}: the register matches nothing for it. Values: ${list}.`;
   };
 }
 
@@ -297,7 +297,7 @@ export function knownFilterValueProblem(attribute: string): Problem<string> {
 export const knownFilterAttributeProblem: Problem<string> = (attribute) =>
   SEARCH_FILTER_ATTRIBUTES.includes(attribute)
     ? undefined
-    : `Unknown filter ${JSON.stringify(cutForMessage(attribute))}. The register ignores unknown filters and would ` +
+    : `Unknown filter ${quoteValue(attribute)}. The register ignores unknown filters and would ` +
       `return the whole unfiltered set. Filters: ${SEARCH_FILTER_ATTRIBUTES.join(", ")}.`;
 
 /** An attribute name: lower-case letters only, as in the search form. */
@@ -340,13 +340,13 @@ function checkFilter(filter: SearchFilter, allowUnknown: boolean): void {
   if (!allowUnknown) assertValid("filter attribute", filter.attribute, knownFilterAttributeProblem);
   if (!ATTRIBUTE_PATTERN.test(filter.attribute)) {
     throw new LobbyValidationError(
-      `Invalid filter attribute: expected lower-case letters, got ${JSON.stringify(cutForMessage(filter.attribute))}.`,
+      `Invalid filter attribute: expected lower-case letters, got ${quoteValue(filter.attribute)}.`,
     );
   }
   if (typeof filter.value !== "string" || !FILTER_VALUE_PATTERN.test(filter.value)) {
     throw new LobbyValidationError(
-      `Invalid filter value for "${cutForMessage(filter.attribute)}": expected a code such as true, FOI_ENERGY or ` +
-        `FOI_WORK|FOI_WORK_POLICY, got ${typeof filter.value === "string" ? JSON.stringify(cutForMessage(filter.value)) : JSON.stringify(filter.value)}.`,
+      `Invalid filter value for ${quoteValue(filter.attribute)}: expected a code such as true, FOI_ENERGY or ` +
+        `FOI_WORK|FOI_WORK_POLICY, got ${typeof filter.value === "string" ? quoteValue(filter.value) : JSON.stringify(filter.value)}.`,
     );
   }
   if (!allowUnknown) assertValid("filter value", filter.value, knownFilterValueProblem(filter.attribute));
@@ -379,7 +379,7 @@ export function parseFilter(text: string, options: { allowUnknown?: boolean | un
   });
   if (filter.attribute === "" || filter.value === "") {
     throw new LobbyValidationError(
-      `Invalid filter ${JSON.stringify(cutForMessage(text))}: expected attribute=value, e.g. revolvingdoordata=true.`,
+      `Invalid filter ${quoteValue(text)}: expected attribute=value, e.g. revolvingdoordata=true.`,
     );
   }
   checkFilter(filter, options.allowUnknown === true);

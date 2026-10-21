@@ -24,6 +24,8 @@ import {
   redactCredentials,
   redactUrl,
 } from "./errors.js";
+// quoteValue lives with the other message helpers (validate.ts may quote refused values with it).
+export { quoteValue } from "./errors.js";
 import { assertValid, headerNameProblem, headerValueProblem, intInRangeProblem, type Problem } from "./validate.js";
 
 export const DEFAULT_BASE_URL = "https://www.lobbyregister.bundestag.de";

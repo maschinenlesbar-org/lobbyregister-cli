@@ -335,7 +335,12 @@ target) is cut at 500 characters, never inside a surrogate pair (`cutText`), so 
 message stays well-formed; any other value an own message quotes from a server answer or
 the user's input (a redirect target, a filter, a parameter key, a sort order) at
 `MAX_QUOTED_LENGTH` (200, `cutForMessage`), so `err.message` stays bounded for a library
-caller. `LobbyApiError.body` keeps it all.
+caller. A quoted user value goes through `quoteValue` (`errors.ts`): JSON-quoted, with DEL,
+C1, U+2028/U+2029 and every Unicode format character (a zero-width space, a soft hyphen, a
+bidi control) escaped as `\uXXXX`, cut at 200 with the "…" after the closing quote, so a refused
+`tr\u200bue` never reads as `"true"`. Commander repeats a rejected argument raw; `run.ts`
+escapes that echo the same way (`escapeCommanderError`), and the run's redaction also matches a
+secret in that escaped form. `LobbyApiError.body` keeps it all.
 
 **Retry / backoff.** Transient `429` (rate-limited) and `503` responses are
 retried automatically, with a linear backoff (`retryDelayMs * attempt`). A

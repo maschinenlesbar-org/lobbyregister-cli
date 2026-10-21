@@ -591,3 +591,19 @@ test("the query goes out trimmed and in NFC, and count prints the query it sent"
     if (argv[1] === "count") assert.deepEqual(JSON.parse(cli.out.join("\n")), { query: "Müller", resultCount: 0 });
   }
 });
+
+test("a refused value is shown with its invisible and control characters escaped, never raw (D10)", async () => {
+  // commander repeats a rejected option value raw ("argument 'activelobbyist=tr\u200bue' is
+  // invalid"); a record escaped bidi controls but not a zero-width space, which made two
+  // refusals look alike.
+  for (const [ch, escape] of [["\u200b", "\\u200b"], ["\u00ad", "\\u00ad"], ["\u2028", "\\u2028"], ["\u0085", "\\u0085"], ["\u0007", "\\u0007"]] as const) {
+    for (const argv of [["count", "x", "--filter", `activelobbyist=tr${ch}ue`], ["--user-agent", `ua${ch}\u0100`, "count", "x"]]) {
+      const cli = makeCli(() => jsonResponse({ resultCount: 0, results: [] }));
+      assert.equal(await run(argv, cli.deps), 2, argv.join(" "));
+      assert.equal(cli.mt.calls.length, 0);
+      const err = cli.err.join("\n");
+      assert.ok(err.includes(escape), `${escape}: ${err}`);
+      assert.ok(!err.includes(ch), `${escape} raw: ${err}`);
+    }
+  }
+});

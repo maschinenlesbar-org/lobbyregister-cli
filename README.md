@@ -145,7 +145,9 @@ for the connection, `lobbyregister.output` for a failed or cut-short write to st
 JSON object per line instead. A record is always one line: a line break, a control
 character or a bidi control in a message (a server's text, a value you typed) is written as
 an escape (`\n`, `\u001b`, `\u202e`), so it can neither split a record nor forge another
-one, nor steer the terminal; a message longer than 4000 characters is cut and ends in
+one, nor steer the terminal; a value you typed that is refused shows its invisible
+characters escaped too (a zero-width space as `\u200b`, a soft hyphen as `\u00ad`), so two
+refusals never look alike; a message longer than 4000 characters is cut and ends in
 `… (N more characters)`:
 
 ```text

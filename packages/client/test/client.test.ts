@@ -8,7 +8,7 @@ import {
   LobbyValidationError,
 } from "../src/errors.js";
 import { makeMockTransport, jsonResponse, constantJson } from "./helpers.js";
-import { SEARCH_FILTER_ATTRIBUTES, SEARCH_FILTER_VALUES } from "../src/filters.js";
+import { SEARCH_FILTER_ATTRIBUTES, SEARCH_FILTER_VALUES, parseFilter } from "../src/filters.js";
 
 function clientWith(mt: ReturnType<typeof makeMockTransport>): LobbyregisterClient {
   return new LobbyregisterClient({ transport: mt.transport });
@@ -226,14 +226,14 @@ test("own messages quote a user's or the server's value at most 200 characters l
   const client = clientWith(mt);
   const bounded = (pattern: RegExp) => (err: unknown) =>
     err instanceof LobbyError && err.message.length < 1200 && pattern.test(err.message);
-  await assert.rejects(client.search({ filters: [{ attribute: long, value: "true" }] }), bounded(/Unknown filter "x+…"/));
-  await assert.rejects(client.search({ filters: [{ attribute: "revolvingdoordata", value: `V${long}` }] }), bounded(/Unknown value "Vx+…"/));
-  await assert.rejects(client.search({ filters: [{ attribute: "revolvingdoordata", value: `${long}-` }] }), bounded(/got "x+…"/));
-  await assert.rejects(client.search({ [`k${long}`]: 1 } as never), bounded(/unknown key "kx+…"/));
+  await assert.rejects(client.search({ filters: [{ attribute: long, value: "true" }] }), bounded(/Unknown filter "x+"…/));
+  await assert.rejects(client.search({ filters: [{ attribute: "revolvingdoordata", value: `V${long}` }] }), bounded(/Unknown value "Vx+"…/));
+  await assert.rejects(client.search({ filters: [{ attribute: "revolvingdoordata", value: `${long}-` }] }), bounded(/got "x+"…/));
+  await assert.rejects(client.search({ [`k${long}`]: 1 } as never), bounded(/unknown key "kx+"…/));
   // A filter the reply does not echo, sent with allowUnknownFilters.
   await assert.rejects(
     client.search({ filters: [{ attribute: "revolvingdoordata", value: `V${long}` }], allowUnknownFilters: true }),
-    bounded(/ignored the filter "revolvingdoordata=Vx+…"/),
+    bounded(/ignored the filter "revolvingdoordata=Vx+"…/),
   );
   assert.equal(mt.calls.length, 1, "only the last call reaches the transport");
 });
@@ -272,4 +272,15 @@ test("the query goes out trimmed and in composed Unicode (NFC), from search, cou
     await assert.rejects(clientWith(mt).search({ q }), LobbyValidationError, JSON.stringify(q));
   }
   assert.equal(mt.calls.length, calls);
+});
+
+test("a value a message quotes shows its invisible characters escaped, never raw (D10)", async () => {
+  const client = clientWith(constantJson({ resultCount: 0, results: [], searchParameters: { facets: [] } }));
+  for (const [ch, escape] of [["\u200b", "\\u200b"], ["\u2028", "\\u2028"], ["\u2029", "\\u2029"], ["\u0085", "\\u0085"], ["\u202e", "\\u202e"]] as const) {
+    const visible = (err: unknown): boolean => err instanceof LobbyError && err.message.includes(escape) && !err.message.includes(ch);
+    await assert.rejects(client.search({ filters: [{ attribute: "activelobbyist", value: `tr${ch}ue` }] }), visible);
+    await assert.rejects(client.search({ filters: [{ attribute: `active${ch}lobbyist`, value: "true" }] }), visible);
+    await assert.rejects(client.search({ [`q${ch}`]: "x" } as never), visible);
+    assert.throws(() => parseFilter(`activelobbyist=tr${ch}ue`), visible);
+  }
 });
