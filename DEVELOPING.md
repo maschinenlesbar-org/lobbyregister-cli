@@ -264,7 +264,11 @@ apps/cli/src/cli/
   The printed JSON escapes what `JSON.stringify` leaves raw although a terminal acts on it
   (`escapeControlChars`): DEL, the C1 range U+0080–U+009F and the bidi controls
   (`isBidiControl`: U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069), so `U+202E`
-  prints as `\u202e`. The text is equivalent, valid JSON.
+  prints as `\u202e`. The text is equivalent, valid JSON. Each escaped character becomes six, so
+  the length is counted first: an output past V8's longest string is an `OutputError`, `The
+  answer is too large to print (N characters once its control characters are escaped).`;
+  otherwise it is built in 64 Ki chunks and joined once (one `+=` per character crashed on an
+  answer of 90 MB of DEL).
 
 ### Library / technical terms
 
