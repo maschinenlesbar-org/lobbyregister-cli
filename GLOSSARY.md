@@ -162,7 +162,7 @@ the global options.
 commander's messages, unexpected errors), `api` (the API's answers and the notes on them:
 an error status, a malformed answer — bad JSON, the wrong shape or content type, a number JSON cannot carry exactly; its message names the request, `GET <url>: …` —, a filter
 the reply did not echo, the ignored `--sort`, relevance-order paging), `http` (the
-connection, the cleartext warning, and one WARN per retry before it waits) and `output` (a failed write to stdout, an answer nested too deeply to print). A record is
+connection, the cleartext warning, and one WARN per retry before it waits) and `output` (a failed write to stdout, an answer too deeply nested or too large to print). A record is
 always one line; control characters in it are escaped.
 
 **Replaced text.** Bytes of an answer that are not valid in its charset, and half characters

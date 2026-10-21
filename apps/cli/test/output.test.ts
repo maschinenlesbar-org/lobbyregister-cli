@@ -21,17 +21,46 @@ function makeCli(responder: (req: HttpRequest) => HttpResponse = () => jsonRespo
   return { deps, out, err, mt };
 }
 
-test("pretty-printing an answer nested too deeply is a clean error that suggests --compact", async () => {
-  // A hostile or broken answer: JSON.parse reads it, the pretty printer's recursion can't.
+test("an answer nested too deeply is a clean error; it suggests --compact only where --compact prints it (D7)", async () => {
+  // A hostile or broken answer: JSON.parse reads it, the pretty printer's recursion can't. Whether
+  // the compact printer can depends on the Node version (iterative from Node 26) and the stack:
+  // probed here, never assumed.
   const depth = 200_000;
-  const cli = makeCli(() => ({
-    status: 200,
-    headers: { "content-type": "application/json" },
-    body: Buffer.from(`{"resultCount":1,"results":[{"x":${"[".repeat(depth)}${"]".repeat(depth)}}]}`),
-  }));
+  const deepJson = `{"resultCount":1,"results":[{"x":${"[".repeat(depth)}${"]".repeat(depth)}}]}`;
+  let compactPrints = true;
+  try {
+    JSON.stringify(JSON.parse(deepJson));
+  } catch {
+    compactPrints = false;
+  }
+  const deep = () => ({ status: 200, headers: { "content-type": "application/json" }, body: Buffer.from(deepJson) });
+  const cli = makeCli(deep);
   assert.equal(await run(["search", "Energie"], cli.deps), 1);
   assert.deepEqual(cli.out, []);
-  assert.deepEqual(cli.err, ["ERROR [lobbyregister.output] The answer is nested too deeply to pretty-print; try --compact."]);
+  assert.deepEqual(cli.err, [
+    `ERROR [lobbyregister.output] The answer is nested too deeply to pretty-print${compactPrints ? "; try --compact" : ""}.`,
+  ]);
+  const compact = makeCli(deep);
+  assert.equal(await run(["--compact", "search", "Energie"], compact.deps), compactPrints ? 0 : 1);
+  if (compactPrints) assert.equal(compact.out.join(""), deepJson);
+  else assert.deepEqual(compact.err, ["ERROR [lobbyregister.output] The answer is nested too deeply to print."]);
+});
+
+test("an answer too large to print is called too large, not too deep; the hint only where --compact prints (D7)", (t) => {
+  const { deps } = makeCli();
+  const real = JSON.stringify;
+  // V8's own error for a text past its longest string, stood in for: a real one needs 512 MB.
+  const tooLarge = (gap: unknown): boolean => gap === 2 || gap === "big";
+  t.mock.method(JSON, "stringify", (value: unknown, replacer: never, gap: unknown) => {
+    if (tooLarge(gap) || (gap === undefined && (value as { all?: boolean }).all === true)) throw new RangeError("Invalid string length");
+    return real(value, replacer, gap as number);
+  });
+  assert.throws(() => renderJson(deps, {}, { id: "a1" }), (err: Error) =>
+    /^The answer is too large \(more than \d+ characters of JSON\) to pretty-print; try --compact\.$/.test(err.message));
+  assert.throws(() => renderJson(deps, {}, { all: true }), (err: Error) =>
+    /^The answer is too large \(more than \d+ characters of JSON\) to pretty-print\.$/.test(err.message));
+  assert.throws(() => renderJson(deps, { compact: true }, { all: true }), (err: Error) =>
+    /^The answer is too large \(more than \d+ characters of JSON\) to print\.$/.test(err.message));
 });
 
 test("--compact takes the gap path only for an answer holding a huge string, the fast path otherwise", (t) => {

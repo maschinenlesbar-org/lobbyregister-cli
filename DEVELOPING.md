@@ -250,12 +250,17 @@ apps/cli/src/cli/
   driven in-process by tests with a mocked client and captured output — no subprocesses.
 - Register entries are large, schema-versioned documents, so `results` are returned as faithful
   raw `JsonObject`s rather than partially-guessed types.
-- **Rendering** (`renderJson` in `apps/cli/src/cli/shared.ts`): pretty-printing an answer
-  nested too deeply is an `OutputError` (an ERROR of `lobbyregister.output`, exit 1) that
-  suggests `--compact`. `--compact` takes V8's fast path (`JSON.stringify(value)`), the only one
+- **Rendering** (`renderJson` in `apps/cli/src/cli/shared.ts`): an answer that can't be
+  printed is an `OutputError` (an ERROR of `lobbyregister.output`, exit 1) that names the cause:
+  a stack overflow is "nested too deeply to pretty-print" (or "to print"), V8's "Invalid string
+  length" is "too large (more than 536870888 characters of JSON)". "; try --compact" is added
+  only when `compactPrints` finds that the compact form of that very answer prints on this
+  runtime: probed, never assumed from the Node version. `--compact` takes V8's fast path (`JSON.stringify(value)`), the only one
   that prints very deep nesting on Node 26, unless the answer holds a string or key of 64 Mi
   characters or more (`holdsHugeString`): on Node 26 the fast path aborts the process on a
   ~250 MB string, so such an answer goes through the gap path (an empty gap, the same text).
+  `holdsHugeString` is iterative, linear and allocates nothing per value (arrays by index,
+  objects by `for…in`; `Object.entries` made a pair per element and crashed on 48M numbers).
   The printed JSON escapes what `JSON.stringify` leaves raw although a terminal acts on it
   (`escapeControlChars`): DEL, the C1 range U+0080–U+009F and the bidi controls
   (`isBidiControl`: U+061C, U+200E, U+200F, U+202A–U+202E, U+2066–U+2069), so `U+202E`
@@ -570,7 +575,7 @@ character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellF
 and a message longer than `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a
 code point and ends in `… (N more characters)`.
 The library's error messages keep a server's line
-breaks (`sanitizeServerText` strips only the other controls); the record escapes them. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, a malformed answer — a `LobbyParseError`: bad JSON, the wrong shape or content type, an unknown charset —, a filter the reply did not echo (the plain `LobbyError`), invalid text replaced with U+FFFD (a WARN through `onWarning`), the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter), `http` (the connection, the cleartext warning) and `output` (a failed write to stdout, and an answer nested too deeply to print: `OutputError` in `shared.ts`, exit 1, whose pretty-print message suggests `--compact`). A failed write to stdout other than a closed pipe (`handleOutputErrors`, in the bin shim, outside `run()`) is an ERROR record of `lobbyregister.output` (`Could not write to stdout: …`), and the shim's last-resort `Unexpected error: …` an ERROR of `lobbyregister.cli`, both in the format argv asks for and redacted like the run's log (`processLogger`), and so are Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`), WARN records of `lobbyregister.cli`: the shim installs `installWarningLog`, which removes Node's default `warning` listener and logs `(node) <name>: <message>`. In `defaultDeps` a record waits for stdout (`stderrAfterStdout`): it is held while stdout has a backlog and written, in order, once it is gone, so with `2>&1 |` and a slow reader it never lands inside the data. Code logs through `logOf(deps)` and never writes diagnostics
+breaks (`sanitizeServerText` strips only the other controls); the record escapes them. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, a malformed answer — a `LobbyParseError`: bad JSON, the wrong shape or content type, an unknown charset —, a filter the reply did not echo (the plain `LobbyError`), invalid text replaced with U+FFFD (a WARN through `onWarning`), the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter), `http` (the connection, the cleartext warning) and `output` (a failed write to stdout, and an answer too deeply nested or too large to print: `OutputError` in `shared.ts`, exit 1, whose pretty-print message suggests `--compact` where that prints it). A failed write to stdout other than a closed pipe (`handleOutputErrors`, in the bin shim, outside `run()`) is an ERROR record of `lobbyregister.output` (`Could not write to stdout: …`), and the shim's last-resort `Unexpected error: …` an ERROR of `lobbyregister.cli`, both in the format argv asks for and redacted like the run's log (`processLogger`), and so are Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`), WARN records of `lobbyregister.cli`: the shim installs `installWarningLog`, which removes Node's default `warning` listener and logs `(node) <name>: <message>`. In `defaultDeps` a record waits for stdout (`stderrAfterStdout`): it is held while stdout has a backlog and written, in order, once it is gone, so with `2>&1 |` and a slow reader it never lands inside the data. Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly. `run()` builds the logger from argv before commander parses it
 (`logFormatFromArgv`, used only for the records of a parse error: it takes the first
 `--log-format`, the one `once()` keeps, and skips the value of the program's own value
