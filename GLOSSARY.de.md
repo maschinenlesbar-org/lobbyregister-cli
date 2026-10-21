@@ -172,6 +172,10 @@ nicht bestätigt, das ignorierte `--sort`, das Blättern in Relevanz-Reihenfolge
 Verbindung, die Klartext-Warnung und je Wiederholung eine WARN-Zeile vor dem Warten) und `output` (ein Schreibfehler auf stdout, eine Antwort, die zu tief verschachtelt ist, um sie auszugeben). Ein Eintrag
 ist immer eine Zeile; Steuerzeichen darin werden maskiert.
 
+**Ersetzter Text.** Bytes einer Antwort, die in ihrem Zeichensatz ungültig sind, und halbe
+Zeichen (einzelne Surrogate) werden durch U+FFFD ersetzt und in einem `WARN`-Eintrag von
+`lobbyregister.api` mit Anzahl und Anfrage gemeldet; der Lauf gelingt trotzdem.
+
 ---
 
 ## Exit-Codes

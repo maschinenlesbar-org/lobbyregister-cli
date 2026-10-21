@@ -138,7 +138,9 @@ stderr, so piping stdout into `jq` stays clean.
 Each line on stderr is a **log record**: a timestamp (UTC), a level (`ERROR`, `WARN`,
 `INFO`) and a topic, the program and the area it comes from (`lobbyregister.cli` for usage
 errors, `lobbyregister.api` for the API's answers and the notes on them, a malformed answer
-included, which names the request (`GET <url>: …`), `lobbyregister.http`
+included, which names the request (`GET <url>: …`), and a `WARN` when text in an answer was not
+valid (bytes not valid in its charset, half characters) and was replaced with U+FFFD, so the
+output stays readable for `jq`, `lobbyregister.http`
 for the connection, `lobbyregister.output` for a failed write to stdout or an answer nested too deeply to print). By default it is written log4j style; `--log-format jsonl` writes one
 JSON object per line instead. A record is always one line: a line break, a control
 character or a bidi control in a message (a server's text, a value you typed) is written as

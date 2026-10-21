@@ -165,6 +165,10 @@ the reply did not echo, the ignored `--sort`, relevance-order paging), `http` (t
 connection, the cleartext warning, and one WARN per retry before it waits) and `output` (a failed write to stdout, an answer nested too deeply to print). A record is
 always one line; control characters in it are escaped.
 
+**Replaced text.** Bytes of an answer that are not valid in its charset, and half characters
+(lone surrogates), are replaced with U+FFFD and reported in one `WARN` record of
+`lobbyregister.api` with the count and the request; the run still succeeds.
+
 ---
 
 ## Exit codes
