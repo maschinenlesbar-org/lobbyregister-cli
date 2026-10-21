@@ -415,7 +415,11 @@ a non-zero one too small for a double (`1e-400` would become `0`), and a subnorm
 double a server printed in its own shortest form (`1e23`, `1.7976931348623157E308`) passes,
 since it prints as the same number. The register's
 numbers (counts, euro amounts, staff numbers) are far below 2^53; register numbers are
-strings (`R002297`).
+strings (`R002297`). The engine option `bigIntegerKeys` (a set of member names) declares members
+whose numbers may exceed 2^53: their values are delivered as the exact literal, as a JSON string,
+whatever the size, and every other number keeps this rule. The client declares none (P25's
+adapter: `BIG_INTEGER_KEYS = []`). The check and the declared members are one linear pass that
+skips strings (`scanNumbers`), no reviver.
 
 **Envelope check.** A `2xx` JSON answer must be the documented envelope: an object
 with a non-negative integer `resultCount` and a `results` array whose entries are all
