@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { TextDecoder } from "node:util";
 import assert from "node:assert/strict";
 import { RequestEngine, bigIntegerKeysOption, cleartextProblem, firstInexactNumber, parseRetryAfter, sanitizeServerText, scanNumbers } from "../src/engine.js";
-import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError, TextBuilder, credentialsIn, cutText, echoedCredentialForms, toWellFormed } from "../src/errors.js";
+import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError, TextBuilder, credentialsIn, cutText, echoedCredentialForms, toWellFormed, typedUrlCredentials } from "../src/errors.js";
 import type { HttpResponse } from "../src/http.js";
 import {
   makeMockTransport,
@@ -878,5 +878,27 @@ test("a base URL with a backslash, or whose scheme is not followed by // and the
   // surrounding spaces (trimmed, as before).
   for (const baseUrl of ["HTTPS://h.example/v1", "http://h.example:8080", " https://h.example "]) {
     assert.doesNotThrow(() => new RequestEngine({ transport: makeMockTransport(() => jsonResponse({})).transport, baseUrl }), baseUrl);
+  }
+});
+
+test("typedUrlCredentials reads a value meant as a URL whatever its scheme: missing, special without //, mistyped (F7)", () => {
+  for (const [value, userinfo] of [
+    ["https://alice:pw@h.example/x", "alice:pw"],
+    ["http:///alice:pw@h.example", "alice:pw"],
+    ["alice:pw@h.example/x", "alice:pw"],
+    ["my_user:pw@h.example", "my_user:pw"],
+    ["T0ken:@h.example", "T0ken:"],
+    ["http//alice:pw@h.example", "alice:pw"],
+    ["https//alice:pw@h.example/v1", "alice:pw"],
+    ["http/alice:pw@h.example", "alice:pw"],
+    ["htp:/alice:pw@h.example", "alice:pw"],
+    ["http\\\\alice:pw@h.example", "alice:pw"],
+    ["http//alice:p/w@h.example", "alice:p/w"],
+  ] as const) {
+    assert.deepEqual(typedUrlCredentials(value), [userinfo], value);
+  }
+  // No "@" after the slashes, or a scheme spelled with "//" and no userinfo: none.
+  for (const value of ["", "h.example/x", "http//h.example/x", "@h.example/x", "http//@h.example", "https://h.example/a@b"]) {
+    assert.deepEqual(typedUrlCredentials(value), [], value);
   }
 });
