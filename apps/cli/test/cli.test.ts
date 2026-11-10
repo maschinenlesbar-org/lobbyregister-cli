@@ -511,6 +511,17 @@ test("a token typed in a URL (userinfo without a password) is replaced where a s
   }
 });
 
+test("the redaction of stdout is linear in the answer when an argument carries a URL with userinfo", async () => {
+  // P29's case of it is skipped here (it types the URL as the base URL, which this CLI refuses).
+  const value = "a.".repeat(100_000);
+  const cli = makeCli(() => jsonResponse({ resultCount: 1, results: [{ note: value }] }));
+  const start = performance.now();
+  assert.equal(await run(["--compact", "search", "https://alice:s3cret-Pw@example.org"], cli.deps), 0);
+  const ms = performance.now() - start;
+  assert.ok(cli.out.join("\n").includes(value));
+  assert.ok(ms < 1500, `${Math.round(ms)} ms`);
+});
+
 test("an a:b@c argument (a search term, a User-Agent, a rejected value) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
   const body = { resultCount: 1, results: [{ name: "run:2026-10-09@x" }] };
   for (const argv of [["search", "run:2026-10-09@x"], ["--user-agent", "run:2026-10-09@x", "search", "Energie"]]) {

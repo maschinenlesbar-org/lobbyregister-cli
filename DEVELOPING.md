@@ -558,6 +558,20 @@ everything that drives the CLI is in `apps/cli/test/`.
   answer, one of DEL characters and one in two million one-byte chunks print within a small
   heap, or are "too large" past V8's longest string; a lone surrogate or invalid bytes become U+FFFD with a `WARN` record of
   `lobbyregister.api`.
+  **P28–P31** (security audit 2026-10-27, reference `create-cli-template`): **P28** hostile error
+  answers (a number with a long run of zeros checked in linear time; server text cut before it
+  is cleaned, in linear time; a 16 MB error message one ERROR record and millions of lone
+  surrogates repaired within a small heap, both in the bin, 30 s). Its three credential cases
+  (decoded error text, a quoted 2xx value, a redirect's Location, whose 302 loop ends at the
+  redirect limit, `REDIRECT_ERROR`) are skipped through the adapter: the base URL takes no
+  userinfo, so the client holds no credential to scrub. **P29** base-URL credentials: a
+  backslash and a repaired scheme (`http:///host`) refused by the library and by `--base-url`,
+  never echoing the password, and `credentialsIn` reading the userinfo where WHATWG does; the
+  cases that need a base URL with userinfo accepted (a token, requests to the parsed host,
+  stdout's linear redaction, glued URLs) are skipped, and `engine.test.ts`/`cli.test.ts` check
+  the parsed host and the linear redaction with a URL typed as a search term. **P30** output
+  links: skipped (`HAS_OUTPUT_OPTION = false`, the adapter stands in for the `-o` kit's types).
+  **P31** the release pipeline, read as text (it replaced `release-workflow.test.ts`).
 
 ## Continuous integration
 
@@ -577,7 +591,8 @@ GitHub Actions workflows under `.github/workflows/`:
   So no third-party code runs where the tarball is built or where the write token is. Update
   the tool by changing its version in `tools/sbom/package.json` and running `npm install
   --package-lock-only --ignore-scripts` there; don't chain its install into an npm script.
-  `apps/cli/test/release-workflow.test.ts` reads the workflow and the lockfile and checks it.
+  Conformance test P31 (`conformance-p31-release-pipeline.test.ts`) reads the workflow and the
+  lockfile and checks it.
 - **publish.yml** — manual dispatch from the release tag (`gh workflow run publish.yml --ref vX.Y.Z`; the version is the tag's): `npm publish --workspace apps/cli` via OIDC **Trusted Publishing** (no stored `NPM_TOKEN`) with provenance.
 - **docs.yml** — build the project website (`site/`, English and German) with the TypeDoc API docs
   under `/api/`, and deploy both to GitHub Pages on each `v*` tag.

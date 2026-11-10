@@ -22,6 +22,11 @@ test("buildUrl normalises the path and appends the query", () => {
   );
 });
 
+test("buildUrl builds requests from the parsed base URL: lower-cased host, default port dropped", () => {
+  // P29's case of it is skipped here (its other base URL carries userinfo, which this client refuses).
+  assert.equal(new RequestEngine({ baseUrl: "https://API.Example:443/v1" }).buildUrl("/sucheJson"), "https://api.example/v1/sucheJson");
+});
+
 test("buildUrl keeps a path component in the base URL", () => {
   const e = new RequestEngine({ baseUrl: "https://example.test/api" });
   assert.equal(e.buildUrl("/sucheJson", { q: "x" }), "https://example.test/api/sucheJson?q=x");
@@ -780,18 +785,6 @@ test("sanitizeServerText reads a bounded prefix and drops what the per-character
   assert.equal(sanitizeServerText(`a${ESC}]0;x${ESC}]0;t${BEL}b`), "a0;xb");
 });
 
-test("an error detail of unterminated control-string introducers is cleaned in linear time (security audit class C)", async () => {
-  for (const opener of ["\u009d", "\u0090", "\u0098", "\u009e", "\u009f", `${ESC}]`]) {
-    const e = new RequestEngine({ transport: makeMockTransport(() => jsonResponse({ detail: `${opener.repeat(100_000)} tail` }, 500)).transport, maxRetries: 0 });
-    const start = performance.now();
-    const err = await e.getJson("/sucheJson").catch((caught: unknown) => caught);
-    const ms = performance.now() - start;
-    assert.ok(err instanceof LobbyApiError && err.status === 500, String(err));
-    assert.ok(ms < 1000, `${JSON.stringify(opener)}: ${Math.round(ms)} ms`);
-    assert.ok(!hasControlChars(err.message), JSON.stringify(opener));
-  }
-});
-
 test("a TextBuilder joins its pieces in order across batches (security audit class C)", () => {
   const b = new TextBuilder();
   const expected: string[] = [];
@@ -816,21 +809,6 @@ test("scanNumbers quotes millions of declared members within a small heap (secur
     `process.stdout.write(String(scanNumbers(json, new Set(["k"])).json.length));`;
   const out = execFileSync(process.execPath, ["--max-old-space-size=128", "--input-type=module", "-e", script], { encoding: "utf8" });
   assert.equal(out, String(n * 10 + 1));
-});
-
-test("an answer of millions of lone surrogate escapes is repaired within a small heap (security audit class C)", STARTS_A_PROCESS, () => {
-  // One `+=` per repair made a rope node each: 6 million repairs exhausted a 128 MB heap.
-  const engine = new URL("../src/engine.js", import.meta.url).href;
-  const n = 6_000_000;
-  const script =
-    `const { RequestEngine } = await import(${JSON.stringify(engine)});` +
-    `let warned = "";` +
-    `const body = Buffer.from('{"resultCount":1,"x":"' + "\\\\ud800".repeat(${n}) + '"}');` +
-    `const e = new RequestEngine({ transport: async () => ({ status: 200, headers: { "content-type": "application/json" }, body }), onWarning: (m) => (warned = m) });` +
-    `const got = await e.getJson("/sucheJson");` +
-    `process.stdout.write(String(got.x.length) + " " + warned.includes("${n} characters"));`;
-  const out = execFileSync(process.execPath, ["--max-old-space-size=128", "--input-type=module", "-e", script], { encoding: "utf8" });
-  assert.equal(out, `${n} true`);
 });
 
 test("echoedCredentialForms treats a userinfo without a password as a token (Basic `TOKEN:`) (security audit class E)", () => {
