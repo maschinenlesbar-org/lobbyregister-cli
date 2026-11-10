@@ -75,7 +75,12 @@ with `exactOptionalPropertyTypes` can pass `process.env.X` as it is.
 
 `baseUrl` must be an absolute `http:`/`https:` URL (`baseUrlProblem`,
 `validateBaseUrl`); a malformed one or another scheme throws `LobbyValidationError`
-when the client is built, as the CLI's `--base-url` parser does. The numeric options
+when the client is built, as the CLI's `--base-url` parser does. So do a backslash (`A base
+URL cannot contain a backslash (\); write "/" instead.`: WHATWG ends an http(s) host at one,
+text-based code reads on) and a scheme not followed by exactly `//` and the host (`http:host`,
+`http:/host`, `http:///host`, `HTTPS:host`: `Expected an absolute http(s) URL ("https://" and
+the host).`), which WHATWG repairs silently into a URL other than the one typed. Requests are
+built from the parsed URL (`buildUrl`: its scheme, lower-cased host and path). The numeric options
 are checked then too: `timeoutMs` must be an integer `0..MAX_TIMEOUT_MS` (2^31 - 1
 ms, the largest timer Node supports), and
 `maxRetries`, `retryDelayMs`, `maxRedirects` and `maxResponseBytes` non-negative
@@ -94,7 +99,9 @@ used. The validation reasons never repeat a base URL, nor a part of one: a schem
 `run.ts` (`redactionFor`, `withRedactedOutput`) takes the exact userinfo of every URL
 argument (`credentialsIn`, exported; only a URL with a scheme counts, since a
 bare `a:b@c` is a search text or a User-Agent as often as a credential, except as the
-`--base-url` value, which is read as if it had one; the URL may start anywhere in the argument
+`--base-url` value, which is read as if it had one; the userinfo starts where WHATWG starts it,
+after the slashes and backslashes a special scheme skips (`http:///u:pw@h`, `https:\\u:pw@h`,
+`http:u:pw@h`), and for a special scheme ends at a backslash too; the URL may start anywhere in the argument
 (`urlsWithin`, linear: each `://` found with indexOf, at most 64 URLs per argument): a filter value `legalform=https://u:pw@h`, a padded or dash-led query, a URL inside
 a phrase) and replaces it with `***` in
 everything it prints —

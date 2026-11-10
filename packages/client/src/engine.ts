@@ -290,10 +290,13 @@ function functionOption<F extends (...args: never[]) => unknown>(name: string, v
  * A base URL must be an absolute http(s) URL. The default transport already gates
  * the scheme per hop, but the engine is exported as a library and may be handed a
  * custom transport that does no such check, so the configured base URL is checked
- * up front too (a `file:`/`ftp:` base URL fails fast). A user name or password in it
- * is rejected as well (the API needs none; the reason never repeats them, nor a user name
- * that a value without a scheme puts where the scheme would be). The reasons match the CLI's
- * `--base-url` parser, which calls this rule.
+ * up front too (a `file:`/`ftp:` base URL fails fast). A backslash is rejected (WHATWG ends an
+ * http(s) host at one, text-based code reads on), and so is a scheme not followed by exactly
+ * `//` and the host (`http:host`, `http:/host`, `http:///host`, which WHATWG repairs silently
+ * into another URL than the one typed). A user name or password in it is rejected as well (the
+ * API needs none; the reason never repeats them, nor a user name that a value without a scheme
+ * puts where the scheme would be). The reasons match the CLI's `--base-url` parser, which
+ * calls this rule.
  */
 export const baseUrlProblem: Problem<unknown> = (value) => {
   if (typeof value !== "string") return "Expected an absolute http(s) URL.";
@@ -309,6 +312,14 @@ export const baseUrlProblem: Problem<unknown> = (value) => {
     if (!/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(value)) return "Expected an absolute http(s) URL, such as https://www.lobbyregister.bundestag.de.";
     return `Unsupported scheme "${cutForMessage(url.protocol)}". Expected an http(s) URL.`;
   }
+  // WHATWG reads a "\" in an http(s) URL as "/", so it ends the host: in
+  // `https://u:pw@a.example\@b.example` every reader of the base URL has to agree where.
+  if (value.includes("\\")) return 'A base URL cannot contain a backslash (\\); write "/" instead.';
+  // WHATWG skips any slashes after "http:" and repairs `http:host`, `http:/host` and
+  // `http:///host` into `http://host` silently: the host requested would not be the one typed.
+  // Checked on the value without the surrounding spaces and controls WHATWG strips (a padded
+  // ` https://host ` stays accepted).
+  if (!/^https?:\/\/[^/]/i.test(value.replace(/^[\u0000-\u0020]+/, ""))) return 'Expected an absolute http(s) URL ("https://" and the host).';
   // The register needs no credentials, and the engine never sends userinfo: a user name
   // or password here would only look as if it were used. Named, never echoed.
   if (url.username !== "" || url.password !== "") {

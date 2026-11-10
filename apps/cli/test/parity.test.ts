@@ -325,6 +325,25 @@ test("parity: an invalid base URL is a usage error in the CLI and a LobbyValidat
   }
 });
 
+test("parity: a base URL with a backslash, or whose scheme is not followed by exactly // and the host, is refused on both sides, never echoing the password (security audit class F, F3, F4)", async () => {
+  for (const [baseUrl, reason] of [
+    ["https://alice:s3cret-pw@a.example\\@b.example", /backslash/],
+    ["https://h.example\\evil", /backslash/],
+    ["https:\\\\alice:s3cret-pw@h.example", /backslash/],
+    ["http:alice:s3cret-pw@h.example", /"https:\/\/" and the host/],
+    ["http:/alice:s3cret-pw@h.example", /"https:\/\/" and the host/],
+    ["http:///alice:s3cret-pw@h.example", /"https:\/\/" and the host/],
+    ["http:///alice:s3cret-pw@h.example/?q=1", /"https:\/\/" and the host/],
+    ["https:/h.example", /"https:\/\/" and the host/],
+  ] as const) {
+    const r = await parity(["--base-url", baseUrl, "count", "x"], (t) => new LobbyregisterClient({ baseUrl, transport: t }).count("x"));
+    assertBothReject(r.cli, r.lib, `--base-url ${JSON.stringify(baseUrl)}`);
+    assert.match(r.cli.err, reason, baseUrl);
+    assert.ok(!r.cli.err.includes("s3cret-pw") && !r.cli.out.includes("s3cret-pw"), r.cli.err);
+    assert.ok(!r.lib.ok && r.lib.error instanceof Error && reason.test(r.lib.error.message) && !r.lib.error.message.includes("s3cret-pw"), baseUrl);
+  }
+});
+
 test("parity: an accepted base URL sends the same request on both sides", async () => {
   for (const baseUrl of [" https://example.test ", "https://example.test/api?foo=bar#frag", "http://localhost:8080/"]) {
     const r = await parity(["--base-url", baseUrl, "count", "x"], (t) => new LobbyregisterClient({ baseUrl, transport: t }).count("x"));
