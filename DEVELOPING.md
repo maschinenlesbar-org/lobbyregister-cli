@@ -402,7 +402,9 @@ whole seconds, ms under 1 s). Tests: `apps/cli/test/retry-log.test.ts`.
 **maxResponseBytes.** A hard cap on response body size (default 100 MiB; `0` =
 unlimited) guarding against memory exhaustion from a hostile or buggy endpoint.
 CLI: `--max-response-bytes`. The default transport aborts as soon as the cap is
-passed; the engine also checks the body any transport returns, so the cap holds for
+passed, and joins small chunks as they arrive (at most 1024 or 64 KiB unjoined), so the
+memory an answer holds follows its bytes, not the number of chunks a server sends: a Buffer
+per one-byte chunk held about 210 bytes of heap each; the engine also checks the body any transport returns, so the cap holds for
 custom transports too. The message names both the option and the flag. With the cap lifted, a
 body too large to be one string (512 MB and more: V8's longest string is 536870888 characters)
 is a `LobbyParseError`, `GET <url>: the answer is too large to read as text (N bytes; …)`, an
@@ -553,8 +555,8 @@ everything that drives the CLI is in `apps/cli/test/`.
   shape the shared bodies read. P26 output integrity: stdout redirected to a file and cut short
   is an `ERROR` record of `lobbyregister.output`, exit 1; its `-o` tests are skipped
   (`HAS_OUTPUT_OPTION = false`: this CLI has no `-o`). P27 big and odd answers: a large flat
-  answer and one of DEL characters print within a small heap, or are "too large" past V8's
-  longest string; a lone surrogate or invalid bytes become U+FFFD with a `WARN` record of
+  answer, one of DEL characters and one in two million one-byte chunks print within a small
+  heap, or are "too large" past V8's longest string; a lone surrogate or invalid bytes become U+FFFD with a `WARN` record of
   `lobbyregister.api`.
 
 ## Continuous integration
