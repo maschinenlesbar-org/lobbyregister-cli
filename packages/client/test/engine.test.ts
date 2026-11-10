@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { TextDecoder } from "node:util";
 import assert from "node:assert/strict";
 import { RequestEngine, bigIntegerKeysOption, cleartextProblem, firstInexactNumber, parseRetryAfter, sanitizeServerText, scanNumbers } from "../src/engine.js";
-import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError, TextBuilder, cutText, toWellFormed } from "../src/errors.js";
+import { LobbyApiError, LobbyNetworkError, LobbyParseError, LobbyValidationError, TextBuilder, cutText, echoedCredentialForms, toWellFormed } from "../src/errors.js";
 import type { HttpResponse } from "../src/http.js";
 import {
   makeMockTransport,
@@ -831,4 +831,15 @@ test("an answer of millions of lone surrogate escapes is repaired within a small
     `process.stdout.write(String(got.x.length) + " " + warned.includes("${n} characters"));`;
   const out = execFileSync(process.execPath, ["--max-old-space-size=128", "--input-type=module", "-e", script], { encoding: "utf8" });
   assert.equal(out, `${n} true`);
+});
+
+test("echoedCredentialForms treats a userinfo without a password as a token (Basic `TOKEN:`) (security audit class E)", () => {
+  const basic = (pair: string): string => Buffer.from(pair, "utf8").toString("base64");
+  assert.deepEqual(echoedCredentialForms("alice:s3cret"), [basic("alice:s3cret"), "alice:s3cret", "s3cret"]);
+  assert.deepEqual(echoedCredentialForms("T0ken"), [basic("T0ken:"), "T0ken:", "T0ken"]);
+  assert.deepEqual(echoedCredentialForms("T0ken:"), [basic("T0ken:"), "T0ken:", "T0ken"]);
+  assert.deepEqual(echoedCredentialForms("T%C3%B6k"), [basic("Tök:"), "Tök:"]); // short: not alone
+  assert.deepEqual(echoedCredentialForms(":pw12"), [basic(":pw12"), ":pw12", "pw12"]);
+  assert.deepEqual(echoedCredentialForms(""), []);
+  assert.deepEqual(echoedCredentialForms(":"), []);
 });

@@ -492,6 +492,25 @@ test("credentials typed in a search term are replaced where a server echoes them
   assert.match(ok.out.join("\n"), /"\*\*\* and hunter22"/);
 });
 
+test("a token typed in a URL (userinfo without a password) is replaced where a server echoes it (security audit class E)", async () => {
+  // `https://TOKEN@host` carries a token, not a user name: the CLI replaced only `TOKEN@`, so a
+  // server that echoed the token alone, `TOKEN:` or the Basic value of `TOKEN:` printed it.
+  const token = "T0kenS3cret";
+  const basic = Buffer.from(`${token}:`, "utf8").toString("base64");
+  for (const typed of [`https://${token}@example.org`, `https://${token}:@example.org`]) {
+    const cli = makeCli(() => jsonResponse({ detail: `bad token ${token}; Basic ${basic}` }, 500));
+    assert.equal(await run(["search", typed], cli.deps), 1);
+    const all = cli.err.join("\n");
+    assert.match(all, /bad token/);
+    assert.ok(!all.includes(token) && !all.includes(basic), all);
+    // stdout: the Basic value and `TOKEN:` are replaced; the token alone stays (it may occur in the data).
+    const ok = makeCli(() => jsonResponse({ resultCount: 1, results: [{ note: `Basic ${basic} for ${token}:x` }] }));
+    assert.equal(await run(["--compact", "search", typed], ok.deps), 0);
+    const out = ok.out.join("\n");
+    assert.ok(!out.includes(basic) && !out.includes(`${token}:`), out);
+  }
+});
+
 test("an a:b@c argument (a search term, a User-Agent, a rejected value) is neither a credential in the log nor rewritten in the JSON on stdout (L14)", async () => {
   const body = { resultCount: 1, results: [{ name: "run:2026-10-09@x" }] };
   for (const argv of [["search", "run:2026-10-09@x"], ["--user-agent", "run:2026-10-09@x", "search", "Energie"]]) {
