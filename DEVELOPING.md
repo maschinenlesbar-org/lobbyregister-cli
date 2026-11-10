@@ -193,9 +193,9 @@ names another order than the one sent (should the register drop one) the result 
 (`ignoredSort` in `filters.ts`); the data is still returned. The CLI prints the
 envelope without that field and turns it into a `WARN` record of `lobbyregister.api` on stderr.
 `sortOrder` is the server's text, so `SortIgnored.applied` and the envelope keep it as sent,
-and a message quotes it through `sortOrderForMessage` (exported): control characters
-dropped (`sanitizeServerText`, as for an error detail), white space folded to one space,
-cut at `MAX_QUOTED_LENGTH` (200). The CLI's sort-ignored `WARN` and relevance-paging `INFO`
+and a message quotes it through `sortOrderForMessage` (exported): escape sequences,
+control and format characters dropped and white space folded to one space
+(`sanitizeServerText`, as for an error detail), cut at `MAX_QUOTED_LENGTH` (200). The CLI's sort-ignored `WARN` and relevance-paging `INFO`
 both do; a hostile `sortOrder` used to forge log records, steer the terminal and fill
 200 KB of stderr.
 
@@ -353,7 +353,13 @@ type first: a wrong-typed input — `search({ q: 123 })`, `filters` that is not 
 `count({ q: "Energie" })`, a string `transport`, a numeric `sleep`, `page: "2"` — is a
 `LobbyValidationError` too, never a raw `TypeError`; `null` client options mean none.
 Server text in a message (an error `detail`, a transport's error text, a redirect
-target) is cut at 500 characters, never inside a surrogate pair (`cutText`), so the
+target, a Content-Type or charset) is cleaned by `sanitizeServerText` (exported): it reads at
+most the first 16 384 characters, drops whole terminal escape sequences (a CSI, an OSC or
+other control string up to its terminator or the next introducer, so an unterminated run of
+introducers costs linear time), then the remaining C0/C1 controls, DEL and every Unicode
+format character, and folds every whitespace run (line breaks included) to one space; each
+step is one regex replace, so a 16 MB error detail costs neither seconds nor the heap. The
+text is then cut at 500 characters, never inside a surrogate pair (`cutText`), so the
 message stays well-formed; any other value an own message quotes from a server answer or
 the user's input (a redirect target, a filter, a parameter key, a sort order) at
 `MAX_QUOTED_LENGTH` (200, `cutForMessage`), so `err.message` stays bounded for a library
@@ -465,7 +471,12 @@ strings (`R002297`). The engine option `bigIntegerKeys` (a set of member names) 
 whose numbers may exceed 2^53: their values are delivered as the exact literal, as a JSON string,
 whatever the size, and every other number keeps this rule. The client declares none (P25's
 adapter: `BIG_INTEGER_KEYS = []`). The check and the declared members are one linear pass that
-skips strings (`scanNumbers`), no reviver.
+skips strings (`scanNumbers`), no reviver; the leading and trailing zeros of a literal are
+counted with index loops, never a regex (`/0+$/` was quadratic in a long zero run). The texts
+the engine rewrites (the quoted members, the lone-surrogate repair) are put together in a
+`TextBuilder` (`errors.ts`, pieces joined in batches), so their memory follows the text, not
+the number of pieces: one `+=` per repair made a rope node each, and 6 million of them
+exhausted a 128 MB heap.
 
 **Envelope check.** A `2xx` JSON answer must be the documented envelope: an object
 with a non-negative integer `resultCount` and a `results` array whose entries are all
@@ -620,8 +631,8 @@ forge another one or steer the terminal. Before that a lone surrogate (half a
 character, which jq rejects, stopping the whole stream) becomes U+FFFD (`toWellFormed`),
 and a message longer than `MAX_RECORD_MESSAGE` (4000 characters, exported) is cut at a
 code point and ends in `… (N more characters)`.
-The library's error messages keep a server's line
-breaks (`sanitizeServerText` strips only the other controls); the record escapes them. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, a malformed answer — a `LobbyParseError`: bad JSON, the wrong shape or content type, an unknown charset —, a filter the reply did not echo (the plain `LobbyError`), invalid text replaced with U+FFFD (a WARN through `onWarning`), the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter), `http` (the connection, the cleartext warning) and `output` (a failed write to stdout, and an answer too deeply nested or too large to print: `OutputError` in `shared.ts`, exit 1, whose pretty-print message suggests `--compact` where that prints it). A failed write to stdout other than a closed pipe (`handleOutputErrors`, in the bin shim, outside `run()`) is an ERROR record of `lobbyregister.output` (`Could not write to stdout: …`) with exit 1 — also a write cut short when stdout is a regular file (`> out.json` under a file-size limit or on a full disk: EFBIG, ENOSPC), which `stdoutWriter` (`io.ts`) writes with `writeAll` and reports as stdout's `error`, where Node's stream ignored the short count and exited 0 —, and the shim's last-resort `Unexpected error: …` an ERROR of `lobbyregister.cli`, both in the format argv asks for and redacted like the run's log (`processLogger`), and so are Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`), WARN records of `lobbyregister.cli`: the shim installs `installWarningLog`, which removes Node's default `warning` listener and logs `(node) <name>: <message>`. In `defaultDeps` a record waits for stdout (`stderrAfterStdout`): it is held while stdout has a backlog and written, in order, once it is gone, so with `2>&1 |` and a slow reader it never lands inside the data. Code logs through `logOf(deps)` and never writes diagnostics
+The library's error messages fold a server's line
+breaks to one space (`sanitizeServerText`); the record escapes any other that reaches it. The areas are `cli` (usage errors, commander's messages, unexpected errors), `api` (the API's answers and the notes on them: HTTP errors and the 400 hint, a malformed answer — a `LobbyParseError`: bad JSON, the wrong shape or content type, an unknown charset —, a filter the reply did not echo (the plain `LobbyError`), invalid text replaced with U+FFFD (a WARN through `onWarning`), the ignored `--sort`, a `resultCount` that disagrees, relevance-order paging, a 0 after an unknown filter), `http` (the connection, the cleartext warning) and `output` (a failed write to stdout, and an answer too deeply nested or too large to print: `OutputError` in `shared.ts`, exit 1, whose pretty-print message suggests `--compact` where that prints it). A failed write to stdout other than a closed pipe (`handleOutputErrors`, in the bin shim, outside `run()`) is an ERROR record of `lobbyregister.output` (`Could not write to stdout: …`) with exit 1 — also a write cut short when stdout is a regular file (`> out.json` under a file-size limit or on a full disk: EFBIG, ENOSPC), which `stdoutWriter` (`io.ts`) writes with `writeAll` and reports as stdout's `error`, where Node's stream ignored the short count and exited 0 —, and the shim's last-resort `Unexpected error: …` an ERROR of `lobbyregister.cli`, both in the format argv asks for and redacted like the run's log (`processLogger`), and so are Node's own process warnings (`NODE_TLS_REJECT_UNAUTHORIZED=0`), WARN records of `lobbyregister.cli`: the shim installs `installWarningLog`, which removes Node's default `warning` listener and logs `(node) <name>: <message>`. In `defaultDeps` a record waits for stdout (`stderrAfterStdout`): it is held while stdout has a backlog and written, in order, once it is gone, so with `2>&1 |` and a slow reader it never lands inside the data. Code logs through `logOf(deps)` and never writes diagnostics
 with `io.err` directly. `run()` builds the logger from argv before commander parses it
 (`logFormatFromArgv`, used only for the records of a parse error: it takes the first
 `--log-format`, the one `once()` keeps, and skips the value of the program's own value

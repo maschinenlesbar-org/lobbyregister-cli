@@ -196,7 +196,7 @@ do the same thing.
 > character, is a usage error (exit `2`) before any request, since the live API would
 > ignore it (HTTP `200`) and sort by relevance. Should the API not apply an order after all,
 > the CLI logs a `WARN` record on stderr naming the order the API used
-> (`searchParameters.sortOrder`, cleaned: control characters dropped, on one line, at
+> (`searchParameters.sortOrder`, cleaned: escape sequences and control characters dropped, on one line, at
 > most 200 characters), and still exits `0`.
 
 > **Note on `--page` / `--page-size`** — the live endpoint ignores paging and
