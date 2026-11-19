@@ -34,6 +34,55 @@ Check it works:
 lobbyregister --help
 ```
 
+### Docker
+
+From 0.10.0 every release is also a container image for linux/amd64 and linux/arm64 on the
+GitHub Container Registry, made from the same tarball as the npm package. It needs no Node.js and no
+install:
+
+```bash
+docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+  ghcr.io/maschinenlesbar-org/lobbyregister-cli:latest count Wasserstoff
+```
+
+The image's entrypoint is the program, so the command follows the image name directly;
+`… lobbyregister-cli:latest lobbyregister count Wasserstoff` works too.
+
+In a container with a memory limit (`--memory`) the default `--max-response-bytes` is an eighth
+of that limit (at most the usual 100 MiB), so an oversized answer is refused with a clear
+error instead of the container being killed for memory. The whole register is about 18 MB:
+give a search without a query at least `--memory 256m`.
+The CLI needs at least 12 processes and threads (`--pids-limit 12`): below that it refuses with
+an error, and with 4 or fewer Node.js itself hangs before the CLI can check.
+
+`latest` is the newest release. For scripts, name a release and pin its digest, which the
+[release notes](https://github.com/maschinenlesbar-org/lobbyregister-cli/releases) give:
+`…/lobbyregister-cli:0.10.0@sha256:<digest>`. Each image carries signed build provenance;
+check it with
+
+```bash
+gh attestation verify oci://ghcr.io/maschinenlesbar-org/lobbyregister-cli:latest \
+  --repo maschinenlesbar-org/lobbyregister-cli
+```
+
+### MCP server
+
+From 0.10.0 the same data is also an [MCP](https://modelcontextprotocol.io/) server for AI agents,
+`@maschinenlesbar.org/lobbyregister-mcp` (command `lobbyregister-mcp`, image
+`ghcr.io/maschinenlesbar-org/lobbyregister-mcp`): eight read-only tools, who lobbies on a topic,
+the declared-spend and the engagement rankings, newcomers and leavers, the revolving door, counts,
+the register's search and one entry in full, with the register's traps handled (German search
+terms, spend as a declared band, the newest version of each entry, inactive entries counted
+apart), on stdio or Streamable HTTP. Setup for Claude Code, Claude Desktop and VS Code:
+[MCP.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/MCP.md).
+The register's data has no open licence: running the server as a service for others may need the
+Bundestag's permission (see [Data license](#data-license)).
+
+```bash
+npm i -g @maschinenlesbar.org/lobbyregister-mcp
+claude mcp add lobbyregister -- lobbyregister-mcp
+```
+
 ## Quickstart
 
 No setup needed — the endpoint is fully open. Your first search:
@@ -274,6 +323,7 @@ These apply to every command and may be given before *or* after it:
 - **[Usage.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/Usage.md)** — full use-case-driven cookbook.
 - **[GLOSSARY.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/GLOSSARY.md)** — every field, command and domain term explained.
 - **[DEVELOPING.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/DEVELOPING.md)** — TypeScript library usage, architecture, testing, CI.
+- **[MCP.md](https://github.com/maschinenlesbar-org/lobbyregister-cli/blob/main/MCP.md)** — the MCP server: tools, setup, options.
 
 ## Data license
 
