@@ -5,6 +5,7 @@ import { constants } from "node:buffer";
 import type { Command } from "commander";
 import { InvalidArgumentError } from "commander";
 import { logOf, type CliDeps } from "./io.js";
+import { pidsProblem, responseCapFor } from "./limits.js";
 import { DEFAULT_BASE_URL, baseUrlProblem, cleartextProblem, isBidiControl, type EngineOptions, type RetryEvent } from "@maschinenlesbar.org/lobbyregister-client/internal/engine";
 import { headerValueProblem, intInRangeProblem, textProblem } from "@maschinenlesbar.org/lobbyregister-client/internal/validate";
 import { SEARCH_FILTER_ATTRIBUTES, canonicalSort, isKnownFilter, parseFilter, describeFilter, sortProblem, type SearchFilter } from "@maschinenlesbar.org/lobbyregister-client/internal/filters";
@@ -248,6 +249,9 @@ export function escapeControlChars(json: string): string {
  */
 export class OutputError extends LobbyError {}
 
+/** The container can't run the CLI as it is limited (limits.ts): an ERROR record of the cli area and exit 1. */
+export class EnvironmentError extends LobbyError {}
+
 /** Render a JSON value to stdout, pretty by default, compact with --compact. */
 export function renderJson(deps: CliDeps, global: Pick<GlobalOptions, "compact">, value: unknown): void {
   const text = escapeControlChars(stringifyJson(value, global.compact === true));
@@ -387,6 +391,15 @@ export function action(
     const cleartext = cleartextProblem(global.baseUrl ?? DEFAULT_BASE_URL);
     if (cleartext !== undefined) logOf(deps).warn("http", cleartext);
     const options = toEngineOptions(global);
+    // In a container: under a pids limit Node can't work with, refuse before any request; under a
+    // memory limit the 100 MiB default can't be held, so cap by the memory instead (an oversized
+    // answer is then the cap's error, not an OOM kill). An explicit --max-response-bytes wins.
+    const limits = deps.limits?.() ?? {};
+    const problem = pidsProblem(limits);
+    if (problem !== undefined) throw new EnvironmentError(problem);
+    const given = command.getOptionValueSourceWithGlobals("maxResponseBytes");
+    const memory = given === undefined || given === "default" ? limits.memoryBytes : undefined;
+    if (memory !== undefined) options.maxResponseBytes = responseCapFor(memory);
     options.onRetry = (event) => logOf(deps).warn("http", retryMessage(event));
     options.onWarning = (message) => logOf(deps).warn("api", message);
     const client = deps.createClient(options);
