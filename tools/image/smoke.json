@@ -1,0 +1,328 @@
+{
+  "comment": "What tools/image/smoke.mjs needs that is particular to this repo: the bin (its log topic), a command that makes one request, the exit code of a network error, the mock answer to that request (by path, under --base-url http://mock:8080: two entries of the live register of 2026-11-19), and a string the printed answer contains.",
+  "bin": "lobbyregister",
+  "command": [
+    "search",
+    "Energie",
+    "--results-only",
+    "--compact"
+  ],
+  "networkErrorExit": 1,
+  "answers": {
+    "/sucheJson": {
+      "$schema": "https://www.lobbyregister.bundestag.de/json-schemas/R2.27/Lobbyregistersuche-Registereintrag-schema-R2.27.json",
+      "source": "Deutscher Bundestag, Lobbyregister für die Interessenvertretung gegenüber dem Deutschen Bundestag und der Bundesregierung",
+      "sourceUrl": "https://www.lobbyregister.bundestag.de",
+      "sourceDate": "2026-11-19T17:40:52.075+01:00",
+      "resultCount": 2,
+      "results": [
+        {
+          "registerNumber": "R002822",
+          "registerEntryDetails": {
+            "registerEntryId": 89092,
+            "legislation": "GL2024",
+            "detailsPageUrl": "https://www.lobbyregister.bundestag.de/suche/R002822/89092",
+            "validFromDate": "2026-11-19T16:40:01.401+01:00"
+          },
+          "accountDetails": {
+            "activeLobbyist": true,
+            "firstPublicationDate": "2022-03-03T15:25:18.128+01:00",
+            "lastUpdateDate": "2026-11-19T16:40:01.401+01:00",
+            "accountHasCodexViolations": false
+          },
+          "lobbyistIdentity": {
+            "identity": "ORGANIZATION",
+            "name": "UNITI Bundesverband EnergieMittelstand e.V. ",
+            "entrustedPersonsCount": 10,
+            "membersCount": 818,
+            "membershipsCount": 19
+          },
+          "activitiesAndInterests": {
+            "activity": {
+              "code": "ACT_TRADE_ASSOC",
+              "de": "Wirtschaftsverband oder Gewerbeverband/-verein",
+              "en": "Trade association"
+            },
+            "fieldsOfInterest": [
+              {
+                "code": "FOI_TRANSPORTATION_INDRASTRUCTURE",
+                "de": "Verkehrsinfrastruktur",
+                "en": "Infrastructure"
+              },
+              {
+                "code": "FOI_TRANSPORTATION_AUTOMOBILE",
+                "de": "Straßenverkehr",
+                "en": "Road traffic"
+              },
+              {
+                "code": "FOI_TRANSPORTATION_OTHER",
+                "de": "Sonstiges im Bereich \"Verkehr\"",
+                "en": "Other in the field of \"Transportation\""
+              },
+              {
+                "code": "FOI_ECONOMY_SERVICES",
+                "de": "Handel und Dienstleistungen",
+                "en": "Trade and services"
+              },
+              {
+                "code": "FOI_ECONOMY_AUTOMOBILE",
+                "de": "Automobilwirtschaft",
+                "en": "Automotive industry"
+              },
+              {
+                "code": "FOI_BUNDESTAG_PARLIAMENTARY",
+                "de": "Parlamentarisches Verfahren",
+                "en": "Parliamentary procedure"
+              },
+              {
+                "code": "FOI_ECONOMY_SAM_BUSINESS",
+                "de": "Kleine und mittlere Unternehmen",
+                "en": "Small and medium business"
+              },
+              {
+                "code": "FOI_ECONOMY_COMPETITION_LAW",
+                "de": "Wettbewerbsrecht",
+                "en": "Competition law"
+              },
+              {
+                "code": "FOI_ECONOMY_OTHER",
+                "de": "Sonstiges im Bereich \"Wirtschaft\"",
+                "en": "Other in the field of \"Economy\""
+              },
+              {
+                "code": "FOI_RP_DEVELOPMENT",
+                "de": "Bauwesen und Bauwirtschaft",
+                "en": "Construction and construction industry"
+              },
+              {
+                "code": "FOI_PUBLIC_FINANCE",
+                "de": "Öffentliche Finanzen, Steuern und Abgaben",
+                "en": "Public finances, taxes and duties"
+              },
+              {
+                "code": "FOI_RP_RESIDE",
+                "de": "Wohnen",
+                "en": "Reside"
+              },
+              {
+                "code": "FOI_ENERGY_OVERALL",
+                "de": "Allgemeine Energiepolitik",
+                "en": "Energy policy in general"
+              },
+              {
+                "code": "FOI_ENERGY_RENEWABLE",
+                "de": "Erneuerbare Energien",
+                "en": "Renewable energy"
+              },
+              {
+                "code": "FOI_ENERGY_FOSSILE",
+                "de": "Fossile Energien",
+                "en": "Fossil fuels"
+              },
+              {
+                "code": "FOI_ENERGY_OTHER",
+                "de": "Sonstiges im Bereich \"Energie\"",
+                "en": "Other in the field of \"Energy\""
+              },
+              {
+                "code": "FOI_EU_DOMESTIC_MARKET",
+                "de": "EU-Binnenmarkt",
+                "en": "EU internal market"
+              },
+              {
+                "code": "FOI_EU_LAWS",
+                "de": "EU-Gesetzgebung",
+                "en": "EU legislation"
+              },
+              {
+                "code": "FOI_ENVIRONMENT_CLIMATE",
+                "de": "Klimaschutz",
+                "en": "Climate protection"
+              },
+              {
+                "code": "FOI_ENVIRONMENT_SUSTAINABILITY",
+                "de": "Nachhaltigkeit und Ressourcenschutz",
+                "en": "Sustainability and resource protection"
+              },
+              {
+                "code": "FOI_ENVIRONMENT_POLLUTION",
+                "de": "Immissionsschutz",
+                "en": "Immission control"
+              },
+              {
+                "code": "FOI_IS_ANTI_TERRORISM",
+                "de": "Terrorismusbekämpfung",
+                "en": "Counter terrorism"
+              },
+              {
+                "code": "FOI_ENVIRONMENT_OTHER",
+                "de": "Sonstiges im Bereich \"Umwelt\"",
+                "en": "Other in the field of \"Environment\""
+              },
+              {
+                "code": "FOI_IS_CYBER",
+                "de": "Cybersicherheit",
+                "en": "Cyber security"
+              },
+              {
+                "code": "FOI_IS_DISASTER_CONTROL",
+                "de": "Bevölkerungsschutz und Katastrophenhilfe",
+                "en": "Civil protection"
+              },
+              {
+                "code": "FOI_TRANSPORTATION_POLICY",
+                "de": "Verkehrspolitik",
+                "en": "Transport policy"
+              }
+            ]
+          },
+          "employeesInvolvedInLobbying": {
+            "relatedFiscalYearFinished": true,
+            "relatedFiscalYearStart": "2025-01-01",
+            "relatedFiscalYearEnd": "2025-12-31",
+            "employeeFTE": 3.75
+          },
+          "financialExpenses": {
+            "relatedFiscalYearFinished": true,
+            "relatedFiscalYearStart": "2025-01-01",
+            "relatedFiscalYearEnd": "2025-12-31",
+            "financialExpensesEuro": {
+              "from": 1270001,
+              "to": 1280000
+            }
+          },
+          "donators": {
+            "relatedFiscalYearFinished": true,
+            "relatedFiscalYearStart": "2025-01-01",
+            "relatedFiscalYearEnd": "2025-12-31",
+            "totalDonationsEuro": {
+              "from": 0,
+              "to": 0
+            }
+          },
+          "membershipFees": {
+            "relatedFiscalYearFinished": true,
+            "relatedFiscalYearStart": "2025-01-01",
+            "relatedFiscalYearEnd": "2025-12-31",
+            "totalMembershipFees": {
+              "from": 3980001,
+              "to": 3990000
+            }
+          },
+          "regulatoryProjects": {
+            "regulatoryProjectsCount": 34
+          },
+          "statements": {
+            "statementsCount": 36
+          },
+          "contracts": {
+            "contractsCount": 0
+          }
+        },
+        {
+          "registerNumber": "R008334",
+          "registerEntryDetails": {
+            "registerEntryId": 86092,
+            "legislation": "GL2024",
+            "detailsPageUrl": "https://www.lobbyregister.bundestag.de/suche/R008334/86092",
+            "validFromDate": "2026-11-18T08:15:56.230+01:00"
+          },
+          "accountDetails": {
+            "activeLobbyist": true,
+            "firstPublicationDate": "2026-11-18T08:15:56.230+01:00",
+            "accountHasCodexViolations": false
+          },
+          "lobbyistIdentity": {
+            "identity": "ORGANIZATION",
+            "name": "LiveEO GmbH",
+            "entrustedPersonsCount": 3,
+            "membersCount": 0,
+            "membershipsCount": 3
+          },
+          "activitiesAndInterests": {
+            "activity": {
+              "code": "ACT_ORGANIZATION",
+              "de": "Unternehmen",
+              "en": "Company"
+            },
+            "fieldsOfInterest": [
+              {
+                "code": "FOI_TRANSPORTATION_AEROSPACE",
+                "de": "Luft- und Raumfahrt",
+                "en": "Aerospace"
+              },
+              {
+                "code": "FOI_ECONOMY_SAM_BUSINESS",
+                "de": "Kleine und mittlere Unternehmen",
+                "en": "Small and medium business"
+              },
+              {
+                "code": "FOI_EU_SAFETY_POLICY",
+                "de": "Gemeinsame Außen- und Sicherheitspolitik der EU",
+                "en": "Common foreign and security policy of the EU"
+              },
+              {
+                "code": "FOI_SCIENCE_RESEARCH_TECHNOLOGY",
+                "de": "Wissenschaft, Forschung und Technologie",
+                "en": "Science, research and technology"
+              },
+              {
+                "code": "FOI_DEFENSE_ARMAMENTS",
+                "de": "Rüstungsangelegenheiten",
+                "en": "Armaments matters"
+              },
+              {
+                "code": "FOI_DEFENSE_AFFAIRS",
+                "de": "Bundeswehrangelegenheiten",
+                "en": "Bundeswehr affairs"
+              }
+            ]
+          },
+          "employeesInvolvedInLobbying": {
+            "relatedFiscalYearFinished": true,
+            "relatedFiscalYearStart": "2025-01-01",
+            "relatedFiscalYearEnd": "2025-12-31",
+            "employeeFTE": 0
+          },
+          "financialExpenses": {
+            "relatedFiscalYearFinished": true,
+            "relatedFiscalYearStart": "2025-01-01",
+            "relatedFiscalYearEnd": "2025-12-31",
+            "financialExpensesEuro": {
+              "from": 0,
+              "to": 0
+            }
+          },
+          "donators": {
+            "relatedFiscalYearFinished": true,
+            "relatedFiscalYearStart": "2025-01-01",
+            "relatedFiscalYearEnd": "2025-12-31",
+            "totalDonationsEuro": {
+              "from": 1,
+              "to": 10000
+            }
+          },
+          "membershipFees": {
+            "relatedFiscalYearFinished": true,
+            "relatedFiscalYearStart": "2025-01-01",
+            "relatedFiscalYearEnd": "2025-12-31",
+            "totalMembershipFees": {
+              "from": 0,
+              "to": 0
+            }
+          },
+          "regulatoryProjects": {
+            "regulatoryProjectsCount": 0
+          },
+          "statements": {
+            "statementsCount": 0
+          },
+          "contracts": {
+            "contractsCount": 0
+          }
+        }
+      ]
+    }
+  },
+  "expectStdout": "UNITI Bundesverband EnergieMittelstand"
+}
