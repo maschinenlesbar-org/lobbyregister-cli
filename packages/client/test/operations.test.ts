@@ -229,3 +229,21 @@ test("the fixture register mirrors the live split: the three parts add up to the
   assert.equal(parts.reduce((n, p) => n + p.resultCount, 0), whole.resultCount);
   assert.equal(whole.resultCount, REGISTER.length);
 });
+
+test("a page past the end is empty with a reason, the totals kept: the rankings and the search", async () => {
+  const { client } = clientOf();
+  const spend = await rankBySpend(client, { topic: "Wasserstoff", offset: 5, limit: 2 });
+  assert.equal(spend.status, "empty");
+  assert.match(spend.reason ?? "", /offset 5 is past the end: 5 entries are ranked; the last page starts at offset 3/);
+  assert.equal("ranked" in spend && spend.ranked, 5);
+  assert.equal("entries" in spend && spend.entries.length, 0);
+  const engagement = await rankByEngagement(client, { offset: 100 });
+  assert.equal(engagement.status, "empty");
+  assert.match(engagement.reason ?? "", /offset 100 is past the end: 8 entries are ranked/);
+  const search = await searchEntries(client, { query: "Wasserstoff", offset: 50 });
+  assert.equal(search.status, "empty");
+  assert.match(search.reason ?? "", /offset 50 is past the end: 6 entries match/);
+  assert.equal("total" in search && search.total, 6);
+  const last = await rankBySpend(client, { topic: "Wasserstoff", offset: 4 });
+  assert.equal(last.status, "ok", "the last row is a page");
+});

@@ -422,7 +422,9 @@ export interface RankInput extends TopicInput {
 
 export type SpendRanking =
   | (Frame & {
-      status: "ok";
+      /** empty: the page starts past the end (`reason` says where the last one starts). */
+      status: "ok" | "empty";
+      reason?: string;
       /** Distinct entries matching. */
       total: number;
       /** Entries in the ranking. */
@@ -458,7 +460,7 @@ export async function rankBySpend(client: LobbyregisterClient, input: RankInput 
   if (periods.size > 1) notes.push("The listed rows cover different fiscal years (periods): say so when comparing them.");
   const next = offset + rows.length < ranked.length ? { nextOffset: offset + rows.length } : {};
   return {
-    status: "ok",
+    ...pageStatus(offset, limit, ranked.length, "entries are ranked"),
     ...set.frame,
     notes,
     total: set.entries.length,
@@ -477,6 +479,15 @@ function page(input: { offset?: number | undefined; limit?: number | undefined }
   return { offset: checkedInt("offset", input.offset, 0, 0, 100_000), limit: checkedInt("limit", input.limit, 15, 1, 100) };
 }
 
+/**
+ * A page that starts past the end of `length` rows: status empty and why, where the last page
+ * starts; else status ok. A page past the end was `ok` with no rows and no word why.
+ */
+function pageStatus(offset: number, limit: number, length: number, what: string): { status: "ok" } | { status: "empty"; reason: string } {
+  if (offset === 0 || offset < length) return { status: "ok" };
+  return { status: "empty", reason: `The page at offset ${offset} is past the end: ${length} ${what}; the last page starts at offset ${Math.max(0, length - limit)}.` };
+}
+
 // ---- rankByEngagement --------------------------------------------------------------------------
 
 /** What `rankByEngagement` ranks on. */
@@ -490,7 +501,9 @@ export interface RankByEngagementInput extends RankInput {
 
 export type EngagementRanking =
   | (Frame & {
-      status: "ok";
+      /** empty: the page starts past the end (`reason` says where the last one starts). */
+      status: "ok" | "empty";
+      reason?: string;
       metric: EngagementMetric;
       total: number;
       ranked: number;
@@ -525,7 +538,7 @@ export async function rankByEngagement(client: LobbyregisterClient, input: RankB
   ];
   const next = offset + rows.length < ranked.length ? { nextOffset: offset + rows.length } : {};
   return {
-    status: "ok",
+    ...pageStatus(offset, limit, ranked.length, "entries are ranked"),
     ...set.frame,
     notes,
     metric,
@@ -779,7 +792,7 @@ export interface SearchEntriesInput {
 }
 
 export type EntrySearch =
-  | { status: "ok"; searched: { query?: string; filters?: string[]; sort?: string }; sourceDate?: string; total: number; entries: EntrySummary[]; nextOffset?: number; notes: string[] }
+  | { status: "ok" | "empty"; reason?: string; searched: { query?: string; filters?: string[]; sort?: string }; sourceDate?: string; total: number; entries: EntrySummary[]; nextOffset?: number; notes: string[] }
   | { status: "empty"; searched: { query?: string; filters?: string[]; sort?: string }; sourceDate?: string; reason: string };
 
 /**
@@ -810,7 +823,7 @@ export async function searchEntries(client: LobbyregisterClient, input: SearchEn
   const notes = query === undefined ? [] : [HIT_NOTE];
   if (result.sortIgnored !== undefined) notes.push(`The register did not apply the sort ${result.sortIgnored.requested}; the order is ${result.sortIgnored.applied ?? "its default"}.`);
   return {
-    status: "ok",
+    ...pageStatus(offset, limit, entries.length, "entries match"),
     searched,
     ...date,
     total: entries.length,
