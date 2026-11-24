@@ -17,6 +17,8 @@ async function withServer(
   try {
     await fn(`http://127.0.0.1:${addr.port}`);
   } finally {
+    // A test that failed mid-request leaves its connection open; close() alone would wait for it.
+    server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 }
@@ -68,11 +70,15 @@ test("a timeout beyond the 32-bit timer limit is clamped, not rejected", async (
     },
     async (baseUrl) => {
       // Number.MAX_SAFE_INTEGER would emit a TimeoutOverflowWarning and truncate
-      // without the clamp; the request must still complete cleanly.
+      // without the clamp; the request must still complete cleanly. The clamped deadline is
+      // about 24.8 days: the test bounds the request itself, so a request that hangs (a loaded
+      // machine) fails here and closes the server instead of keeping the test process alive
+      // after the test's own timeout.
       const resp = await nodeHttpTransport({
         method: "GET",
         url: `${baseUrl}/x`,
         timeoutMs: Number.MAX_SAFE_INTEGER,
+        signal: AbortSignal.timeout(4_000),
       });
       assert.equal(resp.status, 200);
     },
