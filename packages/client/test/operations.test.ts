@@ -170,7 +170,7 @@ test("a field of interest narrows the set and is said; one nobody declares names
   assert.match(narrowed.status === "ok" ? narrowed.notes.join(" ") : "", /Narrowed to the 2 of 6 entries/);
   const none = await profileSector(client, { topic: "Wasserstoff", field: "Raumfahrt" });
   assert.equal(none.status, "empty");
-  assert.match(none.status === "empty" ? none.reason : "", /none declares a field of interest containing "Raumfahrt".*Erneuerbare Energien/);
+  assert.match(none.status === "empty" ? none.reason : "", /none declares a field of interest matching "Raumfahrt".*Erneuerbare Energien/);
 });
 
 test("an English term that matches nothing is empty, with the German hint: a valid answer", async () => {
@@ -267,4 +267,30 @@ test("rankBySpend: no figure yet and refused rank after every €0 declared, nev
   ]);
   const profile = await profileSector(client, {});
   assert.deepEqual(profile.status === "ok" && profile.topSpenders.map((e) => e.registerNumber), ["R000105", "R000103", "R000101", "R000102", "R000104"]);
+});
+
+test("field matches a word's start in the German or English name, or the code: never inside a word", async () => {
+  const withFields = (registerNumber: string, fields: [string, string, string][]) => {
+    const e = entry({ registerNumber, name: registerNumber });
+    (e["activitiesAndInterests"] as { fieldsOfInterest: unknown })["fieldsOfInterest"] = fields.map(([code, de, en]) => ({ code, de, en }));
+    return e;
+  };
+  const entries = [
+    withFields("R000201", [["FOI_ECONOMY_BANKS", "Bank- und Finanzwesen", "Banking and finance"]]),
+    withFields("R000202", [["FOI_SOCIAL_CHILDREN", "Kinder- und Jugendpolitik", "Children and youth policy"]]),
+    withFields("R000203", [["FOI_SECURITY_CIVIL", "Bevölkerungsschutz", "Civil protection"]]),
+    withFields("R000204", [["FOI_ENERGY_NET", "Energienetze", "Energy networks"]]),
+    withFields("R000205", [["FOI_ENERGY_OIL", "Öl und Gas", "Oil and gas"]]),
+  ];
+  const { client } = clientOf(register(entries));
+  const numbers = async (field: string) => {
+    const answer = await rankBySpend(client, { field, includeInactive: true, limit: 100 });
+    return answer.status === "ok" ? answer.entries.map((e) => e.registerNumber).sort() : [];
+  };
+  assert.deepEqual(await numbers("KI"), ["R000202"], "not Banking");
+  assert.deepEqual(await numbers("Öl"), ["R000205"], "not Bevölkerungsschutz");
+  for (const field of ["Energienetze", "energienetze", "FOI_ENERGY_NET", "Energy networks"]) assert.deepEqual(await numbers(field), ["R000204"], field);
+  assert.deepEqual(await numbers("foi_energy"), ["R000204", "R000205"], "a code's leading segments");
+  const said = await profileSector(client, { field: "KI" });
+  assert.match(said.status === "ok" ? said.notes.join(" ") : "", /Narrowed to the 1 of 5 entries declaring a field of interest matching "KI".*: Kinder- und Jugendpolitik\./);
 });

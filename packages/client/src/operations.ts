@@ -256,11 +256,22 @@ function checkedDay(name: string, value: string): string {
   });
 }
 
-/** A field-of-interest word, matched in the code, the German and the English name (any case). */
-function fieldMatcher(field: string | undefined): ((entry: RegisterEntry) => boolean) | undefined {
+/**
+ * A field-of-interest word, matched (any case) at the start of a word of the German or the English
+ * name, or as the code or its leading segments (`FOI_ENERGY` for `FOI_ENERGY_NET`). Matched
+ * anywhere, short words hit inside other words: "KI" the English "Banking", "Öl"
+ * "Bevölkerungsschutz".
+ */
+function fieldMatcher(field: string | undefined): { tag: (tag: { code: string; de: string; en: string }) => boolean; entry: (entry: RegisterEntry) => boolean } | undefined {
   if (field === undefined) return undefined;
   const wanted = normalizeText(assertValid("field", field, textProblem)).toLocaleLowerCase("de");
-  return (entry) => fieldTags(entry).some((tag) => [tag.code, tag.de, tag.en].some((name) => name.toLocaleLowerCase("de").includes(wanted)));
+  const escaped = wanted.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const wordStart = new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}`, "u");
+  const tag = (t: { code: string; de: string; en: string }): boolean => {
+    const code = t.code.toLocaleLowerCase("de");
+    return code === wanted || code.startsWith(`${wanted}_`) || [t.de, t.en].some((name) => wordStart.test(name.toLocaleLowerCase("de")));
+  };
+  return { tag, entry: (entry) => fieldTags(entry).some(tag) };
 }
 
 // ---- the shared frame of the topic answers ---------------------------------------------------
@@ -287,7 +298,7 @@ interface Frame {
 export interface TopicInput {
   /** The German search term; omitted, the whole register. */
   topic?: string | undefined;
-  /** Keep only entries declaring a field of interest whose name contains this ("Wasserstoff", "Krankenversicherung"). */
+  /** Keep only entries declaring a field of interest with a word of its German or English name starting with this, or this code ("Energienetze", "FOI_ENERGY"). */
   field?: string | undefined;
 }
 
@@ -314,19 +325,25 @@ async function topicSet(
     const what = topic === undefined ? "No entry matches these filters." : `No entry's register text matches ${quoteValue(topic)}${filters.length > 0 ? " with these filters" : ""}.`;
     return { status: "empty", searched, ...date, reason: `${what} ${topic === undefined ? "" : GERMAN_HINT + " "}A valid answer, not an error.` };
   }
-  const entries = matches === undefined ? set.entries : set.entries.filter(matches);
+  const entries = matches === undefined ? set.entries : set.entries.filter(matches.entry);
   if (entries.length === 0) {
     const common = topTags(set.entries, 8).map((t) => t.tag).join(", ");
     return {
       status: "empty",
       searched,
       ...date,
-      reason: `${set.entries.length} entries matched, but none declares a field of interest containing ${quoteValue(searched.field ?? "")}. The commonest in this set: ${common}.`,
+      reason: `${set.entries.length} entries matched, but none declares a field of interest matching ${quoteValue(searched.field ?? "")} (at the start of a word of its name, or its code). The commonest in this set: ${common}.`,
     };
   }
   const notes: string[] = [];
   if (topic !== undefined) notes.push(HIT_NOTE);
-  if (matches !== undefined) notes.push(`Narrowed to the ${entries.length} of ${set.entries.length} entries declaring a field of interest containing ${quoteValue(searched.field ?? "")}.`);
+  if (matches !== undefined) {
+    const named = new Map<string, number>();
+    for (const entry of entries) for (const t of fieldTags(entry)) if (matches.tag(t)) named.set(t.de, (named.get(t.de) ?? 0) + 1);
+    const fields = [...named].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "de")).map(([name]) => name);
+    const shown = fields.length > 8 ? `${fields.slice(0, 8).join(", ")} and ${fields.length - 8} more` : fields.join(", ");
+    notes.push(`Narrowed to the ${entries.length} of ${set.entries.length} entries declaring a field of interest matching ${quoteValue(searched.field ?? "")} (at the start of a word of its German or English name, or its code): ${shown}.`);
+  }
   if (set.olderVersionsDropped > 0) {
     notes.push(`The register returned ${set.olderVersionsDropped} older version${set.olderVersionsDropped === 1 ? "" : "s"} of an entry too; only the newest of each counts.`);
   }

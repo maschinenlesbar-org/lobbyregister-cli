@@ -127,7 +127,7 @@ const list = (args: Record<string, unknown>, key: string): string[] | undefined 
 const text = (max: number, description: string): JsonSchema => ({ type: "string", minLength: 1, maxLength: max, description });
 
 const TOPIC = text(100, 'The German search term (the register is German): "Wasserstoff", "Klimaschutz", "Krankenversicherung", "künstliche Intelligenz". Omitted: the whole register (about 7,000 entries).');
-const FIELD = text(80, 'Keep only entries declaring a field of interest whose name contains this ("Energienetze", "Krankenversicherung"): tightens a topic set.');
+const FIELD = text(80, 'Keep only entries declaring a field of interest whose German or English name has a word starting with this, or whose code is this ("Energienetze", "Krankenversicherung", "FOI_ENERGY"): tightens a topic set; the note names the fields matched.');
 const INACTIVE: JsonSchema = { type: "boolean", description: "Rank inactive entries too (default false: left out, and counted)." };
 const OFFSET: JsonSchema = { type: "integer", minimum: 0, maximum: 100_000, description: "Where the page starts (default 0); nextOffset says where the next one does." };
 const limit = (max: number, fallback: number, what: string): JsonSchema => ({ type: "integer", minimum: 1, maximum: max, description: `How many ${what} (1-${max}, default ${fallback}).` });
