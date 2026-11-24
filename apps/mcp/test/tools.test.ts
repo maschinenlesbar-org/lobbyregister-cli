@@ -143,3 +143,17 @@ test("an upstream failure says what to do: a 5xx, a network failure, an answer t
     assert.match(result.content[0]?.text ?? "", expected, what);
   }
 });
+
+test("the source cites the search as sent: a topic in NFD or with spaces as the register got it", async () => {
+  const transport = register();
+  const connection = await connect({ transport });
+  const nfd = "Ru\u0308stung";
+  for (const [tool, args] of [["profileSector", { topic: nfd }], ["rankBySpend", { topic: ` ${nfd} ` }], ["findRevolvingDoor", { topic: nfd }], ["searchEntries", { query: nfd }]] as const) {
+    const result = await connection.call(tool, args);
+    const source = String(result.structuredContent?.["source"]);
+    assert.match(source, /[?&]q=R%C3%BCstung(&|$)/, `${tool}: ${source}`);
+    const sent = new URL(transport.calls.at(-1)?.url ?? "").searchParams.get("q");
+    assert.equal(new URL(source).searchParams.get("q"), sent, tool);
+  }
+  await connection.close();
+});

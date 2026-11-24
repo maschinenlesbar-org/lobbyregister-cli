@@ -153,7 +153,17 @@ function searchPath(topic: string | undefined, filters: readonly string[] = []):
   return query.size === 0 ? "sucheJson" : `sucheJson?${query.toString()}`;
 }
 
-const topicSource = (args: Record<string, unknown>) => searchPath(str(args, "topic"));
+/**
+ * The search term as the tool sent it (`searched` of its answer: trimmed and in NFC, as the client
+ * sends it), else as given: a topic typed in NFD was searched as NFC, and the source said NFD.
+ */
+function sent(args: Record<string, unknown>, answer: Record<string, unknown>, key: string): string | undefined {
+  const searched = answer["searched"];
+  const value = typeof searched === "object" && searched !== null ? (searched as Record<string, unknown>)[key] : undefined;
+  return typeof value === "string" ? value : str(args, key);
+}
+
+const topicSource = (args: Record<string, unknown>, _apiBase: string, answer: Record<string, unknown>) => searchPath(sent(args, answer, "topic"));
 
 const CITE = "Cite 'Quelle: Lobbyregister beim Deutschen Bundestag' with sourceDate, and registerNumber and url per entry.";
 const TOPIC_TRAPS =
@@ -264,13 +274,13 @@ export const TOOLS: readonly ToolDefinition[] = [
       limit: limit(100, 20, "entries of each list"),
     }),
     outputSchema: output({ withRevolvingDoorData: int, total: int, ownOffice: arr, ownOfficeCount: int, officeOnRegisterPage: arr, officeOnRegisterPageCount: int, nextOffset: int }),
-    source: (args) => {
+    source: (args, _apiBase, answer) => {
       const filters = ["revolvingdoordata=true"];
       const holder = str(args, "holder");
       const area = str(args, "area");
       if (holder !== undefined) filters.push(`revolvingdoorpersontypes=${holder}`);
       if (area !== undefined) filters.push(`revolvingdoorareas=${area}`);
-      return searchPath(str(args, "topic"), filters);
+      return searchPath(sent(args, answer, "topic"), filters);
     },
     paged: (args) => ({ list: "officeOnRegisterPage", offset: num(args, "offset") ?? 0 }),
     run: advised(async (args, context) => {
@@ -317,7 +327,7 @@ export const TOOLS: readonly ToolDefinition[] = [
       limit: limit(100, 15, "entries"),
     }),
     outputSchema: output({ total: int, entries: arr, nextOffset: int }),
-    source: (args) => searchPath(str(args, "query"), list(args, "filters")),
+    source: (args, _apiBase, answer) => searchPath(sent(args, answer, "query"), list(args, "filters")),
     paged: (args) => ({ list: "entries", offset: num(args, "offset") ?? 0 }),
     run: advised(async (args, context) => {
       return { ...(await searchEntries(context.client, { query: str(args, "query"), filters: list(args, "filters"), sort: str(args, "sort"), offset: num(args, "offset"), limit: num(args, "limit") })) };
@@ -333,7 +343,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     ].join("\n\n"),
     inputSchema: input({ registerNumber: { type: "string", pattern: "^[Rr][0-9]{6}$", description: 'R and six digits: "R002822".' } }, ["registerNumber"]),
     outputSchema: output({ summary: obj, entry: obj }),
-    source: (args) => searchPath(str(args, "registerNumber")?.toUpperCase()),
+    source: (args, _apiBase, answer) => searchPath(sent(args, answer, "registerNumber")?.toUpperCase()),
     run: advised(async (args, context) => {
       return { ...(await getEntry(context.client, { registerNumber: str(args, "registerNumber") ?? "" })) };
     }),
