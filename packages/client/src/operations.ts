@@ -41,6 +41,36 @@ export interface EntrySet {
   olderVersionsDropped: number;
   /** The register's time of the answer (`sourceDate`). */
   sourceDate: string | undefined;
+  /** Requests whose `resultCount` differs from the results they held (a cut answer); absent when none. */
+  countMismatch?: CountMismatch;
+}
+
+/** What the register counted and returned, over the requests where the two differ. */
+export interface CountMismatch {
+  counted: number;
+  returned: number;
+  /** Requests that differed, of `requests` made. */
+  differing: number;
+  requests: number;
+}
+
+/** Add one answer to a running count mismatch. */
+function tally(mismatch: CountMismatch, result: { resultCount: number; results: readonly unknown[] }): CountMismatch {
+  const differs = result.resultCount !== result.results.length;
+  return {
+    counted: mismatch.counted + result.resultCount,
+    returned: mismatch.returned + result.results.length,
+    differing: mismatch.differing + (differs ? 1 : 0),
+    requests: mismatch.requests + 1,
+  };
+}
+
+/** The note for a count mismatch: the figures count only what came back. */
+function countNote(m: CountMismatch | undefined): string[] {
+  if (m === undefined || m.differing === 0) return [];
+  return [
+    `The register counted ${m.counted} results but returned ${m.returned} (in ${m.differing} of ${m.requests} request${m.requests === 1 ? "" : "s"}): the figures here count only what it returned and may be short; say so, and try again later.`,
+  ];
 }
 
 /**
@@ -72,13 +102,15 @@ export async function fetchEntries(client: LobbyregisterClient, input: EntrySetI
   const topic = input.topic === undefined ? undefined : checkedTopic(input.topic);
   let sourceDate: string | undefined;
   const all: RegisterEntry[] = [];
+  let counts: CountMismatch = { counted: 0, returned: 0, differing: 0, requests: 0 };
   for (const part of fetchParts(filters)) {
     const result = await client.search({ ...(topic === undefined ? {} : { q: topic }), filters: [...filters, ...part] });
     sourceDate ??= result.sourceDate;
+    counts = tally(counts, result);
     all.push(...result.results);
   }
   const { entries, dropped } = newestVersions(all);
-  return { entries, olderVersionsDropped: dropped, sourceDate };
+  return { entries, olderVersionsDropped: dropped, sourceDate, ...(counts.differing > 0 ? { countMismatch: counts } : {}) };
 }
 
 /** The newest version of each register number (by `validFromDate`), in the order first seen. */
@@ -335,7 +367,7 @@ async function topicSet(
       reason: `${set.entries.length} entries matched, but none declares a field of interest matching ${quoteValue(searched.field ?? "")} (at the start of a word of its name, or its code). The commonest in this set: ${common}.`,
     };
   }
-  const notes: string[] = [];
+  const notes: string[] = [...countNote(set.countMismatch)];
   if (topic !== undefined) notes.push(HIT_NOTE);
   if (matches !== undefined) {
     const named = new Map<string, number>();
@@ -819,12 +851,25 @@ export async function countEntries(client: LobbyregisterClient, input: CountEntr
   const filters = filtersOf(input.filters);
   const counts: EntryCounts["counts"] = [];
   let sourceDate: string | undefined;
+  const mismatches: CountMismatch[] = [];
   for (const topic of topics) {
     const set = await fetchEntries(client, { topic, filters });
     sourceDate ??= set.sourceDate;
+    if (set.countMismatch !== undefined) mismatches.push(set.countMismatch);
     counts.push({ ...(topic === undefined ? {} : { topic }), total: set.entries.length, active: set.entries.filter(isActive).length });
   }
-  const notes = ["Each count is of distinct entries (the newest version of each), inactive ones included; active counts those still registered as active."];
+  const notes = [
+    ...countNote(
+      mismatches.length === 0
+        ? undefined
+        : {
+            ...mismatches.reduce((a, b) => ({ counted: a.counted + b.counted, returned: a.returned + b.returned, differing: a.differing + b.differing, requests: 0 })),
+            // Every topic's requests, those that matched too.
+            requests: topics.length * fetchParts(filters).length,
+          },
+    ),
+    "Each count is of distinct entries (the newest version of each), inactive ones included; active counts those still registered as active.",
+  ];
   if (topics[0] !== undefined) notes.push(HIT_NOTE, GERMAN_HINT);
   return {
     status: "ok",
@@ -876,7 +921,7 @@ export async function searchEntries(client: LobbyregisterClient, input: SearchEn
     return { status: "empty", searched, ...date, reason: `No entry matches${query === undefined ? "" : ` ${quoteValue(query)}`}. ${GERMAN_HINT} A valid answer, not an error.` };
   }
   const rows = entries.slice(offset, offset + limit).map(summaryOf);
-  const notes = query === undefined ? [] : [HIT_NOTE];
+  const notes = [...countNote(tally({ counted: 0, returned: 0, differing: 0, requests: 0 }, result)), ...(query === undefined ? [] : [HIT_NOTE])];
   if (result.sortIgnored !== undefined) notes.push(`The register did not apply the sort ${result.sortIgnored.requested}; the order is ${result.sortIgnored.applied ?? "its default"}.`);
   return {
     ...pageStatus(offset, limit, entries.length, "entries match"),

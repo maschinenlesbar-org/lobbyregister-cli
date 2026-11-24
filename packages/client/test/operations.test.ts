@@ -23,7 +23,8 @@ import {
   searchEntries,
   spendOf,
 } from "../src/operations.js";
-import { entry, register, REGISTER } from "./fixtures.js";
+import { entry, register, registerAnswer, REGISTER } from "./fixtures.js";
+import { makeMockTransport } from "./helpers.js";
 
 const clientOf = (transport = register()) => ({ transport, client: new LobbyregisterClient({ transport: transport.transport, maxRetries: 0 }) });
 
@@ -322,4 +323,24 @@ test("findRevolvingDoor: no hit among a topic's entries is 0 of M, not 'the topi
   assert.match(area.reason ?? "", /^0 of 9: none of the 9 entries in the register records a recent public office held by a contractor in the federal government\./);
   const unknown = await findRevolvingDoor(client, { topic: "hydrogen" });
   assert.match(unknown.reason ?? "", /German term/, "a topic that matches nothing still says so");
+});
+
+test("a resultCount larger than the results is said: the figures count only what the register returned", async () => {
+  // Every answer counts 2000 more results than it holds (a cut answer, a proxy).
+  const short = makeMockTransport((request) => {
+    const response = registerAnswer(REGISTER, request);
+    const body = JSON.parse(response.body.toString()) as { resultCount: number };
+    body.resultCount += 2000;
+    return { ...response, body: Buffer.from(JSON.stringify(body)) };
+  });
+  const { client } = clientOf(short);
+  const warning = /The register counted 6\d{3} results but returned \d+ \(in 3 of 3 requests\): the figures here count only what it returned and may be short/;
+  const ranking = await rankBySpend(client, {});
+  assert.match(ranking.status === "ok" ? ranking.notes.join(" ") : "", warning);
+  const counts = await countEntries(client, { topics: ["Wasserstoff"] });
+  assert.match(counts.notes.join(" "), /The register counted 6\d{3} results but returned 7 \(in 3 of 3 requests\)/);
+  const search = await searchEntries(client, { query: "Wasserstoff" });
+  assert.match(search.status === "ok" ? search.notes.join(" ") : "", /counted 2007 results but returned 7 \(in 1 of 1 request\)/);
+  const fine = await rankBySpend(clientOf().client, {});
+  assert.doesNotMatch(fine.status === "ok" ? fine.notes.join(" ") : "", /The register counted/);
 });
