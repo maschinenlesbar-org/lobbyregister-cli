@@ -11,7 +11,8 @@ import assert from "node:assert/strict";
 import { listTools } from "../src/mcp/server.js";
 import { TOOLS } from "../src/mcp/tools.js";
 import { connect } from "./harness.js";
-import { register } from "./helpers.js";
+import { jsonResponse, rawResponse, register } from "./helpers.js";
+import type { Transport } from "../src/mcp/api.js";
 
 const BASE = "https://www.lobbyregister.bundestag.de";
 
@@ -125,5 +126,20 @@ test("the deadline's advice fits every tool: each option it names is named with 
   const named = new Set(pairs.flatMap(([, options]) => (options as string).split(" or ")));
   for (const option of ["topic", "topics", "query", "filters", "field"]) {
     assert.ok(!new RegExp(`\\b${option}\\b`).test(text) || named.has(option), `${option} named without its tools: ${text}`);
+  }
+});
+
+test("an upstream failure says what to do: a 5xx, a network failure, an answer that isn't the register's JSON", async () => {
+  const cases: [string, { transport: Transport }, RegExp][] = [
+    ["HTTP 500", { transport: async () => jsonResponse({ message: "down" }, 500) }, /HTTP 500 .*try again in a few minutes/],
+    ["a network failure", { transport: () => Promise.reject(new Error("socket hang up")) }, /socket hang up.*slow or unavailable; try again shortly/],
+    ["an HTML page", { transport: async () => rawResponse("<html>Wartung</html>", "text/html") }, /unexpected content type.*not the register's JSON.*try again later/],
+  ];
+  for (const [what, transport, expected] of cases) {
+    const connection = await connect({ transport });
+    const result = await connection.call("getEntry", { registerNumber: "R000001" });
+    await connection.close();
+    assert.equal(result.isError, true, what);
+    assert.match(result.content[0]?.text ?? "", expected, what);
   }
 });

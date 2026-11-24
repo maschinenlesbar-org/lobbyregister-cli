@@ -14,6 +14,9 @@ import {
   findNewEntrants,
   findRevolvingDoor,
   getEntry,
+  LobbyApiError,
+  LobbyNetworkError,
+  LobbyParseError,
   OFFICE_AREAS,
   OFFICE_HOLDERS,
   parseFilter,
@@ -48,6 +51,45 @@ export const INSTRUCTIONS = [
  */
 export const DEADLINE_HINT =
   "The register is slow or unavailable; try again shortly. It answers every match at once, so a narrower search reads less: a topic (profileSector, rankBySpend, rankByEngagement, findNewEntrants, findRevolvingDoor), fewer topics (countEntries), a query or filters (searchEntries); getEntry reads one entry and can only be tried again.";
+
+/** A network failure (a timeout, a reset) after the client's retries. */
+const NETWORK_HINT = "The register is slow or unavailable; try again shortly.";
+/** An HTTP 5xx or 429 after the client's retries. */
+const STATUS_HINT = "The register is failing or overloaded; try again in a few minutes.";
+/** A 2xx answer that isn't the register's JSON (an HTML page, cut JSON). */
+const PARSE_HINT = "That is not the register's JSON answer (a maintenance page or a proxy in between?): try again later; if it stays so, the register's API may have changed.";
+
+/**
+ * `run` with advice added to a failed request's error, in the same error class (the server logs
+ * and words it by class): the client's messages name only what failed ("HTTP 503 for GET …",
+ * "Request timed out after 30000ms"), and with the defaults (request 30 s, call 45 s) a hang
+ * ends at the request's timeout, never at the call's deadline, whose error is the only one with
+ * advice. Left as they are: the limiter's refusals and a Retry-After the client wouldn't wait
+ * (they say when to ask again already), the size cap (the server words it), a cancellation.
+ */
+function advised(run: ToolDefinition["run"]): ToolDefinition["run"] {
+  return async (args, context) => {
+    try {
+      return await run(args, context);
+    } catch (err) {
+      throw withAdvice(err);
+    }
+  };
+}
+
+const add = (message: string, hint: string): string => `${message}${/[.!?]$/.test(message) ? "" : "."} ${hint}`;
+
+function withAdvice(err: unknown): unknown {
+  if (err instanceof LobbyNetworkError) {
+    if (/\bnot sent: |[Tt]ry again|larger than|\baborted$/.test(err.message)) return err;
+    return new LobbyNetworkError(add(err.message, NETWORK_HINT), { cause: err });
+  }
+  if (err instanceof LobbyApiError && (err.status >= 500 || err.status === 429) && !/won't help/.test(err.message)) {
+    return new LobbyApiError({ status: err.status, url: err.url, method: err.method, body: err.body, detail: err.detail, location: err.location, hint: STATUS_HINT });
+  }
+  if (err instanceof LobbyParseError) return new LobbyParseError(add(err.message, PARSE_HINT), { cause: err });
+  return err;
+}
 
 /** An answer over the size cap says what to ask instead. */
 export const SIZE_HINT = "Narrow by a topic or a filter.";
@@ -129,9 +171,9 @@ export const TOOLS: readonly ToolDefinition[] = [
     inputSchema: input({ topic: TOPIC, field: FIELD, limit: limit(25, 10, "top spenders") }),
     outputSchema: output({ total: int, active: int, inactive: int, actorMix: arr, topSpenders: arr, fieldsOfInterest: arr, flags: obj }),
     source: topicSource,
-    async run(args, context) {
+    run: advised(async (args, context) => {
       return { ...(await profileSector(context.client, { topic: str(args, "topic"), field: str(args, "field"), limit: num(args, "limit") })) };
-    },
+    }),
   },
   {
     name: "rankBySpend",
@@ -145,9 +187,9 @@ export const TOOLS: readonly ToolDefinition[] = [
     outputSchema: output({ total: int, ranked: int, inactiveLeftOut: int, declaredZero: int, noFigureYet: int, refused: int, periods: arr, entries: arr, nextOffset: int }),
     source: topicSource,
     paged: (args) => ({ list: "entries", offset: num(args, "offset") ?? 0 }),
-    async run(args, context) {
+    run: advised(async (args, context) => {
       return { ...(await rankBySpend(context.client, { topic: str(args, "topic"), field: str(args, "field"), includeInactive: args["includeInactive"] === true, offset: num(args, "offset"), limit: num(args, "limit") })) };
-    },
+    }),
   },
   {
     name: "rankByEngagement",
@@ -168,7 +210,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     outputSchema: output({ metric: { type: "string" }, total: int, ranked: int, inactiveLeftOut: int, allZero: int, entries: arr, nextOffset: int }),
     source: topicSource,
     paged: (args) => ({ list: "entries", offset: num(args, "offset") ?? 0 }),
-    async run(args, context) {
+    run: advised(async (args, context) => {
       return {
         ...(await rankByEngagement(context.client, {
           topic: str(args, "topic"),
@@ -179,7 +221,7 @@ export const TOOLS: readonly ToolDefinition[] = [
           limit: num(args, "limit"),
         })),
       };
-    },
+    }),
   },
   {
     name: "findNewEntrants",
@@ -201,9 +243,9 @@ export const TOOLS: readonly ToolDefinition[] = [
     ),
     outputSchema: output({ window: obj, total: int, arrivals: arr, arrivalCount: int, departures: arr, departureCount: int, net: int, inactiveWithoutDate: int }),
     source: topicSource,
-    async run(args, context) {
+    run: advised(async (args, context) => {
       return { ...(await findNewEntrants(context.client, { since: str(args, "since") ?? "", until: str(args, "until"), topic: str(args, "topic"), field: str(args, "field"), limit: num(args, "limit") })) };
-    },
+    }),
   },
   {
     name: "findRevolvingDoor",
@@ -231,7 +273,7 @@ export const TOOLS: readonly ToolDefinition[] = [
       return searchPath(str(args, "topic"), filters);
     },
     paged: (args) => ({ list: "officeOnRegisterPage", offset: num(args, "offset") ?? 0 }),
-    async run(args, context) {
+    run: advised(async (args, context) => {
       return {
         ...(await findRevolvingDoor(context.client, {
           topic: str(args, "topic"),
@@ -242,7 +284,7 @@ export const TOOLS: readonly ToolDefinition[] = [
           limit: num(args, "limit"),
         })),
       };
-    },
+    }),
   },
   {
     name: "countEntries",
@@ -255,9 +297,9 @@ export const TOOLS: readonly ToolDefinition[] = [
     inputSchema: input({ topics: { type: "array", maxItems: 5, items: text(100, "A German search term."), description: "Up to five terms, each counted on its own; omitted: the whole register." }, filters: FILTERS }),
     outputSchema: output({ counts: arr }),
     source: (args) => searchPath(list(args, "topics")?.[0], list(args, "filters")),
-    async run(args, context) {
+    run: advised(async (args, context) => {
       return { ...(await countEntries(context.client, { topics: list(args, "topics"), filters: list(args, "filters") })) };
-    },
+    }),
   },
   {
     name: "searchEntries",
@@ -277,9 +319,9 @@ export const TOOLS: readonly ToolDefinition[] = [
     outputSchema: output({ total: int, entries: arr, nextOffset: int }),
     source: (args) => searchPath(str(args, "query"), list(args, "filters")),
     paged: (args) => ({ list: "entries", offset: num(args, "offset") ?? 0 }),
-    async run(args, context) {
+    run: advised(async (args, context) => {
       return { ...(await searchEntries(context.client, { query: str(args, "query"), filters: list(args, "filters"), sort: str(args, "sort"), offset: num(args, "offset"), limit: num(args, "limit") })) };
-    },
+    }),
   },
   {
     name: "getEntry",
@@ -292,8 +334,8 @@ export const TOOLS: readonly ToolDefinition[] = [
     inputSchema: input({ registerNumber: { type: "string", pattern: "^[Rr][0-9]{6}$", description: 'R and six digits: "R002822".' } }, ["registerNumber"]),
     outputSchema: output({ summary: obj, entry: obj }),
     source: (args) => searchPath(str(args, "registerNumber")?.toUpperCase()),
-    async run(args, context) {
+    run: advised(async (args, context) => {
       return { ...(await getEntry(context.client, { registerNumber: str(args, "registerNumber") ?? "" })) };
-    },
+    }),
   },
 ];
