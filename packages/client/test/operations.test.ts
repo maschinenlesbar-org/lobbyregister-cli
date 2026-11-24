@@ -385,3 +385,20 @@ test("findNewEntrants before the register's memory: not complete, no net change,
   assert.equal(recent.status === "ok" && recent.complete, true);
   assert.equal(recent.status === "ok" && typeof recent.net, "number");
 });
+
+test("the same version returned twice is no older version: only a different version counts as dropped", async () => {
+  const old = entry({ registerNumber: "R1", name: "old", entryId: 1, validFrom: "2025-01-01T00:00:00.000+01:00" });
+  const now = entry({ registerNumber: "R1", name: "new", entryId: 2, validFrom: "2026-01-01T00:00:00.000+01:00" });
+  assert.deepEqual(newestVersions([now, structuredClone(now), old, structuredClone(old)]), { entries: [now], dropped: 1 });
+  // A register that ignores the facets returns every entry in each of the three parts.
+  const ignoring = makeMockTransport((request) => {
+    const url = new URL(request.url);
+    for (const key of [...url.searchParams.keys()]) if (key.startsWith("filter[")) url.searchParams.delete(key);
+    const response = registerAnswer(REGISTER, { ...request, url: url.toString() });
+    const body = JSON.parse(response.body.toString()) as { searchParameters: Record<string, unknown> };
+    delete body.searchParameters["facets"];
+    return { ...response, body: Buffer.from(JSON.stringify(body)) };
+  });
+  const ranking = await rankBySpend(clientOf(ignoring).client, {});
+  assert.match(ranking.status === "ok" ? ranking.notes.join(" ") : "", /returned 1 older version of an entry too/);
+});

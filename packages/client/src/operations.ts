@@ -113,15 +113,26 @@ export async function fetchEntries(client: LobbyregisterClient, input: EntrySetI
   return { entries, olderVersionsDropped: dropped, sourceDate, ...(counts.differing > 0 ? { countMismatch: counts } : {}) };
 }
 
-/** The newest version of each register number (by `validFromDate`), in the order first seen. */
+/**
+ * The newest version of each register number (by `validFromDate`), in the order first seen.
+ * `dropped` counts the older versions only: the same version returned again (the same
+ * `registerEntryId` and `validFromDate`; a register that ignores the facets sends every entry in
+ * each part) is a copy, not an older version.
+ */
 export function newestVersions(entries: readonly RegisterEntry[]): { entries: RegisterEntry[]; dropped: number } {
   const newest = new Map<string, RegisterEntry>();
+  const versions = new Map<string, Set<string>>();
   for (const entry of entries) {
     const key = text(entry, "registerNumber") ?? JSON.stringify(entry);
+    const id = valueAt(entry, "registerEntryDetails.registerEntryId");
+    const version = `${JSON.stringify(id ?? null)}|${text(entry, "registerEntryDetails.validFromDate") ?? ""}`;
+    versions.set(key, (versions.get(key) ?? new Set()).add(version));
     const seen = newest.get(key);
     if (seen === undefined || time(entry, "registerEntryDetails.validFromDate") > time(seen, "registerEntryDetails.validFromDate")) newest.set(key, entry);
   }
-  return { entries: [...newest.values()], dropped: entries.length - newest.size };
+  let dropped = 0;
+  for (const set of versions.values()) dropped += set.size - 1;
+  return { entries: [...newest.values()], dropped };
 }
 
 // ---- reading an entry ----------------------------------------------------------------------
