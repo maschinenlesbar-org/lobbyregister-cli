@@ -71,13 +71,13 @@ export interface EngineOptions {
    * connections (ECONNRESET, EPIPE, ECONNABORTED, undici's UND_ERR_SOCKET, anywhere in
    * the error's `cause` chain; GET and HEAD only), a non-negative integer. Defaults
    * to 2. Timeouts are not retried. Each retry waits `retryDelayMs * attempt`, or the
-   * response's `Retry-After` when that is longer (capped at 60 s).
+   * response's `Retry-After` when that is longer, up to `MAX_RETRY_AFTER_MS` (30 s): a
+   * longer one is not retried, and the error names the wait the server asked for.
    */
   maxRetries?: number | undefined;
   /**
    * Base backoff between retries in milliseconds (grows linearly), an integer from 0
-   * to 60 000 (the Retry-After cap). Defaults to 200. A `Retry-After` can make a wait
-   * longer, never shorter.
+   * to 60 000. Defaults to 200. A `Retry-After` can make a wait longer, never shorter.
    */
   retryDelayMs?: number | undefined;
   /**
@@ -421,9 +421,18 @@ export function bigIntegerKeysOption(value: ReadonlySet<string> | undefined): Re
 const realSleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-// Upper bound on a server-dictated Retry-After delay, so a hostile or misbehaving
-// endpoint cannot park the client for an arbitrarily long time.
-const MAX_RETRY_AFTER_MS = 60_000;
+/**
+ * Longest `Retry-After` the engine waits out before retrying a 429/503. When the server
+ * asks for longer, the engine does not retry and surfaces the error at once, naming the
+ * wait: retrying sooner would only land inside the window the server asked us to keep
+ * free, and a hostile value must not park the client. The MCP server's limiter pauses a
+ * host for at most as long, and a tool call has 45 s by default: a longer wait would only
+ * end the call at its deadline, with nothing sent.
+ */
+export const MAX_RETRY_AFTER_MS = 30_000;
+
+/** Upper bound on `retryDelayMs`: Node's timers overflow above 2^31 - 1 ms. */
+const MAX_RETRY_DELAY_MS = 60_000;
 
 /** RFC 9110's preferred HTTP-date format (IMF-fixdate), e.g. `Wed, 21 Oct 2026 07:28:00 GMT`. */
 const IMF_FIXDATE =
@@ -434,7 +443,7 @@ const IMF_FIXDATE =
  * forms from RFC 9110: a delta in seconds (`Retry-After: 5`) and an HTTP-date in
  * IMF-fixdate form (`Retry-After: Wed, 21 Oct 2026 07:28:00 GMT`). Returns
  * `undefined` when the header is absent or invalid (so the caller falls back to
- * linear backoff), and clamps to `[0, MAX_RETRY_AFTER_MS]`. Only the IMF-fixdate
+ * linear backoff), and never less than 0 (a date in the past). Only the IMF-fixdate
  * shape goes to `Date.parse`: V8 reads "-1" or "1.5" as dates (year -1,
  * 2001-01-05), which would mean "retry immediately".
  */
@@ -443,11 +452,11 @@ export function parseRetryAfter(value: string | undefined, now: number = Date.no
   const trimmed = value.trim();
   if (trimmed === "") return undefined;
   if (/^\d+$/.test(trimmed)) {
-    return Math.min(Number(trimmed) * 1000, MAX_RETRY_AFTER_MS);
+    return Number(trimmed) * 1000;
   }
   const dateMs = IMF_FIXDATE.test(trimmed) ? Date.parse(trimmed) : Number.NaN;
   if (!Number.isNaN(dateMs)) {
-    return Math.min(Math.max(dateMs - now, 0), MAX_RETRY_AFTER_MS);
+    return Math.max(dateMs - now, 0);
   }
   return undefined;
 }
@@ -584,7 +593,7 @@ export class RequestEngine {
     this.maxRetries = intOption("maxRetries", options.maxRetries, anyInt, 2);
     // Bounded like a Retry-After: a larger value (above 2^31 - 1 ms) overflowed Node's
     // timers, which fire after 1 ms instead, so the retries went out back to back.
-    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, MAX_RETRY_AFTER_MS, 200);
+    this.retryDelayMs = intOption("retryDelayMs", options.retryDelayMs, MAX_RETRY_DELAY_MS, 200);
     this.maxRedirects = intOption("maxRedirects", options.maxRedirects, anyInt, 5);
     this.maxResponseBytes = intOption("maxResponseBytes", options.maxResponseBytes, anyInt, DEFAULT_MAX_RESPONSE_BYTES);
     this.sleep = functionOption("sleep", options.sleep, realSleep);
@@ -789,20 +798,17 @@ export class RequestEngine {
       }
 
       const retryable = status === 429 || status === 503;
-      if (retryable && attempt < this.maxRetries) {
+      const retryAfterMs = retryable ? parseRetryAfter(headerValue(responseHeaders["retry-after"])) : undefined;
+      const tooLong = retryAfterMs !== undefined && retryAfterMs > MAX_RETRY_AFTER_MS;
+      if (retryable && attempt < this.maxRetries && !tooLong) {
         attempt += 1;
         // Back off linearly from retryDelayMs. A Retry-After header (delta-seconds or an
-        // HTTP-date, clamped to MAX_RETRY_AFTER_MS) can ask for longer, never for less:
-        // `Retry-After: 0` or a date in the past turned the retries into a zero-delay
-        // burst against a server that had just asked for less load.
+        // HTTP-date) can ask for longer, never for less: `Retry-After: 0` or a date in the
+        // past turned the retries into a zero-delay burst against a server that had just
+        // asked for less load. One beyond MAX_RETRY_AFTER_MS is not retried: the error
+        // below surfaces at once and names the wait.
         const backoff = this.retryDelayMs * attempt;
-        const retryAfterMs = parseRetryAfter(headerValue(responseHeaders["retry-after"]));
-        await this.backOff(
-          attempt,
-          retryAfterMs === undefined ? backoff : Math.min(Math.max(retryAfterMs, backoff), MAX_RETRY_AFTER_MS),
-          url,
-          status,
-        );
+        await this.backOff(attempt, retryAfterMs === undefined ? backoff : Math.max(retryAfterMs, backoff), url, status);
         continue;
       }
 
@@ -865,7 +871,10 @@ export class RequestEngine {
         const hint =
           (status === 401 || status === 403) && droppedCredentialsAt !== undefined
             ? credentialsDroppedHint(droppedCredentialsAt.from, droppedCredentialsAt.to)
-            : undefined;
+            : tooLong
+              ? `the server asked to retry after ${Math.ceil(retryAfterMs / 1000)} s (Retry-After), longer than the ` +
+                `${MAX_RETRY_AFTER_MS / 1000} s this client waits, so it was not retried: retrying sooner won't help, try again later`
+              : undefined;
         throw this.toApiError(method, url, status, body, location, hint);
       }
 

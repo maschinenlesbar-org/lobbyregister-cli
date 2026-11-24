@@ -168,8 +168,8 @@ test("parseRetryAfter understands delta-seconds, HTTP-date and junk", () => {
   assert.equal(parseRetryAfter(undefined), undefined);
   assert.equal(parseRetryAfter("   "), undefined);
   assert.equal(parseRetryAfter("soon"), undefined);
-  // clamps to the 60s ceiling
-  assert.equal(parseRetryAfter("100000"), 60_000);
+  // the whole wait the server asks for: the engine decides whether it waits that long
+  assert.equal(parseRetryAfter("100000"), 100_000_000);
   // HTTP-date relative to an injected "now"
   const now = Date.parse("2026-01-01T00:00:00Z");
   assert.equal(parseRetryAfter("Thu, 01 Jan 2026 00:00:03 GMT", now), 3000);
@@ -179,6 +179,31 @@ test("parseRetryAfter understands delta-seconds, HTTP-date and junk", () => {
   for (const bad of ["-1", "1.5", "+5", "1e3", "0x10", "2026-01-01T00:00:03Z", "Thursday, 01-Jan-26 00:00:03 GMT", "Thu Jan  1 00:00:03 2026"]) {
     assert.equal(parseRetryAfter(bad, now), undefined, bad);
   }
+});
+
+test("a Retry-After over 30 s is not retried: one request, no wait, and the error names the wait", async () => {
+  const delays: number[] = [];
+  let calls = 0;
+  const e = new RequestEngine({
+    transport: async () => {
+      calls += 1;
+      return { status: 429, headers: { "retry-after": "60" }, body: Buffer.from("{}") };
+    },
+    maxRetries: 2,
+    sleep: async (ms) => void delays.push(ms),
+  });
+  await assert.rejects(e.getJson("/x"), (err: unknown) =>
+    err instanceof LobbyApiError && err.status === 429 && /retry after 60 s/.test(err.message) && /30 s/.test(err.message) && /won't help, try again later/.test(err.message));
+  assert.equal(calls, 1);
+  assert.equal(delays.length, 0);
+  // 30 s itself is still waited out
+  const at = new RequestEngine({
+    transport: makeMockTransport(() => ({ status: 503, headers: { "retry-after": "30" }, body: Buffer.from("{}") })).transport,
+    maxRetries: 1,
+    sleep: async (ms) => void delays.push(ms),
+  });
+  await assert.rejects(at.getJson("/x"), (err: unknown) => err instanceof LobbyApiError && !/won't help/.test(err.message));
+  assert.deepEqual(delays, [30_000]);
 });
 
 test("a 503 with an invalid Retry-After uses linear backoff", async () => {

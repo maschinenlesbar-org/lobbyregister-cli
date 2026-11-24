@@ -4,6 +4,7 @@ export { LobbyregisterClient, resultCountMismatch, searchQuery } from "./client.
 export {
   RequestEngine,
   DEFAULT_BASE_URL,
+  MAX_RETRY_AFTER_MS,
   assertHeaderValue,
   baseUrlProblem,
   cleartextProblem,

@@ -87,7 +87,7 @@ test("onRetry is never called without a retry", async () => {
   });
   await assert.rejects(down.getJson("/x"), LobbyApiError);
   assert.equal(events.length, 1);
-  // a huge Retry-After is clamped to the 60 s ceiling, and that is the wait announced
+  // a Retry-After over the 30 s ceiling is not retried: no retry announced
   const long = new RequestEngine({
     transport: makeMockTransport(() => ({ status: 503, headers: { "retry-after": "999999" }, body: Buffer.from("{}") })).transport,
     maxRetries: 1,
@@ -95,7 +95,7 @@ test("onRetry is never called without a retry", async () => {
     onRetry,
   });
   await assert.rejects(long.getJson("/x"), LobbyApiError);
-  assert.equal(events.length, 2);
+  assert.equal(events.length, 1);
 });
 
 test("onRetry must be a function", () => {

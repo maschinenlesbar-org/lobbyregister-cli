@@ -397,8 +397,10 @@ retried automatically, with a linear backoff (`retryDelayMs * attempt`). A
 server-provided `Retry-After` header (the delta-seconds and the IMF-fixdate
 HTTP-date forms; `-1`, `1.5` and other date formats are ignored) can make a wait
 longer, never shorter: `Retry-After: 0` or a date in the past still waits the
-backoff, so the retries never burst. A long one is clamped to a 60 s ceiling, and
-`retryDelayMs` is bounded by the same 60 s (`LobbyValidationError` above it). Count via
+backoff, so the retries never burst. One longer than `MAX_RETRY_AFTER_MS` (30 s) is not
+retried at all: the `LobbyApiError` comes at once and names the wait the server asked for
+(retrying sooner won't help; the MCP server's limiter pauses a host for at most 30 s too).
+`retryDelayMs` is bounded by 60 s (`LobbyValidationError` above it). Count via
 `--max-retries` / `maxRetries` (default `2`). A reset connection is retried the same
 way, with the linear backoff (`isTransientNetworkError`: `ECONNRESET`/`EPIPE`/
 `ECONNABORTED` or undici's `UND_ERR_SOCKET` anywhere in the error's `cause` chain;

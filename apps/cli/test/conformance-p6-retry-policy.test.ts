@@ -15,12 +15,12 @@ const okBody = { resultCount: 0, results: [], searchParameters: {} };
 const MIN_429_MS = 200; // lobbyregister backs off linearly from retryDelayMs for both statuses
 const MIN_503_MS = 200;
 /** The documented ceiling on one Retry-After wait. */
-const RETRY_AFTER_CAP_MS = 60_000; // lobbyregister waits up to 60 s (DEVELOPING.md)
+const RETRY_AFTER_CAP_MS = 30_000; // lobbyregister waits up to 30 s (DEVELOPING.md)
 /**
  * What a Retry-After above the cap does: "wait" the cap and retry (autobahn), or "fail" at
  * once with a message that names the requested wait (the pattern's other option; nina).
  */
-const ABOVE_CAP = "wait" as "wait" | "fail";
+const ABOVE_CAP = "fail" as "wait" | "fail";
 // --------------------------------------------------------------------------------------
 
 async function sleepsFor(status: number, retryAfter: string | undefined, retries = 3): Promise<number[]> {
