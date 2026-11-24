@@ -310,3 +310,16 @@ test("findRevolvingDoor pages both lists with offset: the own-office list moves 
   assert.equal(past.status, "empty");
   assert.match(past.reason ?? "", /offset 2 is past the end/);
 });
+
+test("findRevolvingDoor: no hit among a topic's entries is 0 of M, not 'the topic matches nothing'", async () => {
+  const { client } = clientOf();
+  const none = await findRevolvingDoor(client, { topic: "Wasserstoff", holder: "CONTRACTOR" });
+  assert.equal(none.status, "empty");
+  assert.match(none.reason ?? "", /^0 of 6: none of the 6 entries whose register text matches "Wasserstoff" records a recent public office held by a contractor\./);
+  assert.doesNotMatch(none.reason ?? "", /German term/);
+  assert.deepEqual(none.searched, { topic: "Wasserstoff", filters: ["revolvingdoordata=true", "revolvingdoorpersontypes=CONTRACTOR"] });
+  const area = await findRevolvingDoor(client, { holder: "CONTRACTOR", area: "FEDERAL_GOVERNMENT" });
+  assert.match(area.reason ?? "", /^0 of 9: none of the 9 entries in the register records a recent public office held by a contractor in the federal government\./);
+  const unknown = await findRevolvingDoor(client, { topic: "hydrogen" });
+  assert.match(unknown.reason ?? "", /German term/, "a topic that matches nothing still says so");
+});

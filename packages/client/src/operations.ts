@@ -680,6 +680,19 @@ export interface FormerOffice {
   endDate?: string;
 }
 
+/** The holders and areas as a reason names them. */
+const HOLDER_NAMES: Record<(typeof OFFICE_HOLDERS)[number], string> = {
+  LOBBYIST: "the lobbyist",
+  LEGAL_REPRESENTATIVE: "a legal representative",
+  ENTRUSTED_PERSON: "an entrusted person (an employee)",
+  CONTRACTOR: "a contractor",
+};
+const AREA_NAMES: Record<(typeof OFFICE_AREAS)[number], string> = {
+  HOUSE_OF_REPRESENTATIVES: "the Bundestag",
+  FEDERAL_GOVERNMENT: "the federal government",
+  FEDERAL_ADMINISTRATION: "the federal administration",
+};
+
 /** Read the office: the role sits in a different place per institution (`type.code`). */
 export function formerOfficeOf(entry: RegisterEntry): FormerOffice {
   const f = valueAt(entry, "lobbyistIdentity.recentGovernmentFunction") as JsonObject | undefined;
@@ -735,10 +748,16 @@ export async function findRevolvingDoor(client: LobbyregisterClient, input: Revo
   if (input.holder !== undefined) filters.push(parseFilter(`revolvingdoorpersontypes=${input.holder}`));
   if (input.area !== undefined) filters.push(parseFilter(`revolvingdoorareas=${input.area}`));
   const set = await topicSet(client, input, filters);
-  if ("status" in set) return set;
   // M: the topic's whole set (the field narrowing applied to it too), for "N of M".
   const everyone = await topicSet(client, { topic: input.topic, field: input.field });
   const total = "status" in everyone ? 0 : everyone.entries.length;
+  if ("status" in set) {
+    // No hit among entries that exist is "0 of M", not "the topic matches nothing, try a synonym".
+    if (total === 0 || "status" in everyone) return set;
+    const among = `${total} entries ${input.topic === undefined ? "in the register" : `whose register text matches ${quoteValue(set.searched.topic ?? input.topic)}`}${input.field === undefined ? "" : ` and declare a field of interest matching ${quoteValue(set.searched.field ?? input.field)}`}`;
+    const held = `${input.holder === undefined ? "" : ` held by ${HOLDER_NAMES[input.holder]}`}${input.area === undefined ? "" : ` in ${AREA_NAMES[input.area]}`}`;
+    return { ...set, reason: `0 of ${total}: none of the ${among} records a recent public office${held}. A valid answer, not an error.` };
+  }
   const own = set.entries.filter((e) => valueAt(e, "lobbyistIdentity.recentGovernmentFunctionPresent") === true);
   const others = set.entries.filter((e) => !own.includes(e)).map(summaryOf).sort((a, b) => a.name.localeCompare(b.name, "de"));
   const ownRows = own
