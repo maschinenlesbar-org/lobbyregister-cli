@@ -78,6 +78,9 @@ test("countEntries per topic; an unknown filter is a tool error naming the valid
   const connection = await connect({ transport });
   const content = (await connection.call("countEntries", { topics: ["Wasserstoff", "Krankenversicherung"] })).structuredContent ?? {};
   assert.deepEqual(content["counts"], [{ topic: "Wasserstoff", total: 6, active: 5 }, { topic: "Krankenversicherung", total: 2, active: 2 }]);
+  assert.equal(content["source"], `${BASE}/sucheJson?q=Wasserstoff, ${BASE}/sucheJson?q=Krankenversicherung`, "the source names the search of every count");
+  const one = (await connection.call("countEntries", { topics: ["Wasserstoff"], filters: ["activelobbyist=true"] })).structuredContent ?? {};
+  assert.equal(one["source"], `${BASE}/sucheJson?q=Wasserstoff&filter%5Bactivelobbyist%5D%5Btrue%5D=true`);
   const before = transport.calls.length;
   const wrong = await connection.call("countEntries", { filters: ["revolvingdoor=true"] });
   assert.equal(wrong.isError, true);

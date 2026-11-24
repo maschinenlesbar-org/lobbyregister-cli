@@ -306,7 +306,13 @@ export const TOOLS: readonly ToolDefinition[] = [
     ].join("\n\n"),
     inputSchema: input({ topics: { type: "array", maxItems: 5, items: text(100, "A German search term."), description: "Up to five terms, each counted on its own; omitted: the whole register." }, filters: FILTERS }),
     outputSchema: output({ counts: arr }),
-    source: (args) => searchPath(list(args, "topics")?.[0], list(args, "filters")),
+    // One search per topic: each is cited (absolute, comma-separated), as sent (the answer's counts).
+    source: (args, apiBase, answer) => {
+      const counts = Array.isArray(answer["counts"]) ? (answer["counts"] as { topic?: unknown }[]) : [];
+      const topics = counts.length > 0 ? counts.map((c) => (typeof c.topic === "string" ? c.topic : undefined)) : (list(args, "topics") ?? [undefined]);
+      const paths = topics.map((topic) => searchPath(topic, list(args, "filters")));
+      return paths.length === 1 ? (paths[0] as string) : paths.map((path) => `${apiBase}/${path}`).join(", ");
+    },
     run: advised(async (args, context) => {
       return { ...(await countEntries(context.client, { topics: list(args, "topics"), filters: list(args, "filters") })) };
     }),
