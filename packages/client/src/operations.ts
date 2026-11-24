@@ -404,9 +404,22 @@ export async function profileSector(client: LobbyregisterClient, input: ProfileS
   };
 }
 
-/** Highest declared band first (`to`, then `from`), then by name; no figure counts as 0. */
+/** Where a kind of spend ranks: a declared band, then exactly €0, then no figure, refused, not stated. */
+const SPEND_ORDER: Record<Spend["kind"], number> = { declared: 0, zero: 1, noFigureYet: 2, refused: 3, notStated: 4 };
+
+/**
+ * Highest declared band first (`to`, then `from`), then €0 declared, then the entries without a
+ * figure (no figure yet, refused, not stated), each group by name. No figure is not €0: ranked
+ * as 0, an entry without one stood among the €0 rows by name, a "lowest spender" it isn't.
+ */
 function bySpend(summaries: readonly EntrySummary[]): EntrySummary[] {
-  return [...summaries].sort((a, b) => (b.spend.to ?? 0) - (a.spend.to ?? 0) || (b.spend.from ?? 0) - (a.spend.from ?? 0) || a.name.localeCompare(b.name, "de"));
+  return [...summaries].sort(
+    (a, b) =>
+      SPEND_ORDER[a.spend.kind] - SPEND_ORDER[b.spend.kind] ||
+      (b.spend.to ?? 0) - (a.spend.to ?? 0) ||
+      (b.spend.from ?? 0) - (a.spend.from ?? 0) ||
+      a.name.localeCompare(b.name, "de"),
+  );
 }
 
 // ---- rankBySpend -------------------------------------------------------------------------------
@@ -455,7 +468,7 @@ export async function rankBySpend(client: LobbyregisterClient, input: RankInput 
   const notes = [
     ...set.frame.notes,
     "Each figure is the entry's total declared lobbying spend for one fiscal year, across everything it lobbies on: a topic only selects the entries. Head a table \"entries matching the term, by total declared spend\", never \"spend on the term\".",
-    "Bands are self-declared (€10,000 steps from €1), not audited: always give both ends and say declared. €0 declared is exactly zero; no figure yet means the first fiscal year is not over.",
+    "Bands are self-declared (€10,000 steps from €1), not audited: always give both ends and say declared. €0 declared is exactly zero; no figure yet means the first fiscal year is not over. Entries without a figure (no figure yet, refused) rank after every €0 declared: they are no lowest spenders.",
   ];
   if (periods.size > 1) notes.push("The listed rows cover different fiscal years (periods): say so when comparing them.");
   const next = offset + rows.length < ranked.length ? { nextOffset: offset + rows.length } : {};

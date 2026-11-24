@@ -247,3 +247,24 @@ test("a page past the end is empty with a reason, the totals kept: the rankings 
   const last = await rankBySpend(client, { topic: "Wasserstoff", offset: 4 });
   assert.equal(last.status, "ok", "the last row is a page");
 });
+
+test("rankBySpend: no figure yet and refused rank after every €0 declared, never among them by name", async () => {
+  const entries = [
+    entry({ registerNumber: "R000101", name: "Zeta Null GmbH", spend: { from: 0, to: 0 } }),
+    entry({ registerNumber: "R000102", name: "Alpha Neu GmbH", spend: null }),
+    entry({ registerNumber: "R000103", name: "Beta Null GmbH", spend: { from: 0, to: 0 } }),
+    entry({ registerNumber: "R000104", name: "Aaa Geheim GmbH", refused: "Betriebsgeheimnis" }),
+    entry({ registerNumber: "R000105", name: "Mitte GmbH", spend: { from: 1, to: 10000 } }),
+  ];
+  const { client } = clientOf(register(entries));
+  const result = await rankBySpend(client, {});
+  assert.deepEqual(result.status === "ok" && result.entries.map((e) => [e.rank, e.spend.kind, e.registerNumber]), [
+    [1, "declared", "R000105"],
+    [2, "zero", "R000103"],
+    [3, "zero", "R000101"],
+    [4, "noFigureYet", "R000102"],
+    [5, "refused", "R000104"],
+  ]);
+  const profile = await profileSector(client, {});
+  assert.deepEqual(profile.status === "ok" && profile.topSpenders.map((e) => e.registerNumber), ["R000105", "R000103", "R000101", "R000102", "R000104"]);
+});

@@ -83,9 +83,10 @@ financialExpenses.financialExpensesEuro = { "from": <int>, "to": <int> }   // or
 > all observed live:
 > - `financialExpensesEuro` can be **`null`**. On 2026-09-26 all 120 such entries came with
 >   `financialExpenses.relatedFiscalYearFinished: false`: the entry's first fiscal year is
->   not over yet, so there is no figure to declare. Coalesce to 0 before sorting
->   (`(.financialExpenses.financialExpensesEuro.to // 0)`), and label such entries "no
->   figure yet (first fiscal year not completed)" — not "€0", not "refused".
+>   not over yet, so there is no figure to declare. Coalesce to -1 before sorting
+>   (`(.financialExpenses.financialExpensesEuro.to // -1)`), so such entries rank after
+>   every €0 declared, never among them, and label them "no figure yet (first fiscal year
+>   not completed)" — not "€0", not "refused".
 > - An entry can also **refuse** to state its spend: `financialExpenses.refuseFinancialExpensesInformation`
 >   is then `true`, with the reason in `…refuseFinancialExpensesInformationReason`. Label it
 >   "refused" and quote the reason.
@@ -102,7 +103,7 @@ A ready `jq` for the table (active entries only; see the rules):
 
 ```bash
 jq -r 'map(select(.accountDetails.activeLobbyist != false))
-  | sort_by(.financialExpenses.financialExpensesEuro.to // 0) | reverse
+  | sort_by(.financialExpenses.financialExpensesEuro.to // -1) | reverse
   | .[0:15][]
   | [ .registerNumber,
       (.financialExpenses.financialExpensesEuro.from // "n/a"),
@@ -143,8 +144,9 @@ for "Energie"; €0–0 = €0 declared.
 Rules:
 - **Always a range, always "declared".** These are self-reported brackets, not audited
   spend; say so once, up front.
-- Sort by `to` descending; tie-break by `from`. Coalesce `null`/missing to 0 so the sort
-  is stable, but render those as "no figure yet" (or "refused", see above), not "€0".
+- Sort by `to` descending; tie-break by `from`. Coalesce `null`/missing to -1 so those
+  rank after every €0 declared (a rank among the €0 rows would call them the lowest
+  spenders), and render them as "no figure yet" (or "refused", see above), not "€0".
 - State the **fiscal period** (`relatedFiscalYearStart`/`End`) the figures cover; warn if
   entries in the table span different periods.
 - Exclude `activeLobbyist === false` by default; report how many you dropped.

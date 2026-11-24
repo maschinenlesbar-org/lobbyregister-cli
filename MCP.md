@@ -67,7 +67,7 @@ For scripts and shared configs, pin a release and its digest from the
 | Tool | What it answers |
 |---|---|
 | `profileSector` | Who lobbies on a topic: how many, the actor mix, the top declared spenders, the commonest fields of interest, the flags (code-of-conduct violations, a lobbyist's own former office). |
-| `rankBySpend` | The league table of declared lobbying spend, highest euro band first; €0 declared, no figure yet and refused said apart, the fiscal years named, inactive entries left out and counted. |
+| `rankBySpend` | The league table of declared lobbying spend, highest euro band first; €0 declared, no figure yet and refused said apart (the last two ranked after €0), the fiscal years named, inactive entries left out and counted. |
 | `rankByEngagement` | Ranked by statements filed, regulatory projects or lobbying contracts, the other two alongside. |
 | `findNewEntrants` | Arrivals (first published) and departures (went inactive) in a window, with the net change. |
 | `findRevolvingDoor` | Entries recording a recent public office of one of their people, as "N of M"; the lobbyist's own office read per institution, the rest pointed to the register page. |
