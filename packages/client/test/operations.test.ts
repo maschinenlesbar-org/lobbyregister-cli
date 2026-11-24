@@ -294,3 +294,19 @@ test("field matches a word's start in the German or English name, or the code: n
   const said = await profileSector(client, { field: "KI" });
   assert.match(said.status === "ok" ? said.notes.join(" ") : "", /Narrowed to the 1 of 5 entries declaring a field of interest matching "KI".*: Kinder- und Jugendpolitik\./);
 });
+
+test("findRevolvingDoor pages both lists with offset: the own-office list moves on too, and nextOffset says where", async () => {
+  const { client } = clientOf();
+  const first = await findRevolvingDoor(client, { limit: 1 });
+  assert.equal(first.status === "ok" && first.ownOffice.map((o) => o.registerNumber).join(), "R000009");
+  assert.equal(first.status === "ok" && first.officeOnRegisterPage.map((o) => o.registerNumber).join(), "R000007");
+  assert.equal(first.status === "ok" && first.nextOffset, 1);
+  const second = await findRevolvingDoor(client, { limit: 1, offset: 1 });
+  assert.equal(second.status === "ok" && second.ownOffice.map((o) => o.registerNumber).join(), "R000008", "not the first one again");
+  assert.equal(second.status === "ok" && second.officeOnRegisterPage.length, 0);
+  assert.equal(second.status === "ok" && second.nextOffset, undefined);
+  assert.equal(second.status === "ok" && second.ownOfficeCount, 2);
+  const past = await findRevolvingDoor(client, { limit: 1, offset: 2 });
+  assert.equal(past.status, "empty");
+  assert.match(past.reason ?? "", /offset 2 is past the end/);
+});

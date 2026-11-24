@@ -70,7 +70,7 @@ For scripts and shared configs, pin a release and its digest from the
 | `rankBySpend` | The league table of declared lobbying spend, highest euro band first; €0 declared, no figure yet and refused said apart (the last two ranked after €0), the fiscal years named, inactive entries left out and counted. |
 | `rankByEngagement` | Ranked by statements filed, regulatory projects or lobbying contracts, the other two alongside. |
 | `findNewEntrants` | Arrivals (first published) and departures (went inactive) in a window, with the net change. |
-| `findRevolvingDoor` | Entries recording a recent public office of one of their people, as "N of M"; the lobbyist's own office read per institution, the rest pointed to the register page. |
+| `findRevolvingDoor` | Entries recording a recent public office of one of their people, as "N of M"; the lobbyist's own office read per institution, the rest pointed to the register page; `offset` pages both lists. |
 | `countEntries` | How many distinct entries per German term (up to five) or in the whole register, active ones apart; its `source` names the search of every term, comma-separated. |
 | `searchEntries` | The register's own search by name, word or register number, with facet filters and a sort order. |
 | `getEntry` | One entry in full by its register number. |

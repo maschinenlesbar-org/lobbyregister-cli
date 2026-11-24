@@ -262,7 +262,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "Former MPs and officials among the lobbyists",
     description: [
       'The revolving door: entries recording a recent public office (Bundestag, Bundesregierung, Bundesverwaltung) of one of their people, as "N of M" for a topic or the whole register. Use it for "welche Ex-Abgeordneten lobbyieren jetzt?", "Seitenwechsler im Lobbyregister", "ehemalige Staatssekretäre als Lobbyisten", "which former MPs now lobby?", "revolving door in German lobbying", "ex-officials lobbying on energy".',
-      `The register's own filter finds every entry where the lobbyist, a legal representative, an employee (entrusted person) or a contractor held office. Only a lobbyist who is a person carries the office in the data (ownOffice: institution, role, department, ended, endDate); for the rest (officeOnRegisterPage) the API gives no name or role: say it is on the register page (url), never invent it. office.ended false: may still hold the office. Lead with withRevolvingDoorData of total; pair the former remit with topFields. holder and area narrow on the server. Self-disclosure: report what is declared. ${TOPIC_TRAPS} ${CITE}`,
+      `The register's own filter finds every entry where the lobbyist, a legal representative, an employee (entrusted person) or a contractor held office. Only a lobbyist who is a person carries the office in the data (ownOffice: institution, role, department, ended, endDate); for the rest (officeOnRegisterPage) the API gives no name or role: say it is on the register page (url), never invent it. office.ended false: may still hold the office. Lead with withRevolvingDoorData of total; pair the former remit with topFields. holder and area narrow on the server. Self-disclosure: report what is declared. Paged: offset pages both lists, nextOffset. ${TOPIC_TRAPS} ${CITE}`,
       RULES,
     ].join("\n\n"),
     inputSchema: input({
@@ -282,7 +282,9 @@ export const TOOLS: readonly ToolDefinition[] = [
       if (area !== undefined) filters.push(`revolvingdoorareas=${area}`);
       return searchPath(sent(args, answer, "topic"), filters);
     },
-    paged: (args) => ({ list: "officeOnRegisterPage", offset: num(args, "offset") ?? 0 }),
+    // Both lists are paged with offset; the size cap cuts the one a holder makes the longer first
+    // (only a lobbyist who is a person carries the office in the data).
+    paged: (args) => ({ list: args["holder"] === "LOBBYIST" ? "ownOffice" : "officeOnRegisterPage", offset: num(args, "offset") ?? 0 }),
     run: advised(async (args, context) => {
       return {
         ...(await findRevolvingDoor(context.client, {

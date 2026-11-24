@@ -660,7 +660,7 @@ export interface RevolvingDoorInput extends TopicInput {
   holder?: (typeof OFFICE_HOLDERS)[number] | undefined;
   /** Only offices in this branch. */
   area?: (typeof OFFICE_AREAS)[number] | undefined;
-  /** Where the list of entries without the office in the data starts (default 0). */
+  /** Where the page of both lists starts (default 0). */
   offset?: number | undefined;
   /** How many of each list (1–100, default 20). */
   limit?: number | undefined;
@@ -709,7 +709,9 @@ export function formerOfficeOf(entry: RegisterEntry): FormerOffice {
 
 export type RevolvingDoor =
   | (Frame & {
-      status: "ok";
+      /** empty: the page starts past the end of both lists (`reason` says where the last one starts). */
+      status: "ok" | "empty";
+      reason?: string;
       /** Entries the register's revolving-door filter finds ("N"). */
       withRevolvingDoorData: number;
       /** All entries matching the topic ("M"). */
@@ -720,6 +722,7 @@ export type RevolvingDoor =
       /** Entries whose office-holder (an employee, contractor …) is shown only on the register page (url). */
       officeOnRegisterPage: EntrySummary[];
       officeOnRegisterPageCount: number;
+      /** Where the next page of both lists starts, while either has more. */
       nextOffset?: number;
     })
   | Empty;
@@ -741,21 +744,25 @@ export async function findRevolvingDoor(client: LobbyregisterClient, input: Revo
   const ownRows = own
     .map((e) => ({ ...summaryOf(e), office: formerOfficeOf(e), topFields: fieldTags(e).slice(0, 5).map((t) => t.de) }))
     .sort((a, b) => Number(a.office.ended !== false) - Number(b.office.ended !== false) || (b.office.endDate ?? "").localeCompare(a.office.endDate ?? ""));
+  // Both lists are paged with the same offset: the own-office list ignored it, so a model paging on
+  // got its first rows again and never the rest (43 lobbyists with their own office, 20 shown).
   const rows = others.slice(offset, offset + limit);
+  const longest = Math.max(ownRows.length, others.length);
   const notes = [
     ...set.frame.notes,
     `Lead with "${set.entries.length} of ${total}": the register's filter keeps every entry recording a recent public office of any of its people (the lobbyist, a legal representative, an entrusted person such as an employee, a contractor).`,
     "Only a lobbyist who is a person carries the office in the data (ownOffice); for the others the search API returns no name, role or date: say the office is documented on the register page (url) and never invent the role.",
     "office.ended false: the person may still hold the office. Pair the former remit with topFields to show a same-sector move. This is self-disclosure: report what is declared.",
+    "offset and limit page both lists together; nextOffset is where the next page of both starts.",
   ];
-  const next = offset + rows.length < others.length ? { nextOffset: offset + rows.length } : {};
+  const next = offset + limit < longest ? { nextOffset: offset + limit } : {};
   return {
-    status: "ok",
+    ...pageStatus(offset, limit, longest, "entries are in the longer of the two lists"),
     ...set.frame,
     notes,
     withRevolvingDoorData: set.entries.length,
     total,
-    ownOffice: ownRows.slice(0, limit),
+    ownOffice: ownRows.slice(offset, offset + limit),
     ownOfficeCount: ownRows.length,
     officeOnRegisterPage: rows,
     officeOnRegisterPageCount: others.length,
