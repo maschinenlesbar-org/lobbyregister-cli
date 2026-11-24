@@ -164,6 +164,26 @@ export function displayName(name: string | undefined): string {
 /** An entry is active unless the register says it is not. */
 const isActive = (entry: RegisterEntry): boolean => valueAt(entry, "accountDetails.activeLobbyist") !== false;
 
+/** The register's own word on active or not: every live entry has it; one without is counted as active. */
+const hasActiveFlag = (entry: RegisterEntry): boolean => typeof valueAt(entry, "accountDetails.activeLobbyist") === "boolean";
+
+const FORMAT_CHANGED = "if that is all or most of them, the register's format may have changed: say the figures can't be trusted";
+
+/** A note when entries carry no active flag (`accountDetails.activeLobbyist`, renamed or missing). */
+function activeFlagNote(entries: readonly RegisterEntry[]): string[] {
+  const without = entries.filter((e) => !hasActiveFlag(e)).length;
+  if (without === 0) return [];
+  const who = without === entries.length ? `All ${without} entries carry` : `${without} of the ${entries.length} entries carry`;
+  return [`${who} no active flag (accountDetails.activeLobbyist): counted as active, so inactive ones may be among them; ${FORMAT_CHANGED}.`];
+}
+
+/** A note when ranked entries state no spend this server can read (`financialExpenses`, renamed or missing). */
+function spendNote(summaries: readonly EntrySummary[]): string[] {
+  const unread = summaries.filter((s) => s.spend.kind === "notStated").length;
+  if (unread === 0) return [];
+  return [`${unread} of the ${summaries.length} ranked entries state no spend this server can read (financialExpenses): "not stated", ranked last; ${FORMAT_CHANGED}.`];
+}
+
 /** The declared lobbying spend of an entry: a euro band, €0, no figure yet, or refused. */
 export interface Spend {
   /** declared: a band above 0; zero: exactly €0 declared; noFigureYet: the first fiscal year is not over; refused: the entry refuses to say; notStated: none of these. */
@@ -367,7 +387,7 @@ async function topicSet(
       reason: `${set.entries.length} entries matched, but none declares a field of interest matching ${quoteValue(searched.field ?? "")} (at the start of a word of its name, or its code). The commonest in this set: ${common}.`,
     };
   }
-  const notes: string[] = [...countNote(set.countMismatch)];
+  const notes: string[] = [...countNote(set.countMismatch), ...activeFlagNote(entries)];
   if (topic !== undefined) notes.push(HIT_NOTE);
   if (matches !== undefined) {
     const named = new Map<string, number>();
@@ -431,6 +451,7 @@ export async function profileSector(client: LobbyregisterClient, input: ProfileS
   const flagged = summaries.filter((s) => s.formerOffice);
   const notes = [
     ...set.frame.notes,
+    ...spendNote(summaries),
     "Spend is each entry's total declared lobbying spend for a fiscal year across everything it lobbies on, not spend on this topic; a self-declared band, not an audited figure.",
     `Ranked and counted: the ${active.length} active entries; ${set.entries.length - active.length} inactive left out.`,
     "formerOffice names only a lobbyist who is a person and held office; the register's revolving-door filter (findRevolvingDoor) finds many more, with the office of an employee or contractor.",
@@ -516,6 +537,7 @@ export async function rankBySpend(client: LobbyregisterClient, input: RankInput 
   for (const row of rows) if (row.spend.period !== undefined) periods.set(row.spend.period, (periods.get(row.spend.period) ?? 0) + 1);
   const notes = [
     ...set.frame.notes,
+    ...spendNote(ranked),
     "Each figure is the entry's total declared lobbying spend for one fiscal year, across everything it lobbies on: a topic only selects the entries. Head a table \"entries matching the term, by total declared spend\", never \"spend on the term\".",
     "Bands are self-declared (€10,000 steps from €1), not audited: always give both ends and say declared. €0 declared is exactly zero; no figure yet means the first fiscal year is not over. Entries without a figure (no figure yet, refused) rank after every €0 declared: they are no lowest spenders.",
   ];

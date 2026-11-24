@@ -344,3 +344,26 @@ test("a resultCount larger than the results is said: the figures count only what
   const fine = await rankBySpend(clientOf().client, {});
   assert.doesNotMatch(fine.status === "ok" ? fine.notes.join(" ") : "", /The register counted/);
 });
+
+test("entries without a readable spend or active flag are said: a renamed field is no ordinary answer", async () => {
+  const renamed = REGISTER.map((e) => {
+    const copy = structuredClone(e) as Record<string, Record<string, unknown>>;
+    const spend = copy["financialExpenses"] as Record<string, unknown>;
+    if ("financialExpensesEuro" in spend) {
+      spend["financialExpensesInEuro"] = spend["financialExpensesEuro"];
+      delete spend["financialExpensesEuro"];
+    }
+    return copy as typeof e;
+  });
+  const ranking = await rankBySpend(clientOf(register(renamed)).client, {});
+  assert.match(ranking.status === "ok" ? ranking.notes.join(" ") : "", /7 of the 8 ranked entries state no spend this server can read.*register's format may have changed/);
+  const flagless = REGISTER.map((e) => {
+    const copy = structuredClone(e) as Record<string, Record<string, unknown>>;
+    delete (copy["accountDetails"] as Record<string, unknown>)["activeLobbyist"];
+    return copy as typeof e;
+  });
+  const profile = await profileSector(clientOf(register(flagless)).client, {});
+  assert.match(profile.status === "ok" ? profile.notes.join(" ") : "", /All 9 entries carry no active flag.*counted as active.*format may have changed/);
+  const fine = await profileSector(clientOf().client, {});
+  assert.doesNotMatch(fine.status === "ok" ? fine.notes.join(" ") : "", /no active flag|no spend this server/);
+});
