@@ -111,6 +111,9 @@ where the reason is).
 --log-format <text|jsonl>  the log records on stderr (default text)
 ```
 
+`--max-pages` has no effect here: the register's search has no pages, it answers every match at
+once (a set is read in up to three parts, countEntries three per term, findRevolvingDoor six).
+
 ## What it does and doesn't do
 
 - **Read-only.** No tool changes anything, here or upstream.
