@@ -112,6 +112,7 @@ test("findNewEntrants keys arrivals on the first publication, never on the lates
   assert.ok(!result.arrivals.some((a) => a.registerNumber === "R000004"), "edited in November, registered in 2022");
   assert.deepEqual(result.departures.map((d) => [d.registerNumber, d.inactiveSince]), [["R000005", "2026-03-11"]]);
   assert.deepEqual([result.arrivalCount, result.departureCount, result.net], [2, 1, 1]);
+  assert.deepEqual([result.complete, result.historyFrom], [true, "2025-05-19"], "the register's answer of 2026-11-19 holds the exits of the last 18 months");
   assert.deepEqual(result.arrivals[1]?.topFields, ["Energienetze"]);
   const window = await findNewEntrants(client, { topic: "Wasserstoff", since: "2026-07-01", until: "2026-12-31" });
   assert.equal(window.status === "ok" && window.arrivalCount, 1);
@@ -366,4 +367,21 @@ test("entries without a readable spend or active flag are said: a renamed field 
   assert.match(profile.status === "ok" ? profile.notes.join(" ") : "", /All 9 entries carry no active flag.*counted as active.*format may have changed/);
   const fine = await profileSector(clientOf().client, {});
   assert.doesNotMatch(fine.status === "ok" ? fine.notes.join(" ") : "", /no active flag|no spend this server/);
+});
+
+test("findNewEntrants before the register's memory: not complete, no net change, and why", async () => {
+  const { client } = clientOf();
+  const old = await findNewEntrants(client, { since: "2022-01-01", until: "2022-12-31" });
+  assert.equal(old.status, "ok");
+  if (old.status !== "ok") return;
+  assert.equal(old.complete, false);
+  assert.equal(old.historyFrom, "2025-05-19");
+  assert.equal(old.net, undefined, "survivors minus no departures is no net change");
+  assert.equal(old.arrivalCount, 7, "the arrivals still in the register are listed");
+  assert.match(old.notes[0] ?? "", /^Not complete: the register no longer returns an entry about 18 months after it went inactive .*departures before 2025-05-19 are missing.*arrivals before it count only the entries still in the register/);
+  const straddling = await findNewEntrants(client, { since: "2025-01-01" });
+  assert.equal(straddling.status === "ok" && straddling.complete, false);
+  const recent = await findNewEntrants(client, { since: "2025-05-19" });
+  assert.equal(recent.status === "ok" && recent.complete, true);
+  assert.equal(recent.status === "ok" && typeof recent.net, "number");
 });

@@ -238,7 +238,7 @@ export const TOOLS: readonly ToolDefinition[] = [
     title: "Who newly registered, who left",
     description: [
       'Movement in the register over a window: arrivals (first published in it) and departures (went inactive in it), with the net change, for a topic or the whole register. Use it for "wer hat sich dieses Jahr neu registriert?", "neue Lobbyisten zu Wasserstoff seit der Wahl", "wer ist aus dem Lobbyregister ausgeschieden?", "who newly registered to lobby on hydrogen?", "new lobbyists since the election", "who left the lobby register this year?".',
-      `Arrivals are keyed on firstPublished, never on the latest edit (validFromDate, lastUpdateDate), which every update moves: an entry of 2022 edited last week is no newcomer. For "recently updated" this is the wrong tool. Dates are German days: "this year" since YYYY-01-01. The counts are complete; the lists stop at limit (the whole register sees hundreds a year). Lead with the window and the net change; state each newcomer's firstPublished. No arrivals is a valid answer. inactiveWithoutDate: exit date not recorded. ${TOPIC_TRAPS} ${CITE}`,
+      `Arrivals are keyed on firstPublished, never on the latest edit (validFromDate, lastUpdateDate), which every update moves: an entry of 2022 edited last week is no newcomer. For "recently updated" this is the wrong tool. Dates are German days: "this year" since YYYY-01-01. The register drops an entry about 18 months after it went inactive: counts are complete only for a window from historyFrom on (complete true); an earlier one misses departures and counts only surviving arrivals, so it has no net: say so. The lists stop at limit (the whole register sees hundreds a year). Lead with the window and the net change; state each newcomer's firstPublished. No arrivals is a valid answer. inactiveWithoutDate: exit date not recorded. ${TOPIC_TRAPS} ${CITE}`,
       RULES,
     ].join("\n\n"),
     inputSchema: input(
@@ -251,7 +251,7 @@ export const TOOLS: readonly ToolDefinition[] = [
       },
       ["since"],
     ),
-    outputSchema: output({ window: obj, total: int, arrivals: arr, arrivalCount: int, departures: arr, departureCount: int, net: int, inactiveWithoutDate: int }),
+    outputSchema: output({ window: obj, total: int, arrivals: arr, arrivalCount: int, departures: arr, departureCount: int, net: int, historyFrom: { type: "string" }, complete: { type: "boolean" }, inactiveWithoutDate: int }),
     source: topicSource,
     run: advised(async (args, context) => {
       return { ...(await findNewEntrants(context.client, { since: str(args, "since") ?? "", until: str(args, "until"), topic: str(args, "topic"), field: str(args, "field"), limit: num(args, "limit") })) };

@@ -66,6 +66,7 @@ export {
   ENGAGEMENT_METRICS,
   OFFICE_AREAS,
   OFFICE_HOLDERS,
+  REGISTER_MEMORY_MONTHS,
   countEntries,
   displayName,
   fetchEntries,
@@ -85,6 +86,7 @@ export {
 } from "./operations.js";
 export type {
   CountEntriesInput,
+  CountMismatch,
   EngagementMetric,
   EngagementRanking,
   EntryCounts,

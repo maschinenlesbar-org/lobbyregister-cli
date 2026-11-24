@@ -642,8 +642,24 @@ export interface NewEntrantsInput extends TopicInput {
   since: string;
   /** The last day of the window (default: no end). */
   until?: string | undefined;
-  /** How many arrivals and departures to list each (1–100, default 20); the counts are complete. */
+  /** How many arrivals and departures to list each (1–100, default 20); the counts are complete from `historyFrom` on. */
   limit?: number | undefined;
+}
+
+/**
+ * How long the register keeps an entry after it went inactive, in months: then the search API no
+ * longer returns it. Observed, not documented: on 2026-11-22 the earliest exit date of any entry
+ * in the whole register was 2025-05-22, and 1,292 register numbers of R000001–R008338 were gone.
+ */
+export const REGISTER_MEMORY_MONTHS = 18;
+
+/** The day `months` calendar months before `day` (YYYY-MM-DD), the day clamped to the month's end. */
+function monthsBefore(day: string, months: number): string {
+  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
+  const first = new Date(Date.UTC(y, m - 1 - months, 1));
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+  first.setUTCDate(Math.min(d, last));
+  return first.toISOString().slice(0, 10);
 }
 
 /** An arrival or a departure, with what kind of actor it is and two of its fields of interest. */
@@ -661,8 +677,15 @@ export type NewEntrants =
       /** Went inactive in the window (accountDetails.inactiveLobbyistStartDate), newest first. */
       departures: Movement[];
       departureCount: number;
-      /** arrivalCount - departureCount. */
-      net: number;
+      /** arrivalCount - departureCount; absent when the window starts before historyFrom (not complete). */
+      net?: number;
+      /**
+       * From this day on the register still holds every departure: it no longer returns an entry
+       * about REGISTER_MEMORY_MONTHS after it went inactive (the register's date minus that).
+       */
+      historyFrom: string;
+      /** The window starts on or after historyFrom: arrivals and departures are complete. */
+      complete: boolean;
       /** Inactive entries without an inactive date: exit date not recorded (not "still active"). */
       inactiveWithoutDate: number;
     })
@@ -676,6 +699,9 @@ export async function findNewEntrants(client: LobbyregisterClient, input: NewEnt
   const limit = checkedInt("limit", input.limit, 20, 1, 100);
   const set = await topicSet(client, input);
   if ("status" in set) return set;
+  const asOf = set.frame.sourceDate?.match(/^\d{4}-\d{2}-\d{2}/)?.[0] ?? new Date().toISOString().slice(0, 10);
+  const historyFrom = monthsBefore(asOf, REGISTER_MEMORY_MONTHS);
+  const complete = since >= historyFrom;
   const within = (date: string | undefined) => date !== undefined && date >= since && (until === undefined || date <= until);
   const movement = (entry: RegisterEntry): Movement => ({ ...summaryOf(entry), topFields: fieldTags(entry).slice(0, 2).map((t) => t.de) });
   const newest = (path: string) => (a: RegisterEntry, b: RegisterEntry) => time(b, path) - time(a, path);
@@ -683,6 +709,13 @@ export async function findNewEntrants(client: LobbyregisterClient, input: NewEnt
   const inactive = set.entries.filter((e) => !isActive(e));
   const departures = inactive.filter((e) => within(day(e, "accountDetails.inactiveLobbyistStartDate"))).sort(newest("accountDetails.inactiveLobbyistStartDate"));
   const notes = [
+    // First: the register forgets old exits, so an early window is missing departures and its
+    // arrivals are only the survivors ("net +4551 in 2022" was the survivors of 2022).
+    ...(complete
+      ? []
+      : [
+          `Not complete: the register no longer returns an entry about ${REGISTER_MEMORY_MONTHS} months after it went inactive (observed: on 2026-11-22 its earliest exit date was 2025-05-22), so departures before ${historyFrom} are missing and arrivals before it count only the entries still in the register. Say so; give no net change for this window, and start a window on ${historyFrom} or later for complete counts.`,
+        ]),
     ...set.frame.notes,
     "Arrivals are keyed on firstPublished (when the entry entered the register), never on the latest edit (validFromDate, lastUpdateDate), which every update moves: an entry of 2022 edited last week is no newcomer.",
     "An arrival that is already inactive again is listed with active false.",
@@ -697,7 +730,9 @@ export async function findNewEntrants(client: LobbyregisterClient, input: NewEnt
     arrivalCount: arrivals.length,
     departures: departures.slice(0, limit).map(movement),
     departureCount: departures.length,
-    net: arrivals.length - departures.length,
+    ...(complete ? { net: arrivals.length - departures.length } : {}),
+    historyFrom,
+    complete,
     inactiveWithoutDate: inactive.filter((e) => day(e, "accountDetails.inactiveLobbyistStartDate") === undefined).length,
   };
 }

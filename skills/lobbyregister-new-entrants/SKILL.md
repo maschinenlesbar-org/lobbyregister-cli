@@ -114,6 +114,14 @@ jq -c --arg s "$SINCE" '
   | sort_by(.accountDetails.inactiveLobbyistStartDate) | reverse' /tmp/ne.json > /tmp/departures.json
 ```
 
+> **The register forgets old exits.** An entry is no longer returned about **18 months
+> after it went inactive** (observed 2026-11-22: the earliest exit date in the whole
+> register was 2025-05-22, and 1,292 register numbers were gone). So for a cutoff more than
+> 18 months back, departures before that point are missing and arrivals count only the
+> entries still in the register: say the counts are **not complete** and give **no net
+> change** for such a window; for complete counts start the window within the last 18
+> months.
+
 > A bare-`search` whole-register sweep registers **hundreds** per year (≈300 in the first
 > half of 2026 alone), so for the unscoped case either keep a tight window or report counts
 > + the top N rather than every name. For a topic scope the arrival list is usually small
@@ -139,7 +147,8 @@ Net: +5 over the period.
 
 Rules:
 - **Lead with the window and the net change** ("+7 registered, −2 inactive since <date>").
-  The flow over time is the story this skill tells.
+  The flow over time is the story this skill tells. A window starting more than 18 months
+  back is not complete (see Step 3): no net change, and say why.
 - State each newcomer's **`firstPublicationDate`** explicitly — that date *is* the finding;
   never substitute `validFromDate`.
 - For context, pair a newcomer with its `activity.de` (company / association / consultancy…)
