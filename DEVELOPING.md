@@ -428,9 +428,12 @@ keeps its `LobbyApiError` and leaves the body out.
 
 **timeoutMs.** A deadline for the whole request, response body included (default
 30 s; `0` disables). The engine enforces it itself, for every transport: the
-transport gets an `AbortSignal` (`HttpRequest.signal`) that fires at the deadline, and
-the call rejects then with a `LobbyNetworkError` whether the transport stops or not,
-so a `fetch` or `node:http` transport can't hang a caller. A timed-out request is not
+transport gets an `AbortSignal` (`HttpRequest.signal`) that fires at the deadline, aborted
+with the timeout error as its reason, and the call rejects then with a `LobbyNetworkError`
+whether the transport stops or not, so a `fetch` or `node:http` transport can't hang a caller.
+The default transport stops with the signal's reason, and for a signal some other caller
+aborted (the MCP server's tool call: its deadline, a cancellation) it says "Request aborted by
+its caller before it finished", never a timeout it didn't have. A timed-out request is not
 retried.
 
 **Custom transports.** A transport may return the body as a Buffer, any `ArrayBuffer`

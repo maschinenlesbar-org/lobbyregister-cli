@@ -33,7 +33,8 @@ export interface HttpRequest {
    * Aborted when the engine's overall deadline (`timeoutMs`) passes. A transport should
    * stop the request then (`fetch(url, { signal })`); the engine rejects at the deadline
    * either way, and enforces `maxResponseBytes` on the body it gets back, so neither
-   * limit depends on it.
+   * limit depends on it. The engine aborts it with its timeout error as the reason; a caller
+   * may add its own signal (the MCP server's limiter does), whose abort is no timeout.
    */
   signal?: AbortSignal;
 }
@@ -202,9 +203,16 @@ export const nodeHttpTransport: Transport = (request) =>
       }, timeoutMs);
     }
 
+    // The engine's overall deadline (HttpRequest.signal, aborted with its timeout error), or a
+    // caller's (a tool call's deadline, a cancellation): stop the request when it fires, and say
+    // which. A caller's abort is no request timeout, whatever timeoutMs was.
     if (request.signal !== undefined) {
       const abort = (): void => {
-        const err = new LobbyNetworkError(`Request timed out after ${request.timeoutMs ?? 0}ms`);
+        const reason: unknown = request.signal?.reason;
+        const err =
+          reason instanceof LobbyNetworkError
+            ? reason
+            : new LobbyNetworkError("Request aborted by its caller before it finished");
         fail(err);
         req.destroy(err);
       };
